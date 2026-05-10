@@ -36,7 +36,7 @@ class ScheduleResponse(BaseModel):
 async def get_schedule(user = Depends(get_current_user)):
     """Get the user's current schedule configuration."""
     try:
-        user_config = await db.userconfig.find_unique(where={"userId": user.id})
+        user_config = await db.userConfig.find_unique(where={"userId": user.id})
         
 
         if not user_config.scheduledId:
@@ -64,7 +64,7 @@ async def create_schedule(schedule: ScheduleCreate, user = Depends(get_current_u
     """Create a new upload schedule for the user."""
     try:
         # Get user config
-        user_config = await db.userconfig.find_unique(where={"userId": user.id})
+        user_config = await db.userConfig.find_unique(where={"userId": user.id})
         
         if not user_config:
             raise HTTPException(status_code=404, detail="User config not found")
@@ -95,7 +95,7 @@ async def create_schedule(schedule: ScheduleCreate, user = Depends(get_current_u
             raise HTTPException(status_code=500, detail="Failed to create cron job")
         
         # Update user config with schedule
-        updated_config = await db.userconfig.update(
+        updated_config = await db.userConfig.update(
             where={"userId": user.id},
             data={
                 "scheduled":f"{schedule.hour}-{schedule.minute}" ,
@@ -126,7 +126,7 @@ async def update_schedule(schedule: ScheduleUpdate, user = Depends(get_current_u
     """Update an existing upload schedule."""
     try:
         # Get user config
-        user_config = await db.userconfig.find_unique(where={"userId": user.id})
+        user_config = await db.userConfig.find_unique(where={"userId": user.id})
         
         if not user_config:
             raise HTTPException(status_code=404, detail="User config not found")
@@ -152,7 +152,7 @@ async def update_schedule(schedule: ScheduleUpdate, user = Depends(get_current_u
         )
         
         # Update user config
-        updated_config = await db.userconfig.update(
+        updated_config = await db.userConfig.update(
             where={"userId": user.id},
             data={
                 "scheduled":f"{schedule.hour}-{schedule.minute}" ,
@@ -180,7 +180,7 @@ async def delete_schedule(user = Depends(get_current_user)):
     """Delete the user's upload schedule."""
     try:
         # Get user config
-        user_config = await db.userconfig.find_unique(where={"userId": user.id})
+        user_config = await db.userConfig.find_unique(where={"userId": user.id})
         
         if not user_config:
             raise HTTPException(status_code=404, detail="User config not found")
@@ -197,7 +197,7 @@ async def delete_schedule(user = Depends(get_current_user)):
             raise HTTPException(status_code=500, detail="Failed to delete cron job")
         
         # Update user config
-        await db.userconfig.update(
+        await db.userConfig.update(
             where={"userId": user.id},
             data={
                 "scheduled": False,

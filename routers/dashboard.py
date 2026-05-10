@@ -201,7 +201,6 @@ async def dashboard_home(request:Request,current_user: dict = Depends(get_curren
         where={"id": current_user.id},
         include={"plan": True, "usage": True},
     )
-    print(user_info.userConfig)
     return templates.TemplateResponse(
         "dashboard/plan.html",
         _build_dashboard_context(request, user_info),
