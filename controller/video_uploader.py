@@ -27,7 +27,7 @@ class UploadVideo:
     def __init__(self, user,video):
         self.user = user
         self.video = video
-        self.upload_target = video.upload_destinations
+        self.upload_target = video.upload_destinations if video.upload_destinations else user.userConfig.defaultUploadDest
 
     async def upload(self):
         for upload_to in self.upload_target:
@@ -54,6 +54,7 @@ async def upload_to_youtube(user,video):
     video_url= video.cloudinary_url
     response = requests.get(video_url, stream=True)
 
+    user_config = user.userConfig
 
     if response.status_code != 200:
         return {"messge":"No video found"}
@@ -70,26 +71,16 @@ async def upload_to_youtube(user,video):
     # Create a media upload object
     media = MediaIoBaseUpload(video_stream, mimetype="video/mp4", chunksize=-1, resumable=True)
 
+    captions = video.captions if video.captions else user_config.defaultCaption
+    htags = video.htags if video.htags else user_config.defaultHtags
+
     try:
         request = youtube.videos().insert(
             part="snippet,status",
             body={
                 "snippet": {
-                    "title": "#shorts #short #fyp #viral #trending #foryou #viralshorts #foryoupage #trendingshorts #viralvideo",
-                    "description": (
-                        "Discover how the new generation of AI tools is revolutionizing the world! 🚀\n\n"
-                        "This video is uploaded by Social Bot, your go-to platform for automating social media tasks.\n"
-                        "Join us as we explore the latest advancements in AI technology and how they can help you go viral!\n"
-                        "Automate your channel with : https://social-bot.my-port.space\n"
-                        "🔍 Featuring: Social Bot, Automation, and Next-Gen AI\n"
-                        "🎯 Tags: #AI #ArtificialIntelligence #Shorts #Viral #FYP #Tech #Innovation #Automation\n"
-                        "📢 Don't forget to like, comment, and subscribe for more!\n\n\n"
-                    ),
-                    "tags": [
-                        "AI", "Shorts", "Viral", "FYP", "Automation", "Tech", "Artificial Intelligence",
-                        "Social Bot", "New Gen AI", "Go Viral", "Trending Shorts", "Machine Learning",
-                        "Future Tech", "viralshorts", "foryou", "foryoupage"
-                    ] 
+                    "title": htags,
+                    "description":captions,
                 },
                 "status": {
                     "privacyStatus": "public"
@@ -105,10 +96,20 @@ async def upload_to_youtube(user,video):
             },
             data={
                 "upload_status":"Uploaded",
-                
             }
         )
-        
+
+        await prisma.usage.update(
+            where={
+                "userId":user.id
+            },
+            data={
+                "uploadsToday":{
+                    "increment":1
+                }, 
+            }
+        )
+    
         send_mail(user.email, video.cloudinary_url, video.title, "Uploaded")
         print(f"Video uploaded to YouTube: {response['id']}")
     except Exception as e:
@@ -193,6 +194,16 @@ async def upload_to_tiktok(user, video):
         await prisma.video.update(
             where={"id": video.id},
             data={"upload_status": "Failed"}
+        )
+        await prisma.usage.update(
+            where={
+                "userId":user.id
+            },
+            data={
+                "uploadsToday":{
+                    "increment":1
+                }, 
+            }
         )
         send_mail(user.email, video.cloudinary_url, video.title, "Failed")
         print(f"Error uploading to TikTok: {str(e)}")

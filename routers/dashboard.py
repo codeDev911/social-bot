@@ -12,9 +12,14 @@ import cloudinary
 import cloudinary.uploader
 from utils import validate_video_url,verify_upload_target
 from controller.delete_uploaded_files import delete_uploaded_files
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/dashboard")
+
+INTERNAL_SECRET=os.getenv("INTERNAL_SECRET")
 
 
 def _normalize_credentials(credentials):
@@ -196,6 +201,7 @@ async def dashboard_home(request:Request,current_user: dict = Depends(get_curren
         where={"id": current_user.id},
         include={"plan": True, "usage": True},
     )
+    print(user_info.userConfig)
     return templates.TemplateResponse(
         "dashboard/plan.html",
         _build_dashboard_context(request, user_info),
@@ -254,22 +260,31 @@ async def trigger_pexels_upload(background_tasks:BackgroundTasks,per_page : int 
 
 
 # This is Scheduled by DBOS 
-@router.post("/trigger-youtube-upload")
-async def trigger_youtube_upload(background_tasks: BackgroundTasks):
+@router.post("/trigger-upload")
+async def trigger_youtube_upload(background_tasks: BackgroundTasks,user_id:int,secret:str):
+
+    if secret != INTERNAL_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     uploaded_users=[] # add uploaded video user id
 
     pending_videos = await prisma.video.find_many(
         where={
-            "upload_status":"Pending" # For Production
-                
-            # For development only test on user afnanahhad@gmail, Id = 1 or mr13ha24ck57er68@gmail.com , Id=2
-            # "AND":[
-            #     {"upload_status":"Pending"},
-            #     {"userId":2}
-            # ]
+            "upload_status":"Pending",
+            "AND":[
+                {"upload_status":"Pending"},
+                {"userId":user_id}
+            ]
+        },
+        order={
+            "created_at":"asc"
         },
          include={
-             'user':True
+             'user':{
+                "include":{
+                    "userConfig":True
+                }
+             }
          }
     )
 

@@ -32,6 +32,33 @@ model Video {
   created_at          DateTime        @default(now())
 }
 
+model userConfig {
+  id     Int  @id @unique @default(autoincrement())
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id])
+
+  // User Preferences
+  defaultCaption    String        @default("")
+  defaultHtags      String        @default("")
+  defaultUploadDest UploadTargets @default(Youtube)
+  captionGenEnabled Boolean       @default(true)
+  hashtagGenEnabled Boolean       @default(true)
+  // Notification Preferences
+  emailOnUpload     Boolean       @default(true)
+
+  // Scheduling
+  scheduled   String @default("")
+  scheduledId Int?
+  timezone    String  @default("UTC")
+
+  // Other User Settings
+  theme    String @default("dark")
+  language String @default("en")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model User {
   id             Int           @id @unique @default(autoincrement())
   fullname       String        @default("")
@@ -46,6 +73,7 @@ model User {
   usage          Usage?
   updatedAt      DateTime
   plan           userPlan?
+  userConfig     userConfig?
 }
 
 model userPlan {

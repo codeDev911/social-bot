@@ -47,7 +47,7 @@
       html,
       body {
         height: 100%;
-        background: #101011
+        background: #101011;
       }
 
       body {
@@ -75,7 +75,7 @@
       }
 
       .glass-strong {
-        background:#12141ab3;
+        background: #12141ab3;
         backdrop-filter: blur(16px);
         border: 1px solid rgba(148, 163, 184, 0.2);
       }
@@ -216,19 +216,10 @@
                 </svg>
               </button>
 
-              <!-- Logo (Mobile only) -->
-               <a href="/" class="flex items-center space-x-2 group pl-2">
-                <div
-                  class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-orange to-brand-cyan flex items-center justify-center"
-                >
-                  <span class="text-white font-bold text-sm">S</span>
-                </div>
-                <span class="text-lg font-bold text-white hidden md:inline"
-                  >Social Bot</span
-                >
+              <a href="/" class="flex items-center space-x-2">
+                <img src="/static/icon.png" class="w-9 select-none" />
+                <h3 class="text-xl font-semibold mt-1">Social Bot</h3>
               </a>
-
-
               <!-- Spacer -->
               <div class="flex-1"></div>
 
@@ -275,7 +266,7 @@
               id="sidebar"
             >
               <!-- Logo -->
-             
+
               <!-- Nav Links -->
               <nav class="space-y-2 flex-1">
                 <a
@@ -391,7 +382,7 @@
               </div>
             </aside>
           </div>
-          <div class="col-span-4  p-4">{% block content %}{% endblock %}</div>
+          <div class="col-span-4 p-4">{% block content %}{% endblock %}</div>
         </main>
       </div>
     </div>

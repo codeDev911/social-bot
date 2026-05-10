@@ -89,7 +89,23 @@ async def authGoogle (code:str,state:any = None):
                     "is_em_verif":user_info["email_verified"],
                     "password":"Not set",
                     "updatedAt": datetime.datetime.utcnow(),
-                    "credentials": cre_json
+                    "credentials": cre_json,
+                     "usage":{
+                        "create":{
+                            "uploadsToday":0,
+                        }
+                    },
+                    "plan":{
+                        "create":{
+                            "name":"Free",
+                        }
+                    },
+                    "userConfig":{
+                        "create":{
+                            "theme":"dark",
+                            "language":"en"
+                        }
+                    }
                 }
             )
             print("user created")
@@ -208,9 +224,26 @@ async def authTiktok (code:str,state:any = None):
                     "is_em_verif": True,  # TikTok does not provide email verification status
                     "password": "Not set",
                     "updatedAt": datetime.datetime.utcnow(),
-                    "credentials": cre_json
+                    "credentials": cre_json,
+                    "usage":{
+                        "create":{
+                            "uploadsToday":0,
+                        }
+                    },
+                    "plan":{
+                        "create":{
+                            "name":"Free",
+                        }
+                    },
+                    "userConfig":{
+                        "create":{
+                            "theme":"dark",
+                            "language":"en"
+                        }
+                    }
                 }
             )
+
             print("user created")
         else:
             # Update user credentials if they already exist 

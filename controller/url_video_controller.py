@@ -7,7 +7,7 @@ import datetime
 from redis import Redis
 from rq import Queue
 from wroker import generate_caption_htags
-
+from db import prisma
 # Setup redis
 redis_conn = Redis.from_url("redis://default_ro:AqNxACQgZGE5ZTUxOGEtMDQzZi00NjdjLTk1YjYtOTZlODIyYWU5YmQzr8ysXHUHAEZBtQODSduNaoQZvxvc-N6CjMlVFsDpUww=@fly-contentby-redis.upstash.io:6379")
 
@@ -73,7 +73,16 @@ class FromPlatform:
             await upload_to_cloudinary(sanitized_file_path,self.user_id[0],self.upload_targets)
             os.remove(sanitized_file_path)
 
-
+            await prisma.usage.update(
+                where={
+                    "userId":self.user_id[0]
+                },
+                data={
+                    "scheduledToday":{
+                        "increment":1
+                    }, 
+                }
+            )
             return {"success":f"Video uploaded to Cloudinary success"}
 
         except Exception as e:

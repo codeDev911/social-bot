@@ -23,11 +23,11 @@
         </svg>
         Content Defaults
       </a>
-      <a href="#accounts" class="settings-nav-item block px-4 py-3 rounded-lg text-sm font-medium text-slate-400 transition-all hover:text-white hover:bg-white/10">
+      <a href="#schedule" class="settings-nav-item block px-4 py-3 rounded-lg text-sm font-medium text-slate-400 transition-all hover:text-white hover:bg-white/10">
         <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
-        Connected Accounts
+        Schedule
       </a>
       <a href="#notifications" class="settings-nav-item block px-4 py-3 rounded-lg text-sm font-medium text-slate-400 transition-all hover:text-white hover:bg-white/10">
         <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,8 +46,8 @@
       <form class="space-y-6">
         <div class="flex items-end gap-6">
           <div class="relative">
-            <div class="w-24 h-24 rounded-xl bg-gradient-to-br from-brand-orange to-brand-cyan flex items-center justify-center text-white text-2xl font-bold">
-              JD
+            <div class="w-24 h-24 rounded-xl bg-gradient-to-br overflow-hidden from-brand-orange to-brand-cyan flex items-center justify-center text-white text-2xl font-bold">
+              <img id="avator" src="{{user_info.avator}}" />
             </div>
             <button type="button" class="absolute bottom-0 right-0 p-2 bg-brand-orange rounded-lg hover:bg-brand-orange/90 transition-colors">
               <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -56,31 +56,25 @@
             </button>
           </div>
           <div>
-            <p class="text-white font-medium">{{ user_name or 'John Doe' }}</p>
-            <p class="text-slate-400 text-sm">{{ user_email or 'john@example.com' }}</p>
+            <p class="text-white font-medium"> {{ user_info.fullname  }}</p>
+            <p class="text-slate-400 text-sm">Email: {{ user_info.email  }}</p>
+            <p class="text-slate-400 text-sm">ID: {{ user_info.id  }}</p>
           </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label class="block text-sm font-medium text-slate-300 mb-2">First Name</label>
-            <input type="text" value="{{ first_name or 'John' }}" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+            <input id="firstName" placeholder="{{user_info.fullname.split(' ')[0]}}"   type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-300 mb-2">Last Name</label>
-            <input type="text" value="{{ last_name or 'Doe' }}" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+            <input id="lastName" placeholder="{{user_info.fullname.split(' ')[1]}}" type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
           </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-300 mb-2">Email</label>
-            <input type="email" value="{{ user_email or 'john@example.com' }}" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-300 mb-2">Phone</label>
-            <input type="tel" placeholder="+1 (555) 000-0000" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:border-brand-orange/50 focus:outline-none transition-colors">
-          </div>
+          
         </div>
 
-        <button type="submit" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm">Save Changes</button>
+        <button type="button" id="saveProfileBtn" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm">Save Changes</button>
       </form>
     </section>
 
@@ -90,19 +84,12 @@
       <form class="space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label class="block text-sm font-medium text-slate-300 mb-2">Default Format</label>
-            <select class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
-              <option>16:9 Landscape</option>
-              <option>9:16 Portrait</option>
-              <option>1:1 Square</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-300 mb-2">Max File Size</label>
-            <select class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
-              <option>500 MB</option>
-              <option>1 GB</option>
-              <option>2 GB</option>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Default Upload Destination</label>
+            <select id="defaultUploadDest" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+              <option value="Youtube">YouTube</option>
+              <option value="Tiktok">TikTok</option>
+              <option value="Facebook">Facebook</option>
+              <option value="Instagram">Instagram</option>
             </select>
           </div>
         </div>
@@ -111,21 +98,17 @@
           <label class="block text-sm font-medium text-slate-300 mb-3">Auto-Processing</label>
           <div class="space-y-2">
             <label class="flex items-center space-x-3 cursor-pointer">
-              <input type="checkbox" checked class="w-4 h-4 rounded">
+              <input id="captionGenEnabled" type="checkbox" class="w-4 h-4 rounded">
               <span class="text-sm text-slate-300">Generate captions automatically</span>
             </label>
             <label class="flex items-center space-x-3 cursor-pointer">
-              <input type="checkbox" checked class="w-4 h-4 rounded">
+              <input id="hashtagGenEnabled" type="checkbox" class="w-4 h-4 rounded">
               <span class="text-sm text-slate-300">Generate hashtags automatically</span>
-            </label>
-            <label class="flex items-center space-x-3 cursor-pointer">
-              <input type="checkbox" class="w-4 h-4 rounded">
-              <span class="text-sm text-slate-300">Create thumbnails automatically</span>
             </label>
           </div>
         </div>
 
-        <button type="submit" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm">Save Defaults</button>
+        <button type="button" id="saveUploadBtn" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm">Save Defaults</button>
       </form>
     </section>
 
@@ -134,30 +117,97 @@
       <h2 class="text-2xl font-bold text-white mb-6">Content Defaults</h2>
       <form class="space-y-6">
         <div>
-          <label class="block text-sm font-medium text-slate-300 mb-2">Default Caption Style</label>
-          <select class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
-            <option>Professional</option>
-            <option>Casual</option>
-            <option>Funny</option>
-            <option>Inspirational</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-300 mb-2">Caption Tone</label>
-          <div class="flex gap-2 flex-wrap">
-            <button type="button" class="px-4 py-2 rounded-lg bg-brand-orange text-white text-sm font-medium">Conversational</button>
-            <button type="button" class="px-4 py-2 rounded-lg bg-white/10 text-slate-300 text-sm font-medium hover:bg-white/20">Technical</button>
-            <button type="button" class="px-4 py-2 rounded-lg bg-white/10 text-slate-300 text-sm font-medium hover:bg-white/20">Entertaining</button>
-          </div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Default Caption</label>
+          <textarea id="defaultCaption" placeholder="Enter your default caption..." class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:border-brand-orange/50 focus:outline-none transition-colors h-24"></textarea>
         </div>
 
         <div>
           <label class="block text-sm font-medium text-slate-300 mb-2">Default Hashtags</label>
-          <input type="text" placeholder="#socialmedia #contentcreation #videomarketing" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:border-brand-orange/50 focus:outline-none transition-colors">
+          <input id="defaultHtags" type="text" placeholder="#socialmedia #contentcreation #videomarketing" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:border-brand-orange/50 focus:outline-none transition-colors">
         </div>
 
-        <button type="submit" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm">Save Preferences</button>
+        <button type="button" id="saveContentBtn" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm">Save Preferences</button>
+      </form>
+    </section>
+
+    <!-- Schedule Settings -->
+    <section id="schedule" class="glass rounded-2xl p-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Upload Schedule</h2>
+      <p class="text-slate-400 mb-6">Set up automatic daily video uploads at your preferred time.</p>
+      
+      <form class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Upload Time (Hour)</label>
+            <select id="scheduleHour" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+              <option value="">Select hour...</option>
+              <option value="0">00:00 (Midnight)</option>
+              <option value="1">01:00</option>
+              <option value="2">02:00</option>
+              <option value="3">03:00</option>
+              <option value="4">04:00</option>
+              <option value="5">05:00</option>
+              <option value="6">06:00</option>
+              <option value="7">07:00</option>
+              <option value="8">08:00</option>
+              <option value="9">09:00</option>
+              <option value="10">10:00</option>
+              <option value="11">11:00</option>
+              <option value="12">12:00 (Noon)</option>
+              <option value="13">13:00</option>
+              <option value="14">14:00</option>
+              <option value="15">15:00</option>
+              <option value="16">16:00</option>
+              <option value="17">17:00</option>
+              <option value="18">18:00</option>
+              <option value="19">19:00</option>
+              <option value="20">20:00</option>
+              <option value="21">21:00</option>
+              <option value="22">22:00</option>
+              <option value="23">23:00</option>
+            </select>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Minute</label>
+            <select id="scheduleMinute" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+              <option value="0">00</option>
+              <option value="15">15</option>
+              <option value="30">30</option>
+              <option value="45">45</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Timezone</label>
+          <select id="scheduleTimezone" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+            <option value="UTC">UTC</option>
+            <option value="America/New_York">America/New_York (EST)</option>
+            <option value="America/Chicago">America/Chicago (CST)</option>
+            <option value="America/Denver">America/Denver (MST)</option>
+            <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
+            <option value="Europe/London">Europe/London (GMT)</option>
+            <option value="Europe/Paris">Europe/Paris (CET)</option>
+            <option value="Europe/Moscow">Europe/Moscow (MSK)</option>
+            <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+            <option value="Asia/Karachi">Asia/Karachi (PKT)</option>
+            <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+            <option value="Asia/Bangkok">Asia/Bangkok (ICT)</option>
+            <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+            <option value="Asia/Shanghai">Asia/Shanghai (CST)</option>
+            <option value="Australia/Sydney">Australia/Sydney (AEDT)</option>
+          </select>
+        </div>
+
+        <div id="scheduleStatus" class="p-4 rounded-lg bg-white/5 border border-white/10">
+          <p class="text-sm text-slate-400">No schedule set yet</p>
+        </div>
+
+        <div class="flex gap-3">
+          <button type="button" id="saveScheduleBtn" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm">Save Schedule</button>
+          <button type="button" id="deleteScheduleBtn" class="px-6 py-2 rounded-lg border border-red-500/30 text-red-400 font-medium text-sm hover:bg-red-500/10 transition-colors" style="display:none;">Delete Schedule</button>
+        </div>
       </form>
     </section>
 
@@ -218,21 +268,15 @@
       <div class="space-y-4">
         <label class="flex items-center justify-between p-4 rounded-lg border border-white/10 cursor-pointer hover:border-brand-orange/30 transition-colors">
           <span class="text-slate-300">Email on upload success</span>
-          <input type="checkbox" checked class="w-4 h-4 rounded">
-        </label>
-        <label class="flex items-center justify-between p-4 rounded-lg border border-white/10 cursor-pointer hover:border-brand-orange/30 transition-colors">
-          <span class="text-slate-300">Email on processing complete</span>
-          <input type="checkbox" checked class="w-4 h-4 rounded">
+          <input id="emailOnUpload" type="checkbox" class="w-4 h-4 rounded">
         </label>
         <label class="flex items-center justify-between p-4 rounded-lg border border-white/10 cursor-pointer hover:border-brand-orange/30 transition-colors">
           <span class="text-slate-300">Weekly usage summary</span>
-          <input type="checkbox" class="w-4 h-4 rounded">
-        </label>
-        <label class="flex items-center justify-between p-4 rounded-lg border border-white/10 cursor-pointer hover:border-brand-orange/30 transition-colors">
-          <span class="text-slate-300">Plan upgrade recommendations</span>
-          <input type="checkbox" checked class="w-4 h-4 rounded">
+          <input id="emailWeeklySummary" type="checkbox" class="w-4 h-4 rounded">
         </label>
       </div>
+      
+      <button type="button" id="saveNotificationsBtn" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm mt-6">Save Preferences</button>
     </section>
   </div>
 </div>
@@ -265,4 +309,288 @@
     height: 100%;
   }
 </style>
+
+<script>
+  // API Base URL
+  const API_BASE = '/api';
+
+  // Initialize settings on page load
+  document.addEventListener('DOMContentLoaded', async () => {
+    await loadUserConfig();
+    await loadSchedule();
+    setupEventListeners();
+  });
+
+  // Load user configuration
+  async function loadUserConfig() {
+    try {
+      const response = await fetch(`${API_BASE}/user/config`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch user config');
+      
+      const config = await response.json();
+      
+      // Populate form fields
+      document.getElementById('defaultCaption').value = config.defaultCaption || '';
+      document.getElementById('defaultHtags').value = config.defaultHtags || '';
+      document.getElementById('defaultUploadDest').value = config.defaultUploadDest || 'Youtube';
+      document.getElementById('captionGenEnabled').checked = config.captionGenEnabled !== false;
+      document.getElementById('hashtagGenEnabled').checked = config.hashtagGenEnabled !== false;
+      document.getElementById('emailOnUpload').checked = config.emailOnUpload !== false;
+      document.getElementById('scheduleTimezone').value = config.timezone || 'UTC';
+    } catch (error) {
+      console.error('Error loading config:', error);
+      showNotification('Failed to load settings', 'error');
+    }
+  }
+
+  // Load schedule information
+  async function loadSchedule() {
+    try {
+      const response = await fetch(`${API_BASE}/schedule`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (response.ok) {
+        const schedule = await response.json();
+        document.getElementById('scheduleHour').value = schedule.hour.toString();
+        document.getElementById('scheduleMinute').value = schedule.minute.toString();
+        document.getElementById('scheduleTimezone').value = schedule.timezone || 'UTC';
+        updateScheduleStatus(true, schedule);
+      } else {
+        document.getElementById('deleteScheduleBtn').style.display = 'none';
+        updateScheduleStatus(false);
+      }
+    } catch (error) {
+      console.error('Error loading schedule:', error);
+      document.getElementById('deleteScheduleBtn').style.display = 'none';
+    }
+  }
+
+  // Update schedule status display
+  function updateScheduleStatus(isActive, schedule = null) {
+    const statusDiv = document.getElementById('scheduleStatus');
+    
+    if (isActive  && schedule) {
+      const hour = String(schedule.hour).padStart(2, '0');
+      const minute = String(schedule.minute).padStart(2, '0');
+      statusDiv.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <p class="text-sm text-emerald-400">
+            Schedule active: <strong>${hour}:${minute}</strong> ${schedule.timezone}
+          </p>
+        </div>
+      `;
+      document.getElementById('deleteScheduleBtn').style.display = 'block';
+    } else {
+      statusDiv.innerHTML = '<p class="text-sm text-slate-400">No schedule set yet</p>';
+      document.getElementById('deleteScheduleBtn').style.display = 'none';
+    }
+  }
+
+  // Setup event listeners
+  function setupEventListeners() {
+    // Profile
+    document.getElementById('saveProfileBtn').addEventListener('click', saveProfile);
+    
+    // Upload Defaults
+    document.getElementById('saveUploadBtn').addEventListener('click', saveUploadConfig);
+    
+    // Content Defaults
+    document.getElementById('saveContentBtn').addEventListener('click', saveContentConfig);
+    
+    // Schedule
+    document.getElementById('saveScheduleBtn').addEventListener('click', saveSchedule);
+    document.getElementById('deleteScheduleBtn').addEventListener('click', deleteSchedule);
+    
+    // Notifications
+    document.getElementById('saveNotificationsBtn').addEventListener('click', saveNotifications);
+    
+    // Navigation
+    document.querySelectorAll('.settings-nav-item').forEach(item => {
+      item.addEventListener('click', function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.settings-nav-item').forEach(i => {
+          i.classList.remove('active', 'text-white', 'bg-white/10', 'border-white/20');
+          i.classList.add('text-slate-400');
+        });
+        this.classList.add('active', 'text-white', 'bg-white/10', 'border-white/20');
+        this.classList.remove('text-slate-400');
+      });
+    });
+  }
+
+  // Save profile
+  async function saveProfile() {
+    try {
+      const data = {
+        fullname: (document.getElementById('firstName').value + ' ' + document.getElementById('lastName').value).trim(),
+      };
+
+      const response = await fetch(`${API_BASE}/user/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      
+
+      if (!response.ok) throw new Error('Failed to save profile');
+      
+      showNotification('Profile updated successfully!', 'success');
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      showNotification('Failed to save profile', 'error');
+    }
+  }
+
+  // Save upload config
+  async function saveUploadConfig() {
+    try {
+      const data = {
+        defaultUploadDest: document.getElementById('defaultUploadDest').value,
+        captionGenEnabled: document.getElementById('captionGenEnabled').checked,
+        hashtagGenEnabled: document.getElementById('hashtagGenEnabled').checked
+      };
+
+      const response = await fetch(`${API_BASE}/user/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) throw new Error('Failed to save upload config');
+      
+      showNotification('Upload defaults saved!', 'success');
+    } catch (error) {
+      console.error('Error saving upload config:', error);
+      showNotification('Failed to save upload defaults', 'error');
+    }
+  }
+
+  // Save content config
+  async function saveContentConfig() {
+    try {
+      const data = {
+        defaultCaption: document.getElementById('defaultCaption').value,
+        defaultHtags: document.getElementById('defaultHtags').value
+      };
+
+      const response = await fetch(`${API_BASE}/user/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) throw new Error('Failed to save content config');
+      
+      showNotification('Content preferences saved!', 'success');
+    } catch (error) {
+      console.error('Error saving content config:', error);
+      showNotification('Failed to save content preferences', 'error');
+    }
+  }
+
+  // Save schedule
+  async function saveSchedule() {
+    try {
+      const hour = parseInt(document.getElementById('scheduleHour').value);
+      const minute = parseInt(document.getElementById('scheduleMinute').value);
+      const timezone = document.getElementById('scheduleTimezone').value;
+
+      if (isNaN(hour) || isNaN(minute)) {
+        showNotification('Please select a valid time', 'error');
+        return;
+      }
+
+      const data = { hour, minute, timezone };
+      
+      // Check if schedule exists
+      const checkResponse = await fetch(`${API_BASE}/schedule`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const method = checkResponse.ok ? 'PUT' : 'POST';
+      
+      const response = await fetch(`${API_BASE}/schedule`, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) throw new Error('Failed to save schedule');
+      
+      const result = await response.json();
+      updateScheduleStatus(true, { hour, minute, timezone });
+      showNotification('Schedule saved successfully!', 'success');
+    } catch (error) {
+      console.error('Error saving schedule:', error);
+      showNotification('Failed to save schedule', 'error');
+    }
+  }
+
+  // Delete schedule
+  async function deleteSchedule() {
+    if (!confirm('Are you sure you want to delete the schedule?')) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/schedule`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) throw new Error('Failed to delete schedule');
+      
+      updateScheduleStatus(false);
+      document.getElementById('scheduleHour').value = '';
+      document.getElementById('scheduleMinute').value = '';
+      showNotification('Schedule deleted!', 'success');
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+      showNotification('Failed to delete schedule', 'error');
+    }
+  }
+
+  // Save notifications
+  async function saveNotifications() {
+    try {
+      const data = {
+        emailOnUpload: document.getElementById('emailOnUpload').checked
+      };
+
+      const response = await fetch(`${API_BASE}/user/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) throw new Error('Failed to save notifications');
+      
+      showNotification('Notification preferences saved!', 'success');
+    } catch (error) {
+      console.error('Error saving notifications:', error);
+      showNotification('Failed to save notification preferences', 'error');
+    }
+  }
+
+  // Show notification
+  function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg text-white font-medium text-sm z-50 animate-fade-in ${
+      type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+    }`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+      notification.remove();
+    }, 3000);
+  }
+</script>
 {% endblock %}
