@@ -48,7 +48,7 @@ class FromPlatform:
         self.upload_targets = upload_targets
 
     def get_temp_file_name(self):
-        FOLDER_PATH = "./temp"
+        FOLDER_PATH = "./tmp"
         return f"{FOLDER_PATH}/{datetime.datetime.now()}.mp4"
     
 
