@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-8">
+  <!-- Header -->
+  <section class="pt-8">
+    <h1 class="text-4xl font-bold text-white mb-2">Dashboard</h1>
+    <p class="text-slate-400">Overview of your video automation, uploads, and scheduled content</p>
+  </section>
+
+  <!-- Statistics -->
+  <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div class="glass rounded-xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-sm text-slate-400">Total Videos</span>
+        <svg class="w-5 h-5 text-brand-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <p class="text-3xl font-bold text-white">{{ total_videos_count or 0 }}</p>
+    </div>
+
+    <div class="glass rounded-xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-sm text-slate-400">Pending Videos</span>
+        <svg class="w-5 h-5 text-brand-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <p class="text-3xl font-bold text-white">{{ pending_videos_count or 0 }}</p>
+    </div>
+
+    <div class="glass rounded-xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-sm text-slate-400">Canceled Videos</span>
+        <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </div>
+      <p class="text-3xl font-bold text-white">{{ canceled_videos_count or 0 }}</p>
+    </div>
+  </section>
+
+  <!-- Next Scheduled & Processing Queue -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="glass rounded-xl p-6">
+      <h3 class="text-lg font-semibold text-white mb-4">Next Scheduled</h3>
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-slate-400">Schedule Time:</span>
+          <span class="text-sm font-medium text-brand-cyan">{{ next_run_label or 'No schedule set' }}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-slate-400">Video Title:</span>
+          <span class="text-sm font-medium text-white truncate">{{ next_video_title or 'No pending video' }}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-slate-400">Caption Generated:</span>
+          <div class="flex items-center space-x-1">
+            <svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+            <span class="text-xs text-emerald-400 font-medium">{{ caption_status or 'Ready' }}</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-slate-400">Hashtags Generated:</span>
+          <div class="flex items-center space-x-1">
+            <svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+            <span class="text-xs text-emerald-400 font-medium">{{ hashtag_status or 'Verified' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass rounded-xl p-6">
+      <h3 class="text-lg font-semibold text-white mb-4">Processing Queue</h3>
+      <div class="space-y-3">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-slate-400">Currently Processing:</span>
+            <span class="text-xs text-brand-orange font-medium animate-pulse">In Progress</span>
+          </div>
+          <p class="text-sm text-white mb-2">Summer Beach Workout Routine.mp4</p>
+          <div class="flex items-center space-x-2">
+            <div class="flex-1 bg-white/10 rounded-full h-2">
+              <div class="bg-gradient-to-r from-brand-orange to-brand-cyan h-2 rounded-full" style="width: 65%"></div>
+            </div>
+            <span class="text-xs text-slate-400">65%</span>
+          </div>
+        </div>
+        <div class="border-t border-white/10 pt-3">
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-slate-400">Caption Generation:</span>
+            <div class="flex items-center space-x-1">
+              <svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+              <span class="text-emerald-400 font-medium">Done</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-slate-400">#Tag Generation:</span>
+          <div class="flex items-center space-x-1">
+            <svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+            <span class="text-emerald-400 font-medium">Done</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Recent Videos -->
+  <section>
+    <div class="glass rounded-xl p-6">
+      {% include "video_list.html" %}
+    </div>
+  </section>
+
+  <!-- Quick Upload -->
+  <section class="glass rounded-xl p-6">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-2xl font-bold text-white mb-1">Quick Upload</h2>
+        <p class="text-sm text-slate-400">Upload and schedule content across all platforms</p>
+      </div>
+      <button type="button" onclick="document.getElementById('connectAccountsModal').style.display='flex'" class="btn-gradient px-4 py-2 rounded-lg text-white font-medium text-sm">+ Connect Account</button>
+    </div>
+
+    <form enctype="multipart/form-data" class="space-y-4">
+      <div id="uploading_status" class="text-brand-cyan font-medium text-sm"></div>
+
+      <!-- URL Upload -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Video URL</label>
+          <input type="text" id="video_url" placeholder="TikTok, YouTube or Facebook URL" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:border-brand-orange/50 focus:outline-none transition-colors">
+        </div>
+        <div class="flex items-end">
+          <button type="button" onclick="submitUrl()" class="w-full bg-brand-cyan text-gray-900 rounded-lg px-4 py-2 font-semibold hover:opacity-90 transition-opacity">Submit URL</button>
+        </div>
+      </div>
+
+      <!-- Platform Selection -->
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-3">Upload Targets</label>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {% for provider in user_info.credentials.keys() %}
+          <label class="flex items-center space-x-2 p-2 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:border-brand-orange/30 transition-colors">
+            <input type="checkbox" id="provider_{{ provider }}" class="w-4 h-4 rounded border-slate-400 text-brand-orange focus:ring-brand-orange">
+            <span class="text-sm text-slate-300 capitalize">{{ provider }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- File Upload -->
+      <div class="border-2 border-dashed border-white/10 rounded-lg p-6 text-center hover:border-brand-orange/50 transition-colors cursor-pointer">
+        <label for="video-file" class="cursor-pointer">
+          <svg class="w-10 h-10 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75Z"/>
+          </svg>
+          <h3 class="text-sm font-semibold text-white mb-1">Choose a file to upload</h3>
+          <p class="text-xs text-slate-400">MP4, MOV, AVI • Max 50MB</p>
+          <input type="file" id="video-file" name="file" accept="video/*" class="hidden" required>
+        </label>
+      </div>
+
+      <div class="flex gap-3">
+        <button type="submit" class="flex-1 btn-gradient rounded-lg text-white font-medium py-2">Upload & Schedule</button>
+        <button type="reset" class="px-6 border border-white/10 text-slate-300 rounded-lg hover:border-white/20 transition-colors">Clear</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+{% include "/components/connect_accounts.html" %}
+
+<script>
+  const controller = new AbortController();
+  const fileInput = document.getElementById("video-file");
+  const uploading_status = document.getElementById("uploading_status");
+  const video_url = document.getElementById("video_url");
+  var file;
+
+  // Submit URL function
+  async function submitUrl() {
+    const checkboxes = document.querySelectorAll(
+      'input[type="checkbox"][id^="provider_"]'
+    );
+    let upload_targets = [];
+    checkboxes.forEach((checkbox) => {
+      if (checkbox.checked) {
+        const provider = checkbox.id.split("_")[1];
+        let target = provider == "google" ? "youtube" : provider;
+        upload_targets.push(
+          target.charAt(0).toUpperCase() + target.slice(1)
+        );
+      }
+    });
+
+    if (video_url.value == "") {
+      alert("Please enter video url");
+    } else if (upload_targets.length == 0) {
+      alert("Please select at least one platform to upload");
+    } else {
+      console.log(upload_targets);
+      uploading_status.innerText = "Status: Processing started...";
+      axios
+        .post(
+          `/dashboard/upload-from-url?url=${video_url.value}&upload_targets=${upload_targets}`
+        )
+        .then((res) => res)
+        .then((data) => data)
+        .finally((e) => {
+          setTimeout(() => {
+            location.reload("");
+          }, 1000);
+        });
+    }
+  }
+
+  fileInput.addEventListener("change", () => {
+    file = fileInput.files[0];
+
+    if (file.size >= 52428800) {
+      alert("File larger than 50MB is not allowed");
+      file = undefined;
+    }
+
+    if (file) {
+      uploading_status.innerText = "Status: Processing started...";
+    } else {
+      uploading_status.innerText = "";
+    }
+  });
+
+  // Form submission
+  document.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    if (!file) {
+      alert("Please select a file");
+      return;
+    }
+
+    const checkboxes = document.querySelectorAll(
+      'input[type="checkbox"][id^="provider_"]'
+    );
+    let upload_targets = [];
+    checkboxes.forEach((checkbox) => {
+      if (checkbox.checked) {
+        const provider = checkbox.id.split("_")[1];
+        let target = provider == "google" ? "youtube" : provider;
+        upload_targets.push(
+          target.charAt(0).toUpperCase() + target.slice(1)
+        );
+      }
+    });
+
+    if (upload_targets.length == 0) {
+      alert("Please select at least one platform to upload");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_targets', upload_targets);
+
+    uploading_status.innerText = "Status: Uploading...";
+    
+    try {
+      const response = await axios.post('/dashboard/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        config,
+        onUploadProgress: (progressEvent) => {
+          const { loaded, total } = progressEvent;
+          const percentCompleted = Math.round((loaded * 100) / total);
+          uploading_status.innerText = `Status: Uploading... ${percentCompleted}%`;
+        }
+      });
+      
+      uploading_status.innerText = "Status: Upload completed!";
+      setTimeout(() => {
+        location.reload("");
+      }, 1500);
+    } catch (error) {
+      uploading_status.innerText = "Status: Upload failed!";
+      console.error("Upload error:", error);
+    }
+  });
+</script>
+</div>
+{% endblock %}
+                

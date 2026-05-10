@@ -1,0 +1,87 @@
+<!-- Modal Background -->
+<div id="connectAccountsModal" class="fixed hidden inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    {% set connected = connected_platforms if connected_platforms is defined and connected_platforms else {} %}
+    <!-- Modal Container -->
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-8 relative">
+        <!-- Close Button -->
+        <button type="button" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600" onclick="document.getElementById('connectAccountsModal').style.display='none'">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+        <!-- Modal Title -->
+        <h2 class="text-2xl font-semibold mb-8 text-center">Connect Your Accounts</h2>
+        <!-- Social List -->
+        <div class="space-y-6">
+            <!-- TikTok -->
+            <div class="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg">
+                <div class="flex items-center gap-4">
+                    <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/tiktok.svg" alt="TikTok" class="h-8 w-8"/>
+                    <span class="text-lg font-medium">TikTok</span>
+                </div>
+                {% if connected.get("tiktok") %}
+                    <button onclick="disconnectAccount('tiktok')" class="px-4 py-1 bg-gray-300 text-black rounded hover:bg-gray-400 transition text-sm font-semibold">
+                        Disconnect
+                    </button>
+                {% else %}
+                    <button onclick="connectAccount('tiktok')" class="px-4 py-1 bg-black text-white rounded hover:bg-gray-800 transition text-sm font-semibold">
+                        Connect
+                    </button>
+                {% endif %}
+            </div>
+            <!-- YouTube -->
+            <div class="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg">
+                <div class="flex items-center gap-4">
+                    <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/youtube.svg" alt="YouTube" class="h-8 w-8"/>
+                    <span class="text-lg font-medium">YouTube</span>
+                </div>
+                {% if connected.get("google") %}
+                    <button onclick="disconnectAccount('youtube')" class="px-4 py-1 bg-gray-300 text-black rounded hover:bg-gray-400 transition text-sm font-semibold">
+                        Disconnect
+                    </button>
+                {% else %}
+                    <button onclick="connectAccount('youtube')" class="px-4 py-1 bg-black text-white rounded hover:bg-gray-800 transition text-sm font-semibold">
+                        Connect
+                    </button>
+                {% endif %}
+            </div>
+            <!-- Facebook (disabled) -->
+            <div class="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg opacity-60">
+                <div class="flex items-center gap-4">
+                    <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/facebook.svg" alt="Facebook" class="h-8 w-8"/>
+                    <span class="text-lg font-medium">Facebook</span>
+                </div>
+                <button disabled class="px-4 py-1 bg-blue-600 text-white rounded text-sm font-semibold cursor-not-allowed">
+                    Coming Soon
+                </button>
+            </div>
+            <!-- Instagram (disabled) -->
+            <div class="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg opacity-60">
+                <div class="flex items-center gap-4">
+                    <img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/instagram.svg" alt="Instagram" class="h-8 w-8"/>
+                    <span class="text-lg font-medium">Instagram</span>
+                </div>
+                <button disabled class="px-4 py-1 bg-gradient-to-r from-pink-500 via-red-500 to-yellow-500 text-white rounded text-sm font-semibold cursor-not-allowed">
+                    Coming Soon
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function connectAccount(platform) {
+    window.location.href = `/auth/connect/${platform}`;
+}
+function disconnectAccount(platform) {
+    fetch(`/auth/disconnect/${platform}`,{
+        method:"POST"
+    })
+    .then(res=> setTimeout(()=>{
+        location.reload()
+    },1000)
+    )
+    .then(data=> console.log(data))
+    .catch(e=>console.log(e))
+}
+</script>

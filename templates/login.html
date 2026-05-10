@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Social bot - Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="/static/icon.png" type="image/png">
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Unbounded:wght@200..900&display=swap" rel="stylesheet">
+ 
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+      min-height: 100vh;
+    }
+    
+    .login-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s ease;
+    }
+    
+    .login-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+    
+    .gradient-text {
+      background: linear-gradient(135deg, #ff6b35, #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #ff6b35, #ff8c42);
+      transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(255, 107, 53, 0.4);
+    }
+    
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: all 0.3s ease;
+    }
+    
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(0, 212, 255, 0.2);
+    }
+    
+    .floating-shapes {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      z-index: 0;
+    }
+    
+    .shape {
+      position: absolute;
+      background: linear-gradient(135deg, rgba(255, 107, 53, 0.1), rgba(0, 212, 255, 0.1));
+      border-radius: 50%;
+      animation: float 6s ease-in-out infinite;
+    }
+    
+    .shape:nth-child(1) {
+      width: 80px;
+      height: 80px;
+      top: 20%;
+      left: 10%;
+      animation-delay: 0s;
+    }
+       p,span,i,strong,a,h4 {
+        font-family: "Noto Sans", sans-serif;
+        font-optical-sizing: auto;
+        font-weight: 400;
+        font-style: normal;
+        font-variation-settings:
+            "wdth" 100;
+        }
+        h1,h2,h3{
+        font-family: "Unbounded", sans-serif;
+        font-optical-sizing: auto;
+        font-weight: 500;
+        font-style: normal;
+        }
+    .shape:nth-child(2) {
+      width: 120px;
+      height: 120px;
+      top: 60%;
+      right: 15%;
+      animation-delay: 2s;
+    }
+    
+    .shape:nth-child(3) {
+      width: 60px;
+      height: 60px;
+      bottom: 20%;
+      left: 20%;
+      animation-delay: 4s;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(180deg); }
+    }
+    
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+  </style>
+</head>
+<body class="relative">
+  <div class="floating-shapes">
+    <div class="shape"></div>
+    <div class="shape"></div>
+    <div class="shape"></div>
+  </div>
+
+  <div class="flex min-h-screen items-center justify-center p-4 relative z-10">
+    <!-- Login Card -->
+    <div class="login-card w-full max-w-md p-8 rounded-2xl">
+      <!-- Logo/Brand -->
+      <div class="text-center mb-8">
+        <img src="/static/icon.png" alt="Logo" class="h-16 w-16 mx-auto"/>
+        <h1 class="text-3xl font-bold text-white mb-2 mt-4">Welcome Back</h1>
+        <p class="text-gray-300">Sign in to your account</p>
+      </div>
+
+      <!-- Social Login Buttons -->
+      <div class="space-y-4 mb-6">
+        <!-- Google Button -->
+        <button onclick="location.assign('/auth/login/google')" class="btn-secondary w-full flex items-center justify-center gap-3 text-white py-3 px-4 rounded-xl font-medium">
+          <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" class="w-6 h-6">
+          <span>Continue with Google</span>
+        </button>
+
+        <!-- TikTok Button -->
+        <button onclick="location.assign('/auth/login/tiktok')" class="btn-primary w-full flex items-center justify-center gap-3 text-white py-3 px-4 rounded-xl font-medium">
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+          </svg>
+          <span>Continue with TikTok</span>
+        </button>
+      </div>
+
+      <!-- Features -->
+      <div class="mt-8 pt-6 border-t border-gray-700">
+        <div class="grid grid-cols-2 gap-4 text-center">
+          <div class="">
+            <div class="text-orange-400 text-2xl mb-1">🚀</div>
+            <p class="text-xs text-gray-400">Fast Setup</p>
+          </div>
+          <div class="">
+            <div class="text-cyan-400 text-2xl mb-1">🔒</div>
+            <p class="text-xs text-gray-400">Secure Login</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

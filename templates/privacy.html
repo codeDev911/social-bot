@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Privacy Policy | Social Bot</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="icon" href="/static/icon.png" type="image/png">
+    <style>
+        /* Added dark theme styling and animations to match landing page */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .animate-fade-in-up {
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+        
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #ff6b35, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .hover-lift {
+            transition: all 0.3s ease;
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(255, 107, 53, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen relative overflow-x-hidden">
+    <!-- Added animated background elements -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute top-20 left-10 w-32 h-32 bg-gradient-to-r from-orange-500/20 to-cyan-500/20 rounded-full blur-xl animate-float"></div>
+        <div class="absolute top-40 right-20 w-24 h-24 bg-gradient-to-r from-cyan-500/20 to-orange-500/20 rounded-full blur-xl animate-float" style="animation-delay: -2s;"></div>
+        <div class="absolute bottom-20 left-1/3 w-40 h-40 bg-gradient-to-r from-orange-500/10 to-cyan-500/10 rounded-full blur-xl animate-float" style="animation-delay: -4s;"></div>
+    </div>
+
+    <div class="min-h-screen flex flex-col relative z-10">
+        <!-- Updated header with dark theme and Social Bot branding -->
+        <header class="glass-card border-b border-gray-800">
+            <div class="max-w-4xl mx-auto px-6 py-6 flex items-center space-x-4">
+                <img src="/static/icon.png" alt="Logo" class="h-10 w-10"/>
+                <span class="text-2xl font-bold ">Social Bot Privacy Policy</span>
+            </div>
+        </header>
+
+        <!-- Redesigned main content with dark theme and updated information -->
+        <main class="flex-grow max-w-4xl mx-auto px-6 py-12">
+            <section class="glass-card rounded-2xl p-8 hover-lift animate-fade-in-up">
+                <h1 class="text-4xl font-bold mb-6 ">Your Privacy Matters</h1>
+                <p class="mb-8 text-lg text-gray-300 leading-relaxed">
+                    At <span class="font-semibold text-orange-400">Social Bot</span>, we are committed to protecting your privacy. This policy explains how we collect, use, and safeguard your information when you use our platform to schedule and upload videos to <span class="text-red-400 font-semibold">YouTube</span>, <span class="text-pink-400 font-semibold">TikTok</span>, and <span class="text-blue-400 font-semibold">Facebook</span>.
+                </p>
+
+                <div class="space-y-8">
+                    <div class="border-l-4 border-orange-500 pl-6">
+                        <h2 class="text-2xl font-semibold mb-4 text-orange-400">Information We Collect</h2>
+                        <ul class="list-disc list-inside space-y-2 text-gray-300">
+                            <li>Account information (email address and profile details)</li>
+                            <li>Social media account credentials (with your explicit permission)</li>
+                            <li>Video content and metadata you upload or provide via URL</li>
+                            <li>Scheduling preferences and posting history</li>
+                            <li>Usage analytics to improve our video processing services</li>
+                        </ul>
+                    </div>
+
+                    <div class="border-l-4 border-cyan-500 pl-6">
+                        <h2 class="text-2xl font-semibold mb-4 text-cyan-400">How We Use Your Information</h2>
+                        <ul class="list-disc list-inside space-y-2 text-gray-300">
+                            <li>To process and store your videos in our secure cloud infrastructure</li>
+                            <li>To schedule and automatically upload videos to your connected platforms</li>
+                            <li>To generate AI-powered captions and hashtags for better engagement</li>
+                            <li>To provide customer support and technical assistance</li>
+                            <li>To optimize video quality and processing performance</li>
+                        </ul>
+                    </div>
+
+                    <div class="border-l-4 border-orange-500 pl-6">
+                        <h2 class="text-2xl font-semibold mb-4 text-orange-400">Video Processing & Storage</h2>
+                        <p class="text-gray-300 mb-4">
+                            When you upload videos directly or provide URLs from YouTube, TikTok, or Facebook, we:
+                        </p>
+                        <ul class="list-disc list-inside space-y-2 text-gray-300">
+                            <li>Store videos securely in our encrypted cloud storage</li>
+                            <li>Process videos to maintain high quality (up to HD for Pro users)</li>
+                            <li>Generate thumbnails and metadata for scheduling purposes</li>
+                            <li>Automatically delete processed videos after successful upload (unless you choose to keep them)</li>
+                        </ul>
+                    </div>
+
+                    <div class="border-l-4 border-cyan-500 pl-6">
+                        <h2 class="text-2xl font-semibold mb-4 text-cyan-400">Data Security</h2>
+                        <p class="text-gray-300">
+                            We implement enterprise-grade security measures including end-to-end encryption, secure API connections, and regular security audits. Your social media credentials are encrypted and never shared with unauthorized parties.
+                        </p>
+                    </div>
+
+                    <div class="border-l-4 border-orange-500 pl-6">
+                        <h2 class="text-2xl font-semibold mb-4 text-orange-400">Third-Party Integrations</h2>
+                        <p class="text-gray-300">
+                            We integrate with official APIs from YouTube, TikTok, and Facebook. We only access and post to your accounts with your explicit consent and within the permissions you grant.
+                        </p>
+                    </div>
+
+                    <div class="border-l-4 border-cyan-500 pl-6">
+                        <h2 class="text-2xl font-semibold mb-4 text-cyan-400">Your Rights & Choices</h2>
+                        <ul class="list-disc list-inside space-y-2 text-gray-300">
+                            <li>Disconnect any social media account at any time</li>
+                            <li>Delete your stored videos and scheduling data</li>
+                            <li>Request a complete copy of your data</li>
+                            <li>Cancel scheduled uploads before they're posted</li>
+                            <li>Request permanent account deletion</li>
+                        </ul>
+                    </div>
+
+                    <div class="border-l-4 border-orange-500 pl-6">
+                        <h2 class="text-2xl font-semibold mb-4 text-orange-400">Contact Us</h2>
+                        <p class="text-gray-300">
+                            For privacy-related questions or data requests, contact us at 
+                            <a href="mailto:contact@my-port.space" class="text-cyan-400 hover:text-cyan-300 underline transition-colors">
+                                contact@my-port.space
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Updated footer with dark theme and MyPort branding -->
+        <footer class="glass-card border-t border-gray-800 mt-12">
+            <div class="max-w-4xl mx-auto px-6 py-8 text-center">
+                <p class="text-gray-400 mb-2">&copy; 2024 Social Bot. All rights reserved.</p>
+                <p class="text-sm text-gray-500">This is a MyPort project</p>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>

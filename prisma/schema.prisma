@@ -1,0 +1,99 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator py {
+  provider             = "prisma-client-py"
+  recursive_type_depth = 5
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Video {
+  id                  Int             @id @unique @default(autoincrement())
+  title               String          @default("")
+  cloudinary_url      String          @default("")
+  cloudinary_id       String
+  upload_status       UploadStatus    @default(Pending)
+  upload_id           String          @default("")
+  upload_destination  UploadTargets   @default(Youtube) // remove this when wereset the DB
+  upload_destinations UploadTargets[] @default([Youtube])
+  captions            String          @default("")
+  htags               String          @default("")
+  scheduled_at        DateTime        @default(now())
+  user                User            @relation(fields: [userId], references: [id])
+  updatedAt           DateTime        @updatedAt
+  userId              Int
+  created_at          DateTime        @default(now())
+}
+
+model User {
+  id             Int           @id @unique @default(autoincrement())
+  fullname       String        @default("")
+  email          String        @unique @default("")
+  is_em_verif    Boolean       @default(false)
+  videos         Video[]
+  credentials    Json?
+  avator         String?       @default("")
+  account_status AccountStatus @default(Active)
+  password       String
+  createdAt      DateTime      @default(now())
+  usage          Usage?
+  updatedAt      DateTime
+  plan           userPlan?
+}
+
+model userPlan {
+  id             Int          @id @unique @default(autoincrement())
+  name           String?      @default("Free")
+  type           UserPlanType @default(free)
+  subscribtion   Json?
+  trailStartedAt DateTime     @default(now())
+  trailExpiredAt DateTime     @default(now())
+  userId         Int          @unique
+  user           User         @relation(fields: [userId], references: [id])
+}
+
+model Usage {
+  id                Int      @id @unique @default(autoincrement())
+  userId            Int      @unique
+  user              User     @relation(fields: [userId], references: [id])
+  uploadsToday      Int      @default(0)
+  scheduledToday    Int      @default(0)
+  connectedAccounts Int      @default(0)
+  hTagRequests      Int      @default(0)
+  captionRequests   Int      @default(0)
+  credits           Int      @default(0)
+  lastReset         DateTime @default(now())
+}
+
+enum UserPlanType {
+  free
+  starter
+  pro
+}
+
+enum AccountStatus {
+  Active
+  Suspended
+  BlockedTemporary
+}
+
+enum UploadTargets {
+  Youtube
+  Tiktok
+  Facebook
+  Instagram
+}
+
+enum UploadStatus {
+  Pending
+  Failed
+  Uploaded
+  Deleted
+}

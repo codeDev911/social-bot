@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+  <!-- Sidebar Navigation -->
+  <div class="lg:col-span-1">
+    <div class="glass rounded-2xl p-6 sticky top-24 space-y-2">
+      <a href="#profile" class="settings-nav-item active block px-4 py-3 rounded-lg text-sm font-medium text-white bg-white/10 border border-white/20 transition-all hover:bg-white/20">
+        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Profile
+      </a>
+      <a href="#upload" class="settings-nav-item block px-4 py-3 rounded-lg text-sm font-medium text-slate-400 transition-all hover:text-white hover:bg-white/10">
+        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+        </svg>
+        Upload Defaults
+      </a>
+      <a href="#content" class="settings-nav-item block px-4 py-3 rounded-lg text-sm font-medium text-slate-400 transition-all hover:text-white hover:bg-white/10">
+        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+        </svg>
+        Content Defaults
+      </a>
+      <a href="#accounts" class="settings-nav-item block px-4 py-3 rounded-lg text-sm font-medium text-slate-400 transition-all hover:text-white hover:bg-white/10">
+        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+        </svg>
+        Connected Accounts
+      </a>
+      <a href="#notifications" class="settings-nav-item block px-4 py-3 rounded-lg text-sm font-medium text-slate-400 transition-all hover:text-white hover:bg-white/10">
+        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+        </svg>
+        Notifications
+      </a>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="lg:col-span-3 space-y-6">
+    <!-- Profile Settings -->
+    <section id="profile" class="glass rounded-2xl p-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Profile Settings</h2>
+      <form class="space-y-6">
+        <div class="flex items-end gap-6">
+          <div class="relative">
+            <div class="w-24 h-24 rounded-xl bg-gradient-to-br from-brand-orange to-brand-cyan flex items-center justify-center text-white text-2xl font-bold">
+              JD
+            </div>
+            <button type="button" class="absolute bottom-0 right-0 p-2 bg-brand-orange rounded-lg hover:bg-brand-orange/90 transition-colors">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+            </button>
+          </div>
+          <div>
+            <p class="text-white font-medium">{{ user_name or 'John Doe' }}</p>
+            <p class="text-slate-400 text-sm">{{ user_email or 'john@example.com' }}</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">First Name</label>
+            <input type="text" value="{{ first_name or 'John' }}" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Last Name</label>
+            <input type="text" value="{{ last_name or 'Doe' }}" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Email</label>
+            <input type="email" value="{{ user_email or 'john@example.com' }}" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Phone</label>
+            <input type="tel" placeholder="+1 (555) 000-0000" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:border-brand-orange/50 focus:outline-none transition-colors">
+          </div>
+        </div>
+
+        <button type="submit" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm">Save Changes</button>
+      </form>
+    </section>
+
+    <!-- Upload Defaults -->
+    <section id="upload" class="glass rounded-2xl p-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Upload Defaults</h2>
+      <form class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Default Format</label>
+            <select class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+              <option>16:9 Landscape</option>
+              <option>9:16 Portrait</option>
+              <option>1:1 Square</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Max File Size</label>
+            <select class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+              <option>500 MB</option>
+              <option>1 GB</option>
+              <option>2 GB</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-3">Auto-Processing</label>
+          <div class="space-y-2">
+            <label class="flex items-center space-x-3 cursor-pointer">
+              <input type="checkbox" checked class="w-4 h-4 rounded">
+              <span class="text-sm text-slate-300">Generate captions automatically</span>
+            </label>
+            <label class="flex items-center space-x-3 cursor-pointer">
+              <input type="checkbox" checked class="w-4 h-4 rounded">
+              <span class="text-sm text-slate-300">Generate hashtags automatically</span>
+            </label>
+            <label class="flex items-center space-x-3 cursor-pointer">
+              <input type="checkbox" class="w-4 h-4 rounded">
+              <span class="text-sm text-slate-300">Create thumbnails automatically</span>
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm">Save Defaults</button>
+      </form>
+    </section>
+
+    <!-- Content Defaults -->
+    <section id="content" class="glass rounded-2xl p-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Content Defaults</h2>
+      <form class="space-y-6">
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Default Caption Style</label>
+          <select class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+            <option>Professional</option>
+            <option>Casual</option>
+            <option>Funny</option>
+            <option>Inspirational</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Caption Tone</label>
+          <div class="flex gap-2 flex-wrap">
+            <button type="button" class="px-4 py-2 rounded-lg bg-brand-orange text-white text-sm font-medium">Conversational</button>
+            <button type="button" class="px-4 py-2 rounded-lg bg-white/10 text-slate-300 text-sm font-medium hover:bg-white/20">Technical</button>
+            <button type="button" class="px-4 py-2 rounded-lg bg-white/10 text-slate-300 text-sm font-medium hover:bg-white/20">Entertaining</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Default Hashtags</label>
+          <input type="text" placeholder="#socialmedia #contentcreation #videomarketing" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:border-brand-orange/50 focus:outline-none transition-colors">
+        </div>
+
+        <button type="submit" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm">Save Preferences</button>
+      </form>
+    </section>
+
+    <!-- Connected Accounts -->
+    <section id="accounts" class="glass rounded-2xl p-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Connected Accounts</h2>
+      <div class="space-y-4">
+        <div class="p-4 border border-white/10 rounded-lg flex items-center justify-between hover:border-brand-orange/30 transition-colors">
+          <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 rounded-lg bg-red-600 flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-white font-medium">YouTube</p>
+              <p class="text-xs text-slate-400">channel@youtube.com</p>
+            </div>
+          </div>
+          <button type="button" class="text-emerald-400 text-xs font-semibold hover:text-emerald-300">Connected</button>
+        </div>
+
+        <div class="p-4 border border-white/10 rounded-lg flex items-center justify-between hover:border-brand-orange/30 transition-colors">
+          <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 rounded-lg bg-blue-400 flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-white font-medium">Facebook</p>
+              <p class="text-xs text-slate-400">Not connected</p>
+            </div>
+          </div>
+          <button type="button" class="btn-gradient px-4 py-1 rounded text-white text-xs font-semibold">Connect</button>
+        </div>
+
+        <div class="p-4 border border-white/10 rounded-lg flex items-center justify-between hover:border-brand-orange/30 transition-colors">
+          <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 rounded-lg bg-pink-600 flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.117.6c-.593.23-1.1.556-1.587 1.043a4.849 4.849 0 0 0-1.044 1.587c-.27.71-.47 1.58-.53 2.858C.063 8.328 0 8.74 0 12s.015 3.67.072 4.947c.06 1.277.261 2.148.53 2.858.23.593.556 1.1 1.043 1.587.487.487.994.813 1.587 1.043.71.27 1.58.47 2.858.53 1.277.058 1.69.072 4.947.072s3.67-.015 4.947-.072c1.277-.06 2.148-.26 2.858-.53.593-.23 1.1-.556 1.587-1.043a4.849 4.849 0 0 0 1.043-1.587c.27-.71.47-1.58.53-2.858.058-1.277.072-1.69.072-4.947s-.015-3.67-.072-4.947c-.06-1.277-.26-2.148-.53-2.858a4.849 4.849 0 0 0-1.043-1.587 4.844 4.844 0 0 0-1.587-1.043c-.71-.27-1.58-.47-2.858-.53-1.277-.058-1.69-.072-4.947-.072zM12 2.163c3.204 0 3.584.012 4.85.07 1.17.054 1.805.24 2.227.4.562.217.96.477 1.382.896.419.42.679.819.896 1.381.16.422.346 1.057.4 2.227.058 1.266.07 1.646.07 4.85s-.012 3.584-.07 4.85c-.054 1.17-.24 1.805-.4 2.227-.217.562-.477.96-.896 1.382-.42.419-.819.679-1.381.896-.422.16-1.057.346-2.227.4-1.266.058-1.646.07-4.85.07s-3.584-.012-4.85-.07c-1.17-.054-1.805-.24-2.227-.4-.562-.217-.96-.477-1.382-.896-.419-.42-.679-.819-.896-1.381-.16-.422-.346-1.057-.4-2.227-.058-1.266-.07-1.646-.07-4.85s.012-3.584.07-4.85c.054-1.17.24-1.805.4-2.227.217-.562.477-.96.896-1.382.42-.419.819-.679 1.381-.896.422-.16 1.057-.346 2.227-.4 1.266-.058 1.646-.07 4.85-.07zm0 3.678a5.16 5.16 0 1 0 0 10.32 5.16 5.16 0 0 0 0-10.32zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm4.965-10.322a1.21 1.21 0 1 1 0-2.42 1.21 1.21 0 0 1 0 2.42z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-white font-medium">Instagram</p>
+              <p class="text-xs text-slate-400">Not connected</p>
+            </div>
+          </div>
+          <button type="button" class="btn-gradient px-4 py-1 rounded text-white text-xs font-semibold">Connect</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Notifications -->
+    <section id="notifications" class="glass rounded-2xl p-8 mb-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Notification Preferences</h2>
+      <div class="space-y-4">
+        <label class="flex items-center justify-between p-4 rounded-lg border border-white/10 cursor-pointer hover:border-brand-orange/30 transition-colors">
+          <span class="text-slate-300">Email on upload success</span>
+          <input type="checkbox" checked class="w-4 h-4 rounded">
+        </label>
+        <label class="flex items-center justify-between p-4 rounded-lg border border-white/10 cursor-pointer hover:border-brand-orange/30 transition-colors">
+          <span class="text-slate-300">Email on processing complete</span>
+          <input type="checkbox" checked class="w-4 h-4 rounded">
+        </label>
+        <label class="flex items-center justify-between p-4 rounded-lg border border-white/10 cursor-pointer hover:border-brand-orange/30 transition-colors">
+          <span class="text-slate-300">Weekly usage summary</span>
+          <input type="checkbox" class="w-4 h-4 rounded">
+        </label>
+        <label class="flex items-center justify-between p-4 rounded-lg border border-white/10 cursor-pointer hover:border-brand-orange/30 transition-colors">
+          <span class="text-slate-300">Plan upgrade recommendations</span>
+          <input type="checkbox" checked class="w-4 h-4 rounded">
+        </label>
+      </div>
+    </section>
+  </div>
+</div>
+
+<style>
+  input[type="checkbox"] {
+    appearance: none;
+    width: 1rem;
+    height: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  input[type="checkbox"]:checked {
+    background: linear-gradient(135deg, #F97316, #06B6D4);
+    border-color: transparent;
+  }
+  
+  input[type="checkbox"]:checked::after {
+    content: "✓";
+    color: white;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+</style>
+{% endblock %}
