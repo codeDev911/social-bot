@@ -192,15 +192,15 @@ async def delete_schedule(user = Depends(get_current_user)):
         # Delete cron job
         success = delete_user_job(user_config.scheduledId)
         
-        if not success:
-            print("Failed to delete cron job with ID:", user_config.scheduledId)
-            raise HTTPException(status_code=500, detail="Failed to delete cron job")
+        # if not success:
+        #     print("Failed to delete cron job with ID:", user_config.scheduledId)
+        #     raise HTTPException(status_code=500, detail="Failed to delete cron job")
         
         # Update user config
         await db.userconfig.update(
             where={"userId": user.id},
             data={
-                "scheduled": False,
+                "scheduled": "",
                 "scheduledId": None
             }
         )

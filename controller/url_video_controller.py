@@ -59,9 +59,13 @@ class FromPlatform:
             ydl_opts = { 
             'format': 'bestvideo+bestaudio/best', 
             'quiet': False,
+            'js_runtimes': ['node'],
+            'proxy': 'http://rotating-proxy-provider.com:port',
+            'quiet': True,
             "outtmpl": f"{sanitized_file_path}",
             'postprocessors': [],  
             } 
+            
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([self.video_url])
                 print("video downloaded")    

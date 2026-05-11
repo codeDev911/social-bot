@@ -47,5 +47,4 @@ def update_user_job(job_id: int, new_hour: int, new_minute: int):
 # 3. DELETE A JOB
 def delete_user_job(job_id: int):
     response = requests.delete(f"{BASE_URL}/jobs/{job_id}", headers=HEADERS)
-    print(response)
     return response.status_code == 200 or response.status_code == 201
