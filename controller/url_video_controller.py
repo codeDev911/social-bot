@@ -49,6 +49,10 @@ PROXY_PASS = os.getenv("WEBSHARE_PASSWORD")
 PROXY_HOST = "p.webshare.io"  
 PROXY_PORT = "80"    
 
+qjs_path = os.path.join(os.getcwd(), "bin", "qjs")
+
+
+
 class FromPlatform: 
     def __init__(self,video_url,user_id:int,upload_targets=["Youtube"]):
         self.user_id = user_id,
@@ -72,7 +76,7 @@ class FromPlatform:
             'format': 'bestvideo+bestaudio/best', 
             'quiet': False,
             'js_runtimes': {
-                 'node': {'path': None}             # None uses the system PATH
+                'quickjs': {'path': qjs_path}
             },
             'proxy': self.proxy_url,
             'quiet': True,

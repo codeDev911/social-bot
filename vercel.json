@@ -1,12 +1,11 @@
 {
     "version": 2,
+    "installCommand": "pip install -r requirements.txt && bash vercel-build.sh",
     "builds": [
         {
             "src": "main.py",
             "use": "@vercel/python",
-            "config": {
-                "buildCommand": "prisma generate"
-            }
+            "config": { "maxDuration": 30 }
         }
     ],
     "routes": [
