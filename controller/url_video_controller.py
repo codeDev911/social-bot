@@ -71,7 +71,9 @@ class FromPlatform:
             ydl_opts = { 
             'format': 'bestvideo+bestaudio/best', 
             'quiet': False,
-            'js_runtimes': ['node'],
+            'js_runtimes': {
+                 'node': {'path': None}             # None uses the system PATH
+            },
             'proxy': self.proxy_url,
             'quiet': True,
             "outtmpl": f"{sanitized_file_path}",
