@@ -72,7 +72,7 @@ class FromPlatform:
             'format': 'bestvideo+bestaudio/best', 
             'quiet': False,
             'js_runtimes': ['node'],
-            'proxy': proxy_url,
+            'proxy': self.proxy_url,
             'quiet': True,
             "outtmpl": f"{sanitized_file_path}",
             'postprocessors': [],  
