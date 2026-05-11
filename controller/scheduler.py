@@ -18,6 +18,7 @@ def create_user_job(user_id: str, hour: int, minute: int, timezone: str = "Asia/
             "url": webhook_url,
             "enabled": True,
             "saveResponses": True,
+            "requestMethod":1, # 1 for POST
             "schedule": {
                 "timezone": timezone,
                 "hours": [hour],    # e.g., 20 for 8 PM
