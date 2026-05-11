@@ -1,6 +1,7 @@
 import yt_dlp
 import cloudinary 
 import cloudinary.uploader 
+from dotenv import load_dotenv
 import os
 from models.video import create_video
 import datetime 
@@ -8,6 +9,7 @@ from redis import Redis
 from rq import Queue
 from wroker import generate_caption_htags
 from db import prisma
+load_dotenv()
 # Setup redis
 redis_conn = Redis.from_url("redis://default_ro:AqNxACQgZGE5ZTUxOGEtMDQzZi00NjdjLTk1YjYtOTZlODIyYWU5YmQzr8ysXHUHAEZBtQODSduNaoQZvxvc-N6CjMlVFsDpUww=@fly-contentby-redis.upstash.io:6379")
 
@@ -41,16 +43,26 @@ async def upload_to_cloudinary(filePath:str,userId:any,upload_targets:any):
     q.enqueue(generate_caption_htags,video.id,userPlan,"New viral video","trends")
 
 
+
+PROXY_USER = os.getenv("WEBSHARE_USERNAME")
+PROXY_PASS = os.getenv("WEBSHARE_PASSWORD")
+PROXY_HOST = "p.webshare.io"  
+PROXY_PORT = "80"    
+
 class FromPlatform: 
     def __init__(self,video_url,user_id:int,upload_targets=["Youtube"]):
         self.user_id = user_id,
         self.video_url =  video_url
         self.upload_targets = upload_targets
+        self.proxy_url =  f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
+
 
     def get_temp_file_name(self):
         FOLDER_PATH = "/tmp"
         return f"{FOLDER_PATH}/{datetime.datetime.now()}.mp4"
     
+
+
 
     async def tiktok(self):  
         filePath = self.get_temp_file_name()
@@ -60,12 +72,12 @@ class FromPlatform:
             'format': 'bestvideo+bestaudio/best', 
             'quiet': False,
             'js_runtimes': ['node'],
-            'proxy': 'http://rotating-proxy-provider.com:port',
+            'proxy': proxy_url,
             'quiet': True,
             "outtmpl": f"{sanitized_file_path}",
             'postprocessors': [],  
             } 
-            
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([self.video_url])
                 print("video downloaded")    
