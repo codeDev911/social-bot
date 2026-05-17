@@ -71,17 +71,18 @@ class FromPlatform:
 
     async def tiktok(self):  
         filePath = self.get_temp_file_name()
-        sanitized_file_path = filePath.replace(" ", "-").replace(":", "-").replace(".","-")
+        sanitized_file_path = filePath.replace(" ", "-").replace(":", "-")
 
         ffmpeg_binary_path = get_ffmpeg_exe()
         try:
             ydl_opts = { 
             'format': 'bestvideo+bestaudio/best', 
-            'proxy': self.proxy_url,
+            'proxy': self.proxy_url,  # TikTok often blocks requests from certain IPs, using a proxy can help bypass this
             'ffmpeg_location': ffmpeg_binary_path,
             'quiet': True,
             "outtmpl": f"{sanitized_file_path}",
             'postprocessors': [],  
+            'merge_output_format': 'mp4',
             } 
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -93,7 +94,6 @@ class FromPlatform:
             # return {"success":"Video downloaded from tiktok success"}
             # Upload directly to Cloudinary
             await upload_to_cloudinary(sanitized_file_path,self.user_id[0],self.upload_targets)
-            os.remove(sanitized_file_path)
 
             await prisma.usage.update(
                 where={
@@ -105,6 +105,7 @@ class FromPlatform:
                     }, 
                 }
             )
+            os.remove(sanitized_file_path)
             return {"success":f"Video uploaded to Cloudinary success"}
 
         except Exception as e:
