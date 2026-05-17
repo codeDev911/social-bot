@@ -9,6 +9,7 @@ from redis import Redis
 from rq import Queue
 from wroker import generate_caption_htags
 from db import prisma
+from imageio_ffmpeg import get_ffmpeg_exe
 load_dotenv()
 # Setup redis
 redis_conn = Redis.from_url("redis://default_ro:AqNxACQgZGE5ZTUxOGEtMDQzZi00NjdjLTk1YjYtOTZlODIyYWU5YmQzr8ysXHUHAEZBtQODSduNaoQZvxvc-N6CjMlVFsDpUww=@fly-contentby-redis.upstash.io:6379")
@@ -71,14 +72,13 @@ class FromPlatform:
     async def tiktok(self):  
         filePath = self.get_temp_file_name()
         sanitized_file_path = filePath.replace(" ", "-").replace(":", "-").replace(".","-")
+
+        ffmpeg_binary_path = get_ffmpeg_exe()
         try:
             ydl_opts = { 
             'format': 'bestvideo+bestaudio/best', 
-            'quiet': False,
-            'js_runtimes': {
-                'quickjs': {'path': qjs_path}
-            },
             'proxy': self.proxy_url,
+            'ffmpeg_location': ffmpeg_binary_path,
             'quiet': True,
             "outtmpl": f"{sanitized_file_path}",
             'postprocessors': [],  
