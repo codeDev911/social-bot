@@ -59,7 +59,7 @@ def get_profiles_graphql(api_key=None):
         return None
 
 
-def publish_instantly(profile_id, caption, video_url,api_key=None):
+async def publish_instantly(profile_id, caption, video_url,api_key=None):
     """
     Sends a video directly to TikTok via Buffer GraphQL API instantly.
     
@@ -125,12 +125,8 @@ def publish_instantly(profile_id, caption, video_url,api_key=None):
         post_data = result.get("data", {}).get("createPost", {})
         
         if "message" in post_data:
-            print(f"❌ Buffer Business Error: {post_data['message']}")
             return {"status_code":400,"error":post_data['message'], "post_id": post_data.get("post", {}).get("id")}
-
-            
-        print("🎉 Video successfully routed directly to TikTok!")
-        print(f"Assigned Buffer Post ID: {post_data.get('post', {}).get('id')}")
+ 
         return {"status_code":200, "post_id": post_data.get("post", {}).get("id")}
 
     except requests.exceptions.HTTPError as http_err:
