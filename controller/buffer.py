@@ -68,6 +68,10 @@ async def publish_instantly(profile_id, caption, video_url,api_key=None):
     :param video_url: Public direct download URL to your mp4 asset file
     """
     
+    if api_key is None:
+        print("❌ Buffer API key is required for publishing.")
+        return {"status_code":400, "error":"Buffer API key is required."}
+
     # 📝 The GraphQL Mutation required for video posting 
     graphql_mutation = {
         "query": """
@@ -125,14 +129,17 @@ async def publish_instantly(profile_id, caption, video_url,api_key=None):
         post_data = result.get("data", {}).get("createPost", {})
         
         if "message" in post_data:
+            print(f"❌ Buffer API Error: {post_data['message']}")
             return {"status_code":400,"error":post_data['message'], "post_id": post_data.get("post", {}).get("id")}
  
         return {"status_code":200, "post_id": post_data.get("post", {}).get("id")}
 
     except requests.exceptions.HTTPError as http_err:
         print(f"❌ HTTP Exception Occurred: {http_err}")
+        return {"status_code":500, "error":response.text}
         print(f"Raw Server Traceback: {response.text}")
     except Exception as e:
+        return {"status_code":500, "error":e}
         print(f"❌ Script Runtime Error: {e}")
     return False
 

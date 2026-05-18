@@ -144,9 +144,9 @@ async def upload_using_buffer(user,video,client_credentials):
     caption = video.captions if video.captions else f"{user.userConfig.defaultCaption} {user.userConfig.defaultHtags}"
     
     try:
-        response = publish_instantly(platformId,caption, video.cloudinary_url,api_key=user.userConfig.bufferApiKey)
+        response = await publish_instantly(platformId,caption, video.cloudinary_url,user.userConfig.bufferApiKey)
 
-        if response.status_code == 200:
+        if response["status_code"] == 200:
             await prisma.video.update(
                 where={"id": video.id},
                 data={"upload_status": "Uploaded"}
