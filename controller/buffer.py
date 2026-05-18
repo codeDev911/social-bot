@@ -87,7 +87,7 @@ async def publish_instantly(profile_id, caption, video_url,api_key=None):
         """,
         "variables": {
             "input": {
-                "channelId": tiktok_profile_id,
+                "channelId": profile_id,
                 "text": caption,
                 "schedulingType": "automatic",
                 "mode": "shareNow",  # ⚡ CRITICAL: Tells Buffer to skip queue and post immediately

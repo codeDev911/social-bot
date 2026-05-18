@@ -144,7 +144,7 @@ async def upload_using_buffer(user,video,client_credentials):
     caption = video.captions if video.captions else f"{user.userConfig.defaultCaption} {user.userConfig.defaultHtags}"
     
     try:
-        response = await publish_instantly(platformId,caption, video.cloudinary_url,api_key=user.userConfig.bufferApiKey)
+        response = publish_instantly(platformId,caption, video.cloudinary_url,api_key=user.userConfig.bufferApiKey)
 
         if response.status_code == 200:
             await prisma.video.update(
@@ -167,7 +167,7 @@ async def upload_using_buffer(user,video,client_credentials):
             data={"upload_status": "Failed"}
         )
         send_mail(user.email, video.cloudinary_url, video.title, "Failed")
-        print(f"Error uploading to TikTok: {str(e)}")
+        print(f"Error uploading: {str(e)}")
 
     finally:
          await prisma.usage.update(
