@@ -45,6 +45,7 @@ model userConfig {
   hashtagGenEnabled Boolean       @default(true)
   // Notification Preferences
   emailOnUpload     Boolean       @default(true)
+  bufferApiKey     String        @default("")
 
   // Scheduling
   scheduled   String @default("")

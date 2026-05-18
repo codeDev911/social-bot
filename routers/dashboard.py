@@ -12,7 +12,10 @@ import cloudinary
 import cloudinary.uploader
 from utils import validate_video_url,verify_upload_target
 from controller.delete_uploaded_files import delete_uploaded_files
+from controller.buffer import get_profiles_graphql
+from pydantic import BaseModel
 from dotenv import load_dotenv
+from controller.auth import set_user_credentials
 import os
 load_dotenv()
 
@@ -20,6 +23,10 @@ templates = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/dashboard")
 
 INTERNAL_SECRET=os.getenv("INTERNAL_SECRET")
+
+
+class BufferConnectRequest(BaseModel):
+    bufferApiKey: str
 
 
 def _normalize_credentials(credentials):
@@ -302,3 +309,58 @@ async def trigger_delete_uploaded_files(background_tasks: BackgroundTasks):
     background_tasks.add_task(await delete_uploaded_files())
     print("Delete uploaded files triggered")
     return {"message":"Delete uploaded files triggered"}
+
+
+# Connect Buffer - fetch profiles via GraphQL
+@router.patch("/buffer-connect")
+async def buffer_connect(body: BufferConnectRequest, current_user = Depends(get_current_user)):
+    try:
+        buffer_api_key = body.bufferApiKey.strip()
+        
+        if not buffer_api_key:
+            raise HTTPException(status_code=400, detail="Buffer API key is required")
+        
+        # Save/update the API key in userconfig
+        user_config = await prisma.userconfig.find_unique(
+            where={"userId": current_user.id}
+        )
+        
+        if user_config:
+            # Update existing config
+            await prisma.userconfig.update(
+                where={"userId": current_user.id},
+                data={"bufferApiKey": buffer_api_key}
+            )
+        else:
+            # Create new config
+            await prisma.userconfig.create(
+                data={
+                    "userId": current_user.id,
+                    "bufferApiKey": buffer_api_key
+                }
+            )
+        
+        # Call the get_profiles_graphql function with the provided API key
+        channels = get_profiles_graphql(api_key=buffer_api_key)
+        user = await prisma.user.find_unique(where={"id": current_user.id})
+
+        # print(channels)
+        if channels is None:
+            raise HTTPException(status_code=400, detail="Failed to fetch Buffer profiles. No channels found.")
+        
+        for channel in channels:
+            cre_json=set_user_credentials(user, {"client_id": channel["id"],"client_secret":channel["id"], "name": channel["name"], "service": "buffer"}, provider=channel["service"].lower())
+
+            await prisma.user.update(
+                where={"id": user.id},
+                data={
+                    "credentials": cre_json,
+                }
+            )
+
+        return {"message": "Buffer connected successfully", "status": "connected", "channels": channels}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=400, detail=f"Failed to connect to Buffer: {str(e)}")

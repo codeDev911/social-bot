@@ -35,6 +35,12 @@
         </svg>
         Notifications
       </a>
+      <a href="#buffer" class="settings-nav-item block px-4 py-3 rounded-lg text-sm font-medium text-slate-400 transition-all hover:text-white hover:bg-white/10">
+        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+        </svg>
+        Connect Buffer
+      </a>
     </div>
   </div>
 
@@ -278,8 +284,34 @@
       
       <button type="button" id="saveNotificationsBtn" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm mt-6">Save Preferences</button>
     </section>
-  </div>
-</div>
+
+    <!-- Connect Buffer -->
+    <section id="buffer" class="glass rounded-2xl p-8 mb-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Connect Buffer</h2>
+      <p class="text-slate-400 mb-6">Integrate your Buffer account to schedule and manage your social media posts across multiple platforms.</p>
+      
+      <div id="bufferStatus" class="p-4 rounded-lg bg-white/5 border border-white/10 mb-6">
+        <p class="text-sm text-slate-400">Not connected yet</p>
+      </div>
+      
+      <form class="space-y-6">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-medium text-slate-300">Buffer API Key</label>
+            <button type="button" id="toggleBufferKeyBtn" class="text-xs text-brand-orange hover:text-brand-orange/80 transition-colors" style="display:none;">
+              <span id="toggleBufferKeyText">Show</span>
+            </button>
+          </div>
+          <input id="bufferApiKey" type="password" placeholder="Enter your Buffer API key..." class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:border-brand-orange/50 focus:outline-none transition-colors">
+          <p class="text-xs text-slate-500 mt-2">You can find your API key in your <a href="https://buffer.com/app/settings/apps" target="_blank" class="text-brand-orange hover:text-brand-orange/80">Buffer settings</a></p>
+        </div>
+
+        <div class="flex gap-3">
+          <button type="button" id="saveBufferBtn" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm">Connect Buffer</button>
+          <button type="button" id="reconnectBufferBtn" class="px-6 py-2 rounded-lg border border-brand-orange/30 text-brand-orange font-medium text-sm hover:bg-brand-orange/10 transition-colors" style="display:none;">Re-connect</button>
+        </div>
+      </form>
+    </section>
 
 <style>
   input[type="checkbox"] {
@@ -317,6 +349,7 @@
   // Initialize settings on page load
   document.addEventListener('DOMContentLoaded', async () => {
     await loadUserConfig();
+    await loadBufferStatus();
     await loadSchedule();
     setupEventListeners();
   });
@@ -341,9 +374,36 @@
       document.getElementById('hashtagGenEnabled').checked = config.hashtagGenEnabled !== false;
       document.getElementById('emailOnUpload').checked = config.emailOnUpload !== false;
       document.getElementById('scheduleTimezone').value = config.timezone || 'UTC';
+      document.getElementById('bufferApiKey').value = config.bufferApiKey || '';
     } catch (error) {
       console.error('Error loading config:', error);
       showNotification('Failed to load settings', 'error');
+    }
+  }
+
+  // Load and display buffer connection status
+  async function loadBufferStatus() {
+    try {
+      const response = await fetch(`${API_BASE}/user/config`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch user config');
+      
+      const config = await response.json();
+      console.log('Buffer API Key from config:', config.bufferApiKey ? 'exists' : 'not found');
+      
+      // Check if buffer API key exists
+      if (config.bufferApiKey && config.bufferApiKey.trim() !== '') {
+        document.getElementById('bufferApiKey').value = config.bufferApiKey;
+        updateBufferStatus(true);
+      } else {
+        updateBufferStatus(false);
+      }
+    } catch (error) {
+      console.error('Error loading buffer status:', error);
+      updateBufferStatus(false);
     }
   }
 
@@ -410,6 +470,11 @@
     
     // Notifications
     document.getElementById('saveNotificationsBtn').addEventListener('click', saveNotifications);
+    
+    // Buffer
+    document.getElementById('saveBufferBtn').addEventListener('click', saveBufferConfig);
+    document.getElementById('reconnectBufferBtn').addEventListener('click', reconnectBuffer);
+    document.getElementById('toggleBufferKeyBtn').addEventListener('click', toggleBufferKeyVisibility);
     
     // Navigation
     document.querySelectorAll('.settings-nav-item').forEach(item => {
@@ -576,6 +641,119 @@
     } catch (error) {
       console.error('Error saving notifications:', error);
       showNotification('Failed to save notification preferences', 'error');
+    }
+  }
+
+  // Update buffer connection status
+  function updateBufferStatus(isConnected) {
+    const statusDiv = document.getElementById('bufferStatus');
+    const saveBtn = document.getElementById('saveBufferBtn');
+    const reconnectBtn = document.getElementById('reconnectBufferBtn');
+    const toggleBtn = document.getElementById('toggleBufferKeyBtn');
+    const keyInput = document.getElementById('bufferApiKey');
+    
+    if (isConnected) {
+      statusDiv.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <p class="text-sm text-emerald-400"><strong>Connected successfully!</strong> Your Buffer account is ready.</p>
+        </div>
+      `;
+      saveBtn.textContent = 'Update Key';
+      reconnectBtn.style.display = 'block';
+      toggleBtn.style.display = 'inline';
+      keyInput.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+    } else {
+      statusDiv.innerHTML = '<p class="text-sm text-slate-400">Not connected yet</p>';
+      saveBtn.textContent = 'Connect Buffer';
+      reconnectBtn.style.display = 'none';
+      toggleBtn.style.display = 'none';
+      keyInput.style.borderColor = '';
+    }
+  }
+  
+  // Toggle buffer API key visibility
+  function toggleBufferKeyVisibility() {
+    const input = document.getElementById('bufferApiKey');
+    const btn = document.getElementById('toggleBufferKeyText');
+    
+    if (input.type === 'password') {
+      input.type = 'text';
+      btn.textContent = 'Hide';
+    } else {
+      input.type = 'password';
+      btn.textContent = 'Show';
+    }
+  }
+
+  // Save buffer config
+  async function saveBufferConfig() {
+    try {
+      const bufferApiKey = document.getElementById('bufferApiKey').value.trim();
+      
+      if (!bufferApiKey) {
+        showNotification('Please enter your Buffer API key', 'error');
+        return;
+      }
+
+      const data = {
+        bufferApiKey: bufferApiKey
+      };
+
+      const response = await fetch(`${API_BASE}/user/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) throw new Error('Failed to save buffer config');
+      
+      // Now connect to Buffer via dashboard endpoint
+      await connectBufferProfiles();
+    } catch (error) {
+      console.error('Error saving buffer config:', error);
+      showNotification('Failed to save buffer configuration', 'error');
+    }
+  }
+  
+  // Connect to Buffer profiles (call dashboard endpoint)
+  async function connectBufferProfiles() {
+    try {
+      const bufferApiKey = document.getElementById('bufferApiKey').value.trim();
+      
+      if (!bufferApiKey) {
+        showNotification('Please enter your Buffer API key', 'error');
+        return;
+      }
+      
+      const response = await fetch('/dashboard/buffer-connect', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bufferApiKey: bufferApiKey })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to connect buffer profiles');
+      }
+      
+      updateBufferStatus(true);
+      showNotification('Buffer connected successfully!', 'success');
+    } catch (error) {
+      console.error('Error connecting buffer:', error);
+      showNotification('Failed to connect Buffer. Please check your API key.', 'error');
+      updateBufferStatus(false);
+    }
+  }
+  
+  // Reconnect buffer
+  async function reconnectBuffer() {
+    try {
+      showNotification('Re-connecting to Buffer...', 'info');
+      await connectBufferProfiles();
+    } catch (error) {
+      console.error('Error reconnecting buffer:', error);
+      showNotification('Failed to re-connect to Buffer', 'error');
     }
   }
 

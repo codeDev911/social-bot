@@ -35,12 +35,12 @@ def get_tiktok_client(credentials):
 
 async def get_facebook_client(credentials):
     """Get Facebook Client Credentials"""
-    cre_obj = credentials["facebook"]
+    cre_obj = json.loads(credentials["facebook"])
 
     return cre_obj
 
 async def get_instagram_client(credentials):
     """Get Instagram Client Credentials"""
-    cre_obj = credentials["instagram"]
+    cre_obj = json.loads(credentials["instagram"])
 
     return cre_obj

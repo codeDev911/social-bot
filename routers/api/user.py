@@ -14,6 +14,7 @@ class UserConfigUpdate(BaseModel):
     hashtagGenEnabled: bool | None = None
     emailOnUpload: bool | None = None
     timezone: str | None = None
+    bufferApiKey: str | None = None
 
 class UserProfileUpdate(BaseModel):
     fullname: str | None = None
@@ -28,6 +29,7 @@ class UserConfigResponse(BaseModel):
     hashtagGenEnabled: bool
     emailOnUpload: bool
     timezone: str
+    bufferApiKey: str | None = None
 
     class Config:
         from_attributes = True
@@ -52,7 +54,8 @@ async def get_config(user = Depends(get_current_user)):
             "captionGenEnabled":user_config.captionGenEnabled if hasattr(user_config, 'captionGenEnabled') else True,
             "hashtagGenEnabled":user_config.hashtagGenEnabled if hasattr(user_config, 'hashtagGenEnabled') else True,
             "emailOnUpload":user_config.emailOnUpload,
-            "timezone":user_config.timezone
+            "timezone":user_config.timezone,
+            "bufferApiKey":user_config.bufferApiKey if hasattr(user_config, 'bufferApiKey') else None
         }
     except Exception as e:
         print(e)
@@ -79,10 +82,16 @@ async def update_config(config: UserConfigUpdate, user = Depends(get_current_use
             update_data["defaultHtags"] = config.defaultHtags
         if config.defaultUploadDest is not None:
             update_data["defaultUploadDest"] = config.defaultUploadDest
+        if config.captionGenEnabled is not None:
+            update_data["captionGenEnabled"] = config.captionGenEnabled
+        if config.hashtagGenEnabled is not None:
+            update_data["hashtagGenEnabled"] = config.hashtagGenEnabled
         if config.emailOnUpload is not None:
             update_data["emailOnUpload"] = config.emailOnUpload
         if config.timezone is not None:
             update_data["timezone"] = config.timezone
+        if config.bufferApiKey is not None:
+            update_data["bufferApiKey"] = config.bufferApiKey
         
         # Update config
         updated_config = await db.userconfig.update(
@@ -97,8 +106,11 @@ async def update_config(config: UserConfigUpdate, user = Depends(get_current_use
                 "defaultCaption": updated_config.defaultCaption,
                 "defaultHtags": updated_config.defaultHtags,
                 "defaultUploadDest": updated_config.defaultUploadDest,
+                "captionGenEnabled": updated_config.captionGenEnabled if hasattr(updated_config, 'captionGenEnabled') else True,
+                "hashtagGenEnabled": updated_config.hashtagGenEnabled if hasattr(updated_config, 'hashtagGenEnabled') else True,
                 "emailOnUpload": updated_config.emailOnUpload,
-                "timezone": updated_config.timezone
+                "timezone": updated_config.timezone,
+                "bufferApiKey": updated_config.bufferApiKey if hasattr(updated_config, 'bufferApiKey') else None
             }
         }
     

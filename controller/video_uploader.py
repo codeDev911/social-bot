@@ -7,9 +7,10 @@ from controller.mail_controller import trigger_uploaded
 from utils import refresh_tiktok_access_token
 load_dotenv()
 from db import prisma 
-from controller.user_credentials import get_tiktok_client, get_youtube_client
+from controller.user_credentials import get_tiktok_client, get_youtube_client,get_facebook_client,get_instagram_client
 import os
 import requests
+from controller.buffer import publish_instantly
 
 
 
@@ -132,70 +133,44 @@ def extract_filename_from_url(url):
         return url.split("/")[-1].split("?")[0]
 
 
-# Upload to tiktok
-async def upload_to_tiktok(user, video):
-    # Implement TikTok upload logic here
+async def upload_using_buffer(user,video,client_credentials):
 
-    tiktok_api_url = "https://open.tiktokapis.com/v2/post/publish/video/init/"
-    client_credentials = get_tiktok_client(user.credentials)
     if client_credentials is None:
-        print("No TikTok credentials found.")
-        return {"message": "No TikTok credentials found."}
+        print("No  credentials found.")
+        return {"message": "No  credentials found."}
     
-    #tiktok access_token will expire in 24 hrs
-    refresh_token = client_credentials['refresh_token'] 
-    new_access_token = refresh_tiktok_access_token(refresh_token)
- 
-    headers = {
-        "Authorization": f"Bearer {new_access_token}",
-        "Content-Type": "application/json; charset=UTF-8"
-    }
-
-    # Generate a SEO-based title for TikTok
-    seo_title = "#fyp #viral #trending #shorts #viralaccount #growaccount #ai #automation #socialbot Revolutionize your social media with Social Bot! 🚀 Automate video uploads, boost engagement, and go viral effortlessly."
-
-    #Only for tiktok -> We've verified sobot-media-files.my-port.space, If we directly pass video.cloudinray_url will get Error from TIKTOK
-
-    video_file_name = extract_filename_from_url(video.cloudinary_url)
-    video_proxy_url = f"https://sobo-media-files.my-port.space/videos/{video_file_name}"
-
-    data = {
-        "post_info": {
-            "title": seo_title,
-            "privacy_level": "PUBLIC_TO_EVERYONE",
-            "disable_duet": False,
-            "disable_comment": True,
-            "disable_stitch": False,
-            "video_cover_timestamp_ms": 1000
-        },
-        "source_info": {
-            "source": "PULL_FROM_URL",
-            "video_url": video_proxy_url
-        }
-    }
-
+     
+    platformId = client_credentials['client_id'] 
+    caption = video.captions if video.captions else f"{user.userConfig.defaultCaption} {user.userConfig.defaultHtags}"
+    
     try:
-        response = requests.post(tiktok_api_url, headers=headers, json=data)
+        response = publish_instantly(platformId,caption, video.cloudinary_url,api_key=user.userConfig.bufferApiKey)
+
         if response.status_code == 200:
             await prisma.video.update(
                 where={"id": video.id},
                 data={"upload_status": "Uploaded"}
             )
             send_mail(user.email, video.cloudinary_url, video.title, "Uploaded")
+            
             print("Video uploaded to TikTok.")
         else:
             await prisma.video.update(
                 where={"id": video.id},
                 data={"upload_status": "Failed"}
             )
-            # send_mail(user.email, video.cloudinary_url, video.title, "Failed")
+            send_mail(user.email, video.cloudinary_url, video.title, "Failed")
             print(f"TikTok upload failed: {response.text}")
     except Exception as e:
         await prisma.video.update(
             where={"id": video.id},
             data={"upload_status": "Failed"}
         )
-        await prisma.usage.update(
+        send_mail(user.email, video.cloudinary_url, video.title, "Failed")
+        print(f"Error uploading to TikTok: {str(e)}")
+
+    finally:
+         await prisma.usage.update(
             where={
                 "userId":user.id
             },
@@ -205,16 +180,19 @@ async def upload_to_tiktok(user, video):
                 }, 
             }
         )
-        send_mail(user.email, video.cloudinary_url, video.title, "Failed")
-        print(f"Error uploading to TikTok: {str(e)}")
 
-def upload_to_facebook(user,video):
-    # Implement Facebook upload logic here
-    return {"message": "Facebook upload not implemented yet."}
+# Upload to tiktok
+async def upload_to_tiktok(user, video):
+    client_credentials = get_tiktok_client(user.credentials)
+    return await upload_using_buffer(user,video,client_credentials)
 
-def upload_to_instagram(user,video):
-    # Implement Instagram upload logic here
-    return {"message": "Instagram upload not implemented yet."}
+async def upload_to_facebook(user,video):
+    client_credentials = get_facebook_client(user.credentials)
+    return await upload_using_buffer(user,video,client_credentials)
+
+async def upload_to_instagram(user,video):
+    client_credentials = get_instagram_client(user.credentials)
+    return await upload_using_buffer(user,video,client_credentials)
 
     
 

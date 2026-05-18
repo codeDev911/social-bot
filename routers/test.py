@@ -11,7 +11,7 @@ from datetime import datetime
 
 from db import prisma
 from lib.depends import get_current_user
-from lib.subscribtion_allowed import FeatureChecker
+from lib.subscribtion_allowed import FeatureChecker 
 load_dotenv()  # Load .env file
 
 router = APIRouter(prefix="/test")
@@ -37,6 +37,8 @@ def test():
     return {"test api urls":urls}
 
 templates = Jinja2Templates(directory="templates")
+
+ 
 
 @router.get("/html")
 def testHtml(request:Request):

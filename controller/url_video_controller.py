@@ -65,9 +65,6 @@ class FromPlatform:
     def get_temp_file_name(self):
         FOLDER_PATH = "/tmp"
         return f"{FOLDER_PATH}/{datetime.datetime.now()}.mp4"
-    
-
-
 
     async def tiktok(self):  
         filePath = self.get_temp_file_name()
