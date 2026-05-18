@@ -472,7 +472,7 @@
     document.getElementById('saveNotificationsBtn').addEventListener('click', saveNotifications);
     
     // Buffer
-    document.getElementById('saveBufferBtn').addEventListener('click', saveBufferConfig);
+    document.getElementById('saveBufferBtn').addEventListener('click', connectBufferProfiles);
     document.getElementById('reconnectBufferBtn').addEventListener('click', reconnectBuffer);
     document.getElementById('toggleBufferKeyBtn').addEventListener('click', toggleBufferKeyVisibility);
     
@@ -686,35 +686,7 @@
     }
   }
 
-  // Save buffer config
-  async function saveBufferConfig() {
-    try {
-      const bufferApiKey = document.getElementById('bufferApiKey').value.trim();
-      
-      if (!bufferApiKey) {
-        showNotification('Please enter your Buffer API key', 'error');
-        return;
-      }
-
-      const data = {
-        bufferApiKey: bufferApiKey
-      };
-
-      const response = await fetch(`${API_BASE}/user/config`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-
-      if (!response.ok) throw new Error('Failed to save buffer config');
-      
-      // Now connect to Buffer via dashboard endpoint
-      await connectBufferProfiles();
-    } catch (error) {
-      console.error('Error saving buffer config:', error);
-      showNotification('Failed to save buffer configuration', 'error');
-    }
-  }
+   
   
   // Connect to Buffer profiles (call dashboard endpoint)
   async function connectBufferProfiles() {
