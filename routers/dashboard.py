@@ -266,7 +266,7 @@ async def trigger_pexels_upload(background_tasks:BackgroundTasks,per_page : int 
 
 
 # This is Scheduled by DBOS 
-@router.get("/trigger-upload")
+@router.post("/trigger-upload")
 async def trigger_upload(background_tasks: BackgroundTasks,user_id:int,secret:str):
 
     if secret != INTERNAL_SECRET:
