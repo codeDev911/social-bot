@@ -266,8 +266,8 @@ async def trigger_pexels_upload(background_tasks:BackgroundTasks,per_page : int 
 
 
 # This is Scheduled by DBOS 
-@router.post("/trigger-upload")
-async def trigger_youtube_upload(background_tasks: BackgroundTasks,user_id:int,secret:str):
+@router.get("/trigger-upload")
+async def trigger_upload(background_tasks: BackgroundTasks,user_id:int,secret:str):
 
     if secret != INTERNAL_SECRET:
         raise HTTPException(status_code=403, detail="Forbidden")
@@ -293,7 +293,6 @@ async def trigger_youtube_upload(background_tasks: BackgroundTasks,user_id:int,s
              }
          }
     )
-
     for video in pending_videos:
         if not video.user.id in  uploaded_users: # Check only one video of a user will upload dailyl
             background_tasks.add_task(await UploadVideo(video.user,video).upload())

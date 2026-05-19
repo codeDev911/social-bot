@@ -32,16 +32,19 @@ class UploadVideo:
 
     async def upload(self):
         for upload_to in self.upload_target:
-            if upload_to == "Youtube":
-                await upload_to_youtube(self.user,self.video)
-            elif upload_to == "Tiktok":
-                await upload_to_tiktok(self.user,self.video)
-            elif upload_to == "Facebook":
-                upload_to_facebook(self.user,self.video)
-            elif upload_to == "Instagram":
-                upload_to_instagram(self.user,self.video)
-            else:
-                print(f"Unknown platform: {upload_to}")
+            try:
+                if upload_to == "Youtube":
+                    await upload_to_youtube(self.user,self.video)
+                elif upload_to == "Tiktok":
+                    await upload_to_tiktok(self.user,self.video)
+                elif upload_to == "Facebook":
+                    await upload_to_facebook(self.user,self.video)
+                elif upload_to == "Instagram":
+                    await upload_to_instagram(self.user,self.video)
+                else:
+                    print(f"Unknown platform: {upload_to}")
+            except Exception as e:
+                print(f"Error uploading to {upload_to}: {str(e)}")
 
 
 async def upload_to_youtube(user,video):
