@@ -5,11 +5,16 @@ def build_transformations_array(user_id: int, dynamic_edits: Optional[Dict] = No
     """
     Build a Cloudinary transformation array from user's dynamic edit settings.
     
-    Strict ordering:
-    1. Audio adjustments (speed, frequency)
+    Transformation phases:
+    1. Audio adjustments (frequency, volume, codec)
     2. Visual filters (vignette, noise)
     3. Text styling (overlay, color, opacity)
     4. Position apply block (gravity, y position)
+    
+    Cloudinary Audio Support:
+    - audio_frequency: Cap audio sampling frequency (Hz)
+    - effect: volume: Adjust volume as percentage (100% = normal, 103% = 3% louder)
+    - audio_codec: Select codec or mute (none)
     
     Conditional skipping: Skip blocks entirely if value is 0 or empty.
     """
@@ -37,15 +42,20 @@ def build_transformations_array(user_id: int, dynamic_edits: Optional[Dict] = No
         }
     
     # ============= PHASE 1: AUDIO CONTROLS =============
+    # Cloudinary DOES support: audio_frequency, audio_codec, volume effect
     audio_controls = dynamic_edits.get("audioControls", {})
     
-    # Audio speed adjustment
-    if audio_controls.get("audio_speed"):
-        transformations.append({"effect": f"speed:{audio_controls['audio_speed']}"})
-    
-    # Audio frequency
+    # Audio frequency control (cap sampling frequency)
     if audio_controls.get("audio_frequency"):
-        transformations.append({"audio_frequency": audio_controls["audio_frequency"]})
+        transformations.append({"audio_frequency": str(audio_controls["audio_frequency"])})
+    
+    # Audio volume adjustment (speed slider 100-105 maps to volume percentage)
+    # 100 = normal (100%), 103 = 3% louder (103%), etc.
+    audio_speed = audio_controls.get("audio_speed")
+    if audio_speed and audio_speed != 100:
+        # Map speed value to volume percentage (e.g., 103 -> 103%)
+        volume_percent = audio_speed
+        transformations.append({"effect": f"volume:{volume_percent}"})
     
     # Mute audio if enabled
     if audio_controls.get("mute_audio"):
@@ -70,21 +80,17 @@ def build_transformations_array(user_id: int, dynamic_edits: Optional[Dict] = No
     if text_content and text_content.strip():
         # Safe URL encoding: encode all special chars
         encoded_text = quote(text_content, safe='')
+        
+        # Get text styling
+        text_color = text_controls.get("text_color", "#FFFFFF").lstrip("#")
+        text_opacity = text_controls.get("text_opacity", 100)
+        
+        # Build text overlay with color and opacity
         transformations.append({
-            "overlay": f"text:Arial_36_bold:{encoded_text}"
+            "overlay": f"text:Arial_36_bold:{encoded_text}",
+            "color": text_color,
+            "opacity": text_opacity
         })
-        
-        # Text color
-        if text_controls.get("text_color"):
-            transformations.append({
-                "color": text_controls["text_color"]
-            })
-        
-        # Text opacity
-        if text_controls.get("text_opacity"):
-            transformations.append({
-                "opacity": text_controls["text_opacity"]
-            })
         
         # ============= PHASE 4: POSITION APPLY BLOCK =============
         # This MUST come after text styling and be applied to position the layer
