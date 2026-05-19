@@ -88,7 +88,7 @@ def build_transformations_array(user_id: int, dynamic_edits: Optional[Dict] = No
         # Build text overlay with color and opacity
         transformations.append({
             "overlay": f"text:Arial_36_bold:{encoded_text}",
-            "color": text_color,
+            "color": f"#{text_color}",
             "opacity": text_opacity
         })
         
