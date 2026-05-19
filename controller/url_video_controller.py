@@ -10,6 +10,8 @@ from rq import Queue
 from wroker import generate_caption_htags
 from db import prisma
 from imageio_ffmpeg import get_ffmpeg_exe
+from controller.copyright_transformer import build_transformations_array
+import json
 load_dotenv()
 # Setup redis
 redis_conn = Redis.from_url("redis://default_ro:AqNxACQgZGE5ZTUxOGEtMDQzZi00NjdjLTk1YjYtOTZlODIyYWU5YmQzr8ysXHUHAEZBtQODSduNaoQZvxvc-N6CjMlVFsDpUww=@fly-contentby-redis.upstash.io:6379")
@@ -25,11 +27,84 @@ cloudinary.config(
 
 tempFiles = []
 
+
+def deserialize_and_map_dynamic_edits(dynamic_edits_config):
+    """
+    Deserialize JSON strings from database and map frontend field names to transformer field names.
+    Frontend sends: {speed, frequency, mute, text, color, opacity, position, yGap, vignette, noise}
+    Transformer expects: {audio_speed, audio_frequency, mute_audio, text_content, text_color, text_opacity, text_gravity, text_y_gap, vignette_strength, noise_strength}
+    """
+    if not dynamic_edits_config:
+        return None
+    
+    try:
+        # Deserialize JSON strings from database
+        audio_controls = dynamic_edits_config.get("audioControls", {})
+        if isinstance(audio_controls, str):
+            audio_controls = json.loads(audio_controls)
+        
+        text_overlay_controls = dynamic_edits_config.get("textOverlayControls", {})
+        if isinstance(text_overlay_controls, str):
+            text_overlay_controls = json.loads(text_overlay_controls)
+        
+        pixel_distortion_controls = dynamic_edits_config.get("pixelDistortionControls", {})
+        if isinstance(pixel_distortion_controls, str):
+            pixel_distortion_controls = json.loads(pixel_distortion_controls)
+        
+        # Map frontend field names to transformer field names
+        mapped_config = {
+            "audioControls": {
+                "audio_speed": audio_controls.get("speed"),
+                "audio_frequency": audio_controls.get("frequency"),
+                "mute_audio": audio_controls.get("mute", False)
+            },
+            "textOverlayControls": {
+                "text_content": text_overlay_controls.get("text", ""),
+                "text_color": text_overlay_controls.get("color", "#F97316"),
+                "text_opacity": text_overlay_controls.get("opacity", 60),
+                "text_gravity": text_overlay_controls.get("position", "south"),
+                "text_y_gap": text_overlay_controls.get("yGap", 120)
+            },
+            "pixelDistortionControls": {
+                "vignette_strength": pixel_distortion_controls.get("vignette", 0),
+                "noise_strength": pixel_distortion_controls.get("noise", 0)
+            }
+        }
+        
+        return mapped_config
+    except Exception as e:
+        print(f"Error deserializing dynamic edits: {str(e)}")
+        return None
+
+
+
 async def upload_to_cloudinary(filePath:str,userId:any,upload_targets:any):
     """This will upload the asset to cloudinary and create video in database will save the details needed"""
+    
+    # Fetch user's dynamic edit configuration
+    user = await prisma.user.find_unique(
+        where={"id": userId},
+        include={"dynamicEdits": True}
+    )
+    
+    # Get dynamic edits config if exists
+    dynamic_edits_config = None
+    if user and user.dynamicEdits:
+        raw_config = {
+            "audioControls": user.dynamicEdits.audioControls,
+            "textOverlayControls": user.dynamicEdits.textOverlayControls,
+            "pixelDistortionControls": user.dynamicEdits.pixelDistortionControls,
+        }
+        # Deserialize and map field names
+        dynamic_edits_config = deserialize_and_map_dynamic_edits(raw_config)
+    
+    # Build transformations from user config or use defaults
+    transformations_list = build_transformations_array(userId, dynamic_edits_config)
+    
     upload_response = cloudinary.uploader.upload(
         filePath,
         resource_type="video",
+        transformation = transformations_list,
         folder="social-bot-videos"  # Optional: Specify a folder in Cloudinary
     )
 
@@ -69,7 +144,6 @@ class FromPlatform:
     async def tiktok(self):  
         filePath = self.get_temp_file_name()
         sanitized_file_path = filePath.replace(" ", "-").replace(":", "-")
-
         ffmpeg_binary_path = get_ffmpeg_exe()
         try:
             ydl_opts = { 
@@ -88,9 +162,8 @@ class FromPlatform:
                 print("video downloaded")    
             
             print("userid",self.user_id[0])
-            print("upload_targets",self.upload_targets)
-            # return {"success":"Video downloaded from tiktok success"}
-            # Upload directly to Cloudinary
+            print("upload_targets",self.upload_targets) 
+
             await upload_to_cloudinary(sanitized_file_path,self.user_id[0],self.upload_targets)
 
             await prisma.usage.update(

@@ -75,6 +75,7 @@ model User {
   updatedAt      DateTime
   plan           userPlan?
   userConfig     userConfig?
+  dynamicEdits   DynamicEdit?
 }
 
 model userPlan {
@@ -99,6 +100,20 @@ model Usage {
   captionRequests   Int      @default(0)
   credits           Int      @default(0)
   lastReset         DateTime @default(now())
+}
+
+model DynamicEdit {
+  id     Int  @id @unique @default(autoincrement())
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id])
+
+  // Anti-copyright transformation config stored as JSON
+  audioControls Json @default("{}")
+  textOverlayControls Json @default("{}")
+  pixelDistortionControls Json @default("{}")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum UserPlanType {

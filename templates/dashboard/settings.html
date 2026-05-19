@@ -133,6 +133,14 @@
         </div>
 
         <button type="button" id="saveContentBtn" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm">Save Preferences</button>
+        <div class="pt-4 border-t border-white/10">
+          <button type="button" id="openAntiCopyrightBtn" class="text-sm text-brand-orange hover:text-brand-orange/80 transition-colors flex items-center space-x-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+            </svg>
+            <span>Edit Anti-Copyright Settings</span>
+          </button>
+        </div>
       </form>
     </section>
 
@@ -313,6 +321,99 @@
       </form>
     </section>
 
+    <!-- Anti-Copyright Modal -->
+    <div id="antiCopyrightModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50">
+      <div class="bg-slate-950 border border-white/10 rounded-2xl p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-xl font-bold text-white">Anti-Copyright Settings</h2>
+          <button type="button" id="closeAntiCopyrightBtn" class="text-slate-400 hover:text-white transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <form id="antiCopyrightForm" class="space-y-6">
+          <!-- Audio Controls -->
+          <div>
+            <h3 class="text-sm font-semibold text-white mb-3">Audio Transformations</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="text-xs text-slate-400 block mb-2">Speed Multiplier: <span id="audioSpeedDisplay">103</span>%</label>
+                <input type="range" id="audioSpeed" min="100" max="105" value="103" class="w-full" step="1">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 block mb-2">Frequency (Hz)</label>
+                <select id="audioFrequency" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-brand-orange/50 focus:outline-none">
+                  <option value="44100">44100 Hz</option>
+                  <option value="32000">32000 Hz</option>
+                  <option value="22050" selected>22050 Hz</option>
+                </select>
+              </div>
+              <div class="flex items-center justify-between">
+                <label class="text-xs text-slate-400">Mute Audio</label>
+                <input type="checkbox" id="audioMute" class="w-4 h-4">
+              </div>
+            </div>
+          </div>
+
+          <!-- Text Overlay -->
+          <div>
+            <h3 class="text-sm font-semibold text-white mb-3">Text Overlay</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="text-xs text-slate-400 block mb-2">Text Content</label>
+                <input type="text" id="textOverlayText" placeholder="@yourhandle" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-slate-500 text-sm focus:border-brand-orange/50 focus:outline-none" value="@yourhandle">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 block mb-2">Text Color</label>
+                <input type="color" id="textOverlayColor" value="#F97316" class="w-full h-10 rounded-lg cursor-pointer">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 block mb-2">Opacity: <span id="textOpacityDisplay">60</span>%</label>
+                <input type="range" id="textOpacity" min="10" max="100" value="60" class="w-full" step="1">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 block mb-2">Position</label>
+                <select id="textPosition" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-brand-orange/50 focus:outline-none">
+                  <option value="north">Top</option>
+                  <option value="south" selected>Bottom</option>
+                  <option value="north_east">Top Right</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 block mb-2">Y Gap (px): <span id="textYGapDisplay">120</span></label>
+                <input type="range" id="textYGap" min="50" max="200" value="120" class="w-full" step="1">
+              </div>
+            </div>
+          </div>
+
+          <!-- Pixel Distortion -->
+          <div>
+            <h3 class="text-sm font-semibold text-white mb-3">Pixel Distortions</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="text-xs text-slate-400 block mb-2">Vignette: <span id="vignetteDisplay">10</span></label>
+                <input type="range" id="vignette" min="0" max="30" value="10" class="w-full" step="1">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 block mb-2">Noise: <span id="noiseDisplay">3</span></label>
+                <input type="range" id="noise" min="0" max="10" value="3" class="w-full" step="1">
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex gap-3 pt-4 border-t border-white/10">
+            <button type="button" id="saveAntiCopyrightBtn" class="flex-1 btn-gradient px-4 py-2 rounded-lg text-white font-medium text-sm">Save Settings</button>
+            <button type="button" id="resetAntiCopyrightBtn" class="flex-1 px-4 py-2 rounded-lg border border-white/10 text-slate-400 font-medium text-sm hover:bg-white/5 transition-colors">Reset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
 <style>
   input[type="checkbox"] {
     appearance: none;
@@ -352,6 +453,14 @@
     await loadBufferStatus();
     await loadSchedule();
     setupEventListeners();
+    await loadAntiCopyrightSettings();
+    
+    // Close modal when clicking on backdrop
+    document.getElementById('antiCopyrightModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeAntiCopyrightModal();
+      }
+    });
   });
 
   // Load user configuration
@@ -475,6 +584,19 @@
     document.getElementById('saveBufferBtn').addEventListener('click', connectBufferProfiles);
     document.getElementById('reconnectBufferBtn').addEventListener('click', reconnectBuffer);
     document.getElementById('toggleBufferKeyBtn').addEventListener('click', toggleBufferKeyVisibility);
+    
+    // Anti-Copyright
+    document.getElementById('openAntiCopyrightBtn').addEventListener('click', openAntiCopyrightModal);
+    document.getElementById('closeAntiCopyrightBtn').addEventListener('click', closeAntiCopyrightModal);
+    document.getElementById('saveAntiCopyrightBtn').addEventListener('click', saveAntiCopyrightSettings);
+    document.getElementById('resetAntiCopyrightBtn').addEventListener('click', resetAntiCopyrightSettings);
+    
+    // Anti-Copyright slider displays
+    document.getElementById('audioSpeed').addEventListener('input', updateAntiCopyrightDisplayValues);
+    document.getElementById('textOpacity').addEventListener('input', updateAntiCopyrightDisplayValues);
+    document.getElementById('textYGap').addEventListener('input', updateAntiCopyrightDisplayValues);
+    document.getElementById('vignette').addEventListener('input', updateAntiCopyrightDisplayValues);
+    document.getElementById('noise').addEventListener('input', updateAntiCopyrightDisplayValues);
     
     // Navigation
     document.querySelectorAll('.settings-nav-item').forEach(item => {
@@ -742,5 +864,113 @@
       notification.remove();
     }, 3000);
   }
+
+  // Anti-Copyright Settings Functions
+  function openAntiCopyrightModal() {
+    document.getElementById('antiCopyrightModal').style.display = 'flex';
+  }
+
+  function closeAntiCopyrightModal() {
+    document.getElementById('antiCopyrightModal').style.display = 'none';
+  }
+
+  function updateAntiCopyrightDisplayValues() {
+    document.getElementById('audioSpeedDisplay').textContent = document.getElementById('audioSpeed').value;
+    document.getElementById('textOpacityDisplay').textContent = document.getElementById('textOpacity').value;
+    document.getElementById('textYGapDisplay').textContent = document.getElementById('textYGap').value;
+    document.getElementById('vignetteDisplay').textContent = document.getElementById('vignette').value;
+    document.getElementById('noiseDisplay').textContent = document.getElementById('noise').value;
+  }
+
+  async function loadAntiCopyrightSettings() {
+    try {
+      const response = await fetch('/dashboard/api/settings/dynamic-edits', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch anti-copyright settings');
+      
+      const data = await response.json();
+      
+      // Populate audio controls
+      document.getElementById('audioSpeed').value = data.audioControls?.speed || 103;
+      document.getElementById('audioFrequency').value = data.audioControls?.frequency || 22050;
+      document.getElementById('audioMute').checked = data.audioControls?.mute || false;
+      
+      // Populate text overlay
+      document.getElementById('textOverlayText').value = data.textOverlayControls?.text || '@yourhandle';
+      document.getElementById('textOverlayColor').value = data.textOverlayControls?.color || '#F97316';
+      document.getElementById('textOpacity').value = data.textOverlayControls?.opacity || 60;
+      document.getElementById('textPosition').value = data.textOverlayControls?.position || 'south';
+      document.getElementById('textYGap').value = data.textOverlayControls?.yGap || 120;
+      
+      // Populate pixel distortion
+      document.getElementById('vignette').value = data.pixelDistortionControls?.vignette || 10;
+      document.getElementById('noise').value = data.pixelDistortionControls?.noise || 3;
+      
+      // Update display values
+      updateAntiCopyrightDisplayValues();
+    } catch (error) {
+      console.error('Error loading anti-copyright settings:', error);
+    }
+  }
+
+  async function saveAntiCopyrightSettings() {
+    try {
+      const data = {
+        audioControls: {
+          speed: parseInt(document.getElementById('audioSpeed').value),
+          frequency: parseInt(document.getElementById('audioFrequency').value),
+          mute: document.getElementById('audioMute').checked
+        },
+        textOverlayControls: {
+          text: document.getElementById('textOverlayText').value,
+          color: document.getElementById('textOverlayColor').value,
+          opacity: parseInt(document.getElementById('textOpacity').value),
+          position: document.getElementById('textPosition').value,
+          yGap: parseInt(document.getElementById('textYGap').value)
+        },
+        pixelDistortionControls: {
+          vignette: parseInt(document.getElementById('vignette').value),
+          noise: parseInt(document.getElementById('noise').value)
+        }
+      };
+
+      const response = await fetch('/dashboard/api/settings/dynamic-edits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) throw new Error('Failed to save anti-copyright settings');
+      
+      showNotification('Anti-copyright settings saved successfully!', 'success');
+      closeAntiCopyrightModal();
+    } catch (error) {
+      console.error('Error saving anti-copyright settings:', error);
+      showNotification('Failed to save anti-copyright settings', 'error');
+    }
+  }
+
+  function resetAntiCopyrightSettings() {
+    // Reset to defaults
+    document.getElementById('audioSpeed').value = 103;
+    document.getElementById('audioFrequency').value = 22050;
+    document.getElementById('audioMute').checked = false;
+    
+    document.getElementById('textOverlayText').value = '@yourhandle';
+    document.getElementById('textOverlayColor').value = '#F97316';
+    document.getElementById('textOpacity').value = 60;
+    document.getElementById('textPosition').value = 'south';
+    document.getElementById('textYGap').value = 120;
+    
+    document.getElementById('vignette').value = 10;
+    document.getElementById('noise').value = 3;
+    
+    updateAntiCopyrightDisplayValues();
+    showNotification('Settings reset to defaults', 'info');
+  }
 </script>
+
 {% endblock %}

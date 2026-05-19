@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from controller.auth import set_user_credentials
 import os
+import json
 load_dotenv()
 
 templates = Jinja2Templates(directory="templates")
@@ -27,6 +28,12 @@ INTERNAL_SECRET=os.getenv("INTERNAL_SECRET")
 
 class BufferConnectRequest(BaseModel):
     bufferApiKey: str
+
+
+class DynamicEditRequest(BaseModel):
+    audioControls: dict = {}
+    textOverlayControls: dict = {}
+    pixelDistortionControls: dict = {}
 
 
 def _normalize_credentials(credentials):
@@ -250,9 +257,10 @@ async def upload_url_video(
   
     if isinstance(current_user,RedirectResponse):
         return current_user
-    
+    print("this hits")
     # Calling a class that has many Facebook, Tiktok, Youtube and Instagram video download and uploader to Cloudinary
     down_and_upload_from = FromPlatform(video_url=url,user_id=current_user.id,upload_targets=upload_destinations)
+    print("included")
     background_tasks.add_task(await down_and_upload_from[platform])
     return {"message":"Process started"}
 
@@ -363,3 +371,77 @@ async def buffer_connect(body: BufferConnectRequest, current_user = Depends(get_
     except Exception as e:
         print(e)
         raise HTTPException(status_code=400, detail=f"Failed to connect to Buffer: {str(e)}")
+
+
+# Dynamic edits for anti-copyright transformations
+@router.get("/api/settings/dynamic-edits")
+async def get_dynamic_edits(current_user: dict = Depends(get_current_user)):
+    """Fetch user's dynamic edit configuration"""
+    if isinstance(current_user, RedirectResponse):
+        return current_user
+    
+    dynamic_edits = await prisma.dynamicedit.find_unique(
+        where={"userId": current_user.id}
+    )
+
+    
+    if not dynamic_edits:
+        return {
+            "audioControls": {},
+            "textOverlayControls": {},
+            "pixelDistortionControls": {}
+        }
+    
+    return {
+        "audioControls": json.loads(dynamic_edits.audioControls) if isinstance(dynamic_edits.audioControls, str) else dynamic_edits.audioControls or {},
+        "textOverlayControls": json.loads(dynamic_edits.textOverlayControls) if isinstance(dynamic_edits.textOverlayControls, str) else dynamic_edits.textOverlayControls or {},
+        "pixelDistortionControls": json.loads(dynamic_edits.pixelDistortionControls) if isinstance(dynamic_edits.pixelDistortionControls, str) else dynamic_edits.pixelDistortionControls or {},
+    }
+
+
+@router.post("/api/settings/dynamic-edits")
+async def save_dynamic_edits(request: DynamicEditRequest, current_user: dict = Depends(get_current_user)):
+    """Save user's dynamic edit configuration"""
+    if isinstance(current_user, RedirectResponse):
+        return current_user
+    
+    try:
+        # Check if record exists
+        existing = await prisma.dynamicedit.find_unique(
+            where={"userId": current_user.id}
+        ) 
+        
+        if existing:
+            # Update existing record
+            dynamic_edits = await prisma.dynamicedit.update(
+                where={"userId": current_user.id},
+                data={
+                    "audioControls": json.dumps(request.audioControls),
+                    "textOverlayControls": json.dumps(request.textOverlayControls),
+                    "pixelDistortionControls": json.dumps(request.pixelDistortionControls),
+                }
+            )
+        else:
+            # Create new record
+            dynamic_edits = await prisma.dynamicedit.create(
+                data={
+                    "userId": current_user.id,
+                    "audioControls": json.dumps(request.audioControls),
+                    "textOverlayControls": json.dumps(request.textOverlayControls),
+                    "pixelDistortionControls": json.dumps(request.pixelDistortionControls),
+                }
+            )
+        
+        return {
+            "success": True,
+            "message": "Dynamic edits saved successfully",
+            "data": {
+                "audioControls": json.loads(dynamic_edits.audioControls) if isinstance(dynamic_edits.audioControls, str) else dynamic_edits.audioControls,
+                "textOverlayControls": json.loads(dynamic_edits.textOverlayControls) if isinstance(dynamic_edits.textOverlayControls, str) else dynamic_edits.textOverlayControls,
+                "pixelDistortionControls": json.loads(dynamic_edits.pixelDistortionControls) if isinstance(dynamic_edits.pixelDistortionControls, str) else dynamic_edits.pixelDistortionControls,
+            }
+        }
+    except Exception as e:
+        print(f"Error saving dynamic edits: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save dynamic edits: {str(e)}")
+          
