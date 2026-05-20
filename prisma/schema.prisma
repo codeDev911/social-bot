@@ -112,6 +112,9 @@ model DynamicEdit {
   textOverlayControls Json @default("{}")
   pixelDistortionControls Json @default("{}")
   
+  // Playground transformations config stored as JSON
+  playgroundTransformations Json @default("{}")
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

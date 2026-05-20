@@ -1,0 +1,432 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-8 pb-8">
+  <!-- Header -->
+  <section class="pt-8">
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold text-white mb-2">🎬 Video Playground</h1>
+      <p class="text-slate-400">Preview transformations in real-time before uploading</p>
+    </div>
+  </section>
+
+  <!-- Main Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    
+    <!-- Video Preview -->
+    <div class="lg:col-span-2">
+      <div class="glass rounded-2xl p-6 space-y-4">
+        <h2 class="text-lg font-bold text-white">Live Preview</h2>
+        
+        <!-- Video Container with Canvas Overlay -->
+        <div id="videoWrapper" class="relative bg-black rounded-xl overflow-hidden" style="aspect-ratio: 16/9;">
+          <!-- Video -->
+          <video id="video" controls style="width: 100%; height: 100%; display: block;">
+            <source src="https://cdn.pixabay.com/video/2022/02/06/106883-674268697_large.mp4" type="video/mp4">
+          </video>
+          
+          <!-- Canvas for text overlay -->
+          <canvas id="textCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none;"></canvas>
+        </div>
+
+        <!-- Info Display -->
+        <div class="p-4 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-400 space-y-1">
+          <p>📝 Text: <span id="infoText">Disabled</span></p>
+          <p>🔊 Audio: <span id="infoAudio">Normal (0%)</span></p>
+          <p>📐 Crop: <span id="infoCrop">None</span></p>
+          <p>🧭 Position: <span id="infoGravity">Auto</span></p>
+        </div>
+
+        <!-- Buttons -->
+        <div class="grid grid-cols-2 gap-3">
+          <button onclick="resetAll()" class="px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 text-sm">↻ Reset</button>
+          <button onclick="saveSettings()" id="saveBtn" class="px-4 py-2 bg-brand-orange/10 border border-brand-orange/30 text-brand-orange rounded-lg hover:bg-brand-orange/20 text-sm">💾 Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="space-y-4">
+      
+      <!-- Text -->
+      <div class="glass rounded-xl p-4">
+        <h3 class="text-sm font-bold text-white mb-3 cursor-pointer" onclick="toggleSection(this)">📝 Text Overlay</h3>
+        <div class="section-content space-y-2 text-xs">
+          <label class="flex items-center gap-2">
+            <input type="checkbox" id="textEnable" onchange="applyEffects()" class="w-4 h-4">
+            <span class="text-slate-300">Enable</span>
+          </label>
+          <div>
+            <label class="text-slate-400 block mb-1">Text</label>
+            <input type="text" id="textValue" value="@brand" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">Size: <span id="sizeVal">48</span>px</label>
+            <input type="range" id="textSize" min="8" max="120" value="48" onchange="document.getElementById('sizeVal').textContent = this.value; applyEffects()" class="w-full">
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">Color</label>
+            <input type="color" id="textColor" value="#F97316" onchange="applyEffects()" class="w-full h-6 cursor-pointer">
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">Position</label>
+            <select id="textPos" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+              <option value="center">Center</option>
+              <option value="top">Top</option>
+              <option value="bottom">Bottom</option>
+              <option value="top-left">Top-Left</option>
+              <option value="top-right">Top-Right</option>
+              <option value="bottom-left">Bottom-Left</option>
+              <option value="bottom-right">Bottom-Right</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">Opacity: <span id="opacVal">100</span>%</label>
+            <input type="range" id="textOpacity" min="0" max="100" value="100" onchange="document.getElementById('opacVal').textContent = this.value; applyEffects()" class="w-full">
+          </div>
+        </div>
+      </div>
+
+      <!-- Audio -->
+      <div class="glass rounded-xl p-4">
+        <h3 class="text-sm font-bold text-white mb-3 cursor-pointer" onclick="toggleSection(this)">🔊 Audio</h3>
+        <div class="section-content space-y-2 text-xs">
+          <div>
+            <label class="text-slate-400 block mb-1">Volume: <span id="volVal">0</span>%</label>
+            <input type="range" id="audioVol" min="-100" max="200" value="0" onchange="document.getElementById('volVal').textContent = this.value; applyEffects()" class="w-full">
+          </div>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" id="audioMute" onchange="applyEffects()" class="w-4 h-4">
+            <span class="text-slate-300">Mute</span>
+          </label>
+          <div>
+            <label class="text-slate-400 block mb-1">Frequency</label>
+            <select id="audioFreq" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+              <option value="">Default</option>
+              <option value="22050">22.05 kHz</option>
+              <option value="44100">44.1 kHz</option>
+              <option value="48000">48 kHz</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Crop -->
+      <div class="glass rounded-xl p-4">
+        <h3 class="text-sm font-bold text-white mb-3 cursor-pointer" onclick="toggleSection(this)">📐 Crop</h3>
+        <div class="section-content space-y-2 text-xs">
+          <div>
+            <label class="text-slate-400 block mb-1">Mode</label>
+            <select id="cropMode" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+              <option value="none">None</option>
+              <option value="scale">Scale</option>
+              <option value="crop">Crop</option>
+              <option value="thumb">Thumbnail</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">Gravity</label>
+            <select id="gravity" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+              <option value="center">Center</option>
+              <option value="north">Top</option>
+              <option value="south">Bottom</option>
+              <option value="east">Right</option>
+              <option value="west">Left</option>
+              <option value="northeast">Top-Right</option>
+              <option value="northwest">Top-Left</option>
+              <option value="southeast">Bottom-Right</option>
+              <option value="southwest">Bottom-Left</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trim -->
+      <div class="glass rounded-xl p-4">
+        <h3 class="text-sm font-bold text-white mb-3 cursor-pointer" onclick="toggleSection(this)">✂️ Trim</h3>
+        <div class="section-content space-y-2 text-xs">
+          <div>
+            <label class="text-slate-400 block mb-1">Start (sec)</label>
+            <input type="number" id="trimStart" min="0" value="0" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">Duration (sec)</label>
+            <input type="number" id="trimDur" min="1" value="30" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+          </div>
+        </div>
+      </div>
+
+      <!-- Quality -->
+      <div class="glass rounded-xl p-4">
+        <h3 class="text-sm font-bold text-white mb-3 cursor-pointer" onclick="toggleSection(this)">⚙️ Quality</h3>
+        <div class="section-content space-y-2 text-xs">
+          <select id="quality" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+            <option value="auto">Auto</option>
+            <option value="90">90 (High)</option>
+            <option value="75">75 (Medium)</option>
+            <option value="60">60 (Low)</option>
+          </select>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<style>
+  .glass {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+  }
+
+  .section-content {
+    display: block;
+  }
+
+  .section-hidden {
+    display: none;
+  }
+</style>
+
+<script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('textCanvas');
+  const ctx = canvas.getContext('2d');
+  let animFrameId;
+
+  // Toggle section visibility
+  function toggleSection(el) {
+    const content = el.nextElementSibling;
+    content.classList.toggle('section-hidden');
+  }
+
+  // Get current settings
+  function getSettings() {
+    return {
+      text: {
+        enabled: document.getElementById('textEnable').checked,
+        value: document.getElementById('textValue').value,
+        size: parseInt(document.getElementById('textSize').value),
+        color: document.getElementById('textColor').value,
+        opacity: parseInt(document.getElementById('textOpacity').value),
+        pos: document.getElementById('textPos').value
+      },
+      audio: {
+        volume: parseInt(document.getElementById('audioVol').value),
+        mute: document.getElementById('audioMute').checked,
+        freq: document.getElementById('audioFreq').value
+      },
+      crop: {
+        mode: document.getElementById('cropMode').value,
+        gravity: document.getElementById('gravity').value
+      },
+      trim: {
+        start: parseFloat(document.getElementById('trimStart').value) || 0,
+        duration: parseFloat(document.getElementById('trimDur').value) || 30
+      },
+      quality: document.getElementById('quality').value
+    };
+  }
+
+  // Apply all effects
+  function applyEffects() {
+    const settings = getSettings();
+
+    // TEXT OVERLAY
+    if (settings.text.enabled) {
+      canvas.style.display = 'block';
+    } else {
+      canvas.style.display = 'none';
+    }
+
+    // AUDIO
+    if (settings.audio.mute) {
+      video.muted = true;
+    } else {
+      video.muted = false;
+      const vol = (100 + settings.audio.volume) / 100;
+      video.volume = Math.max(0, Math.min(1, vol));
+    }
+
+    // CROP & GRAVITY
+    const wrapper = document.getElementById('videoWrapper');
+    wrapper.style.overflow = 'hidden';
+    
+    if (settings.crop.mode === 'none') {
+      wrapper.style.aspectRatio = '16/9';
+      video.style.objectFit = 'contain';
+    } else if (settings.crop.mode === 'scale') {
+      wrapper.style.aspectRatio = '16/9';
+      video.style.objectFit = 'contain';
+    } else if (settings.crop.mode === 'crop') {
+      wrapper.style.aspectRatio = '16/9';
+      video.style.objectFit = 'cover';
+    } else if (settings.crop.mode === 'thumb') {
+      wrapper.style.aspectRatio = '1/1';
+      video.style.objectFit = 'cover';
+    }
+
+    // Apply gravity
+    const gravityMap = {
+      'center': '50% 50%',
+      'north': '50% 0%',
+      'south': '50% 100%',
+      'east': '100% 50%',
+      'west': '0% 50%',
+      'northeast': '100% 0%',
+      'northwest': '0% 0%',
+      'southeast': '100% 100%',
+      'southwest': '0% 100%'
+    };
+    video.style.objectPosition = gravityMap[settings.crop.gravity] || '50% 50%';
+
+    // Update info display
+    document.getElementById('infoText').textContent = settings.text.enabled ? `"${settings.text.value}"` : 'Disabled';
+    document.getElementById('infoAudio').textContent = settings.audio.mute ? 'Muted' : `${settings.audio.volume}%`;
+    document.getElementById('infoCrop').textContent = settings.crop.mode;
+    document.getElementById('infoGravity').textContent = settings.crop.gravity;
+  }
+
+  // Draw text on canvas continuously
+  function drawText() {
+    const settings = getSettings();
+    
+    if (!settings.text.enabled) {
+      animFrameId = requestAnimationFrame(drawText);
+      return;
+    }
+
+    // Set canvas size
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+
+    // Clear
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Font size based on canvas height
+    const fontSize = (settings.text.size / 100) * canvas.height;
+    ctx.font = `bold ${fontSize}px Arial`;
+    ctx.fillStyle = settings.text.color;
+    ctx.globalAlpha = settings.text.opacity / 100;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+
+    // Position
+    let x = canvas.width / 2;
+    let y = canvas.height / 2;
+
+    switch(settings.text.pos) {
+      case 'top': y = canvas.height * 0.15; break;
+      case 'bottom': y = canvas.height * 0.85; break;
+      case 'top-left': x = canvas.width * 0.1; y = canvas.height * 0.15; break;
+      case 'top-right': x = canvas.width * 0.9; y = canvas.height * 0.15; break;
+      case 'bottom-left': x = canvas.width * 0.1; y = canvas.height * 0.85; break;
+      case 'bottom-right': x = canvas.width * 0.9; y = canvas.height * 0.85; break;
+    }
+
+    ctx.fillText(settings.text.value, x, y);
+
+    animFrameId = requestAnimationFrame(drawText);
+  }
+
+  // Save settings
+  async function saveSettings() {
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Saving...';
+
+    try {
+      const response = await fetch('/dashboard/api/playground/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          textOverlay: {
+            enabled: document.getElementById('textEnable').checked,
+            text: document.getElementById('textValue').value,
+            fontSize: parseInt(document.getElementById('textSize').value),
+            color: document.getElementById('textColor').value,
+            opacity: parseInt(document.getElementById('textOpacity').value),
+            position: document.getElementById('textPos').value
+          },
+          audioControls: {
+            volume: parseInt(document.getElementById('audioVol').value),
+            frequency: document.getElementById('audioFreq').value,
+            audioCodec: 'aac',
+            removeAudio: document.getElementById('audioMute').checked
+          },
+          resize: {
+            cropMode: document.getElementById('cropMode').value
+          },
+          trim: {
+            startOffset: parseFloat(document.getElementById('trimStart').value) || 0,
+            duration: parseFloat(document.getElementById('trimDur').value) || 30
+          },
+          gravity: {
+            gravity: document.getElementById('gravity').value
+          },
+          quality: {
+            quality: document.getElementById('quality').value
+          }
+        })
+      });
+
+      if (response.ok) {
+        btn.textContent = '✅ Saved!';
+        setTimeout(() => {
+          btn.textContent = '💾 Save';
+          btn.disabled = false;
+        }, 2000);
+      }
+    } catch (e) {
+      btn.textContent = '❌ Error';
+      setTimeout(() => {
+        btn.textContent = '💾 Save';
+        btn.disabled = false;
+      }, 2000);
+    }
+  }
+
+  // Reset all
+  function resetAll() {
+    document.getElementById('textEnable').checked = false;
+    document.getElementById('textValue').value = '@brand';
+    document.getElementById('textSize').value = 48;
+    document.getElementById('textColor').value = '#F97316';
+    document.getElementById('textOpacity').value = 100;
+    document.getElementById('textPos').value = 'center';
+    document.getElementById('audioVol').value = 0;
+    document.getElementById('audioMute').checked = false;
+    document.getElementById('audioFreq').value = '';
+    document.getElementById('cropMode').value = 'none';
+    document.getElementById('gravity').value = 'center';
+    document.getElementById('trimStart').value = 0;
+    document.getElementById('trimDur').value = 30;
+    document.getElementById('quality').value = 'auto';
+
+    document.getElementById('sizeVal').textContent = '48';
+    document.getElementById('opacVal').textContent = '100';
+    document.getElementById('volVal').textContent = '0';
+
+    applyEffects();
+  }
+
+  // Start animation loop
+  window.addEventListener('load', () => {
+    applyEffects();
+    drawText();
+  });
+
+  window.addEventListener('beforeunload', () => {
+    cancelAnimationFrame(animFrameId);
+  });
+</script>
+
+{% endblock %}

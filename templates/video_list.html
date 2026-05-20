@@ -1,3 +1,6 @@
+<!-- Include Edit Video Modal (must be before button calls) -->
+{% include "/components/edit_video_modal.html" %}
+
 <section class="text-white">
   <h2 class="text-2xl font-bold text-white mb-4">Recent Videos</h2>
   {% set video_items = videos if videos is defined and videos else [] %}
@@ -142,7 +145,7 @@
                         d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 11-2 0 1 1 0 012 0m0 3a1 1 0 11-2 0 1 1 0 012 0m0 3a1 1 0 11-2 0 1 1 0 012 0z"
                       />
                     </svg>
-                    Pending
+                    {{video.upload_status}}
                   </span>
                   {% endif %}
                 </td>
@@ -151,8 +154,12 @@
                 <td class="px-6 py-4 text-right">
                   <div class="flex items-center justify-end space-x-2">
                     <button
-                      class="p-2 hover:bg-white/10 rounded-lg transition-colors group"
+                      type="button"
+                      class="p-2 hover:bg-white/10 rounded-lg transition-colors group{% if video.upload_status == 'Uploaded' %} opacity-50 cursor-not-allowed{% endif %}"
                       title="Edit"
+                      data-video='{{ {"id": video.id, "title": video.title, "captions": video.captions, "cloudinary_url": video.cloudinary_url, "upload_status": video.upload_status, "upload_destinations": video.upload_destinations, "connected_providers": user_info.credentials.keys() | list} | tojson }}'
+                      onclick="openEditVideoModal(JSON.parse(this.dataset.video))"
+                      {% if video.upload_status == 'Uploaded' %}disabled{% endif %}
                     >
                       <svg
                         class="w-4 h-4 text-slate-400 group-hover:text-brand-orange transition-colors"
