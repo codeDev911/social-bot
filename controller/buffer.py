@@ -1,5 +1,5 @@
 import requests
- 
+
 url = "https://api.buffer.com"
 
 graphql_query = {
@@ -59,7 +59,7 @@ def get_profiles_graphql(api_key=None):
         return None
 
 
-async def publish_instantly(profile_id, caption, video_url,api_key=None):
+async def publish_instantly(profile_id, caption, video_url,api_key=None,post_type=None):
     """
     Sends a video directly to TikTok via Buffer GraphQL API instantly.
     
@@ -71,6 +71,14 @@ async def publish_instantly(profile_id, caption, video_url,api_key=None):
     if api_key is None:
         print("❌ Buffer API key is required for publishing.")
         return {"status_code":400, "error":"Buffer API key is required."}
+ 
+
+    # doing filtering for facebook  upload
+    facebook = {}
+    if post_type :
+        facebook={
+            'metadata': {'facebook': {'type': post_type}}
+        }
 
     # 📝 The GraphQL Mutation required for video posting 
     graphql_mutation = {
@@ -91,17 +99,16 @@ async def publish_instantly(profile_id, caption, video_url,api_key=None):
         """,
         "variables": {
             "input": {
+                **facebook,
                 "channelId": profile_id,
                 "text": caption,
                 "schedulingType": "automatic",
                 "mode": "shareNow",  # ⚡ CRITICAL: Tells Buffer to skip queue and post immediately
                 "assets": {
-                    "videos": [
-                        {
+                    "video":{
                             "url": video_url
                         }
-                    ]
-                }
+                },
             }
         }
     }
@@ -139,7 +146,7 @@ async def publish_instantly(profile_id, caption, video_url,api_key=None):
         return {"status_code":500, "error":response.text}
         print(f"Raw Server Traceback: {response.text}")
     except Exception as e:
-        return {"status_code":500, "error":e}
         print(f"❌ Script Runtime Error: {e}")
+        return {"status_code":500, "error":str(e)}
     return False
 

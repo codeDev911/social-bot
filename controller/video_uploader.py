@@ -140,18 +140,18 @@ def extract_filename_from_url(url):
         return url.split("/")[-1].split("?")[0]
 
 
-async def upload_using_buffer(user,video,client_credentials):
+async def upload_using_buffer(user,video,client_credentials,post_type=None):
 
     if client_credentials is None:
         print("No  credentials found.")
-        return {"message": "No  credentials found."}
+        return {"status_code": 400, "message": "No  credentials found."}
     
      
     platformId = client_credentials['client_id'] 
     caption = video.captions if video.captions else f"{user.userConfig.defaultCaption} {user.userConfig.defaultHtags}"
     
     try:
-        response = await publish_instantly(platformId,caption, video.cloudinary_url,user.userConfig.bufferApiKey)
+        response = await publish_instantly(platformId, caption, video.cloudinary_url, user.userConfig.bufferApiKey, post_type)
 
         if response["status_code"] == 200:
             await prisma.video.update(
@@ -167,15 +167,17 @@ async def upload_using_buffer(user,video,client_credentials):
                 data={"upload_status": "Failed"}
             )
             send_mail(user.email, video.cloudinary_url, video.title, "Failed")
-            print(f"TikTok upload failed: {response.text}")
+            print(f"Buffer upload failed: {response.get('error')}")
+        return response
     except Exception as e:
+        error_response = {"status_code": 500, "error": str(e)}
         await prisma.video.update(
             where={"id": video.id},
             data={"upload_status": "Failed"}
         )
         send_mail(user.email, video.cloudinary_url, video.title, "Failed")
         print(f"Error uploading: {str(e)}")
-
+        return error_response
     finally:
          await prisma.usage.update(
             where={
@@ -193,9 +195,10 @@ async def upload_to_tiktok(user, video):
     client_credentials = get_tiktok_client(user.credentials)
     return await upload_using_buffer(user,video,client_credentials)
 
-async def upload_to_facebook(user,video):
+async def upload_to_facebook(user, video):
     client_credentials = get_facebook_client(user.credentials)
-    return await upload_using_buffer(user,video,client_credentials)
+    return await upload_using_buffer(user, video, client_credentials, post_type="post") # or "reel" based on your requirement
+
 
 async def upload_to_instagram(user,video):
     client_credentials = get_instagram_client(user.credentials)
