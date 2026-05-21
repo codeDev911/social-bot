@@ -1,0 +1,146 @@
+<!-- Delete Video Confirmation Modal -->
+<div
+  id="deleteVideoModal"
+  class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+>
+  <div class="bg-gray-900 rounded-xl shadow-2xl border border-white/10 w-full max-w-md">
+    <!-- Modal Header -->
+    <div class="flex items-center justify-between p-6 border-b border-white/10">
+      <h2 class="text-xl font-bold text-white">Delete Video</h2>
+      <button
+        type="button"
+        onclick="closeDeleteVideoModal()"
+        class="p-2 hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-white"
+      >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal Content -->
+    <div class="p-6">
+      <!-- Warning Icon -->
+      <div class="flex justify-center mb-4">
+        <div class="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500/30">
+          <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Message -->
+      <div class="text-center mb-6">
+        <p class="text-slate-300 mb-2">
+          Are you sure you want to delete <span id="deleteVideoTitle" class="font-semibold text-white break-words"></span>?
+        </p>
+        <p class="text-sm text-slate-400">
+          This action cannot be undone. The video will be permanently deleted.
+        </p>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex gap-3">
+        <button
+          type="button"
+          onclick="closeDeleteVideoModal()"
+          class="flex-1 px-4 py-2 border border-white/10 text-slate-300 rounded-lg hover:border-white/20 hover:text-white transition-colors font-medium"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          id="confirmDeleteBtn"
+          onclick="confirmDeleteVideo()"
+          class="flex-1 px-4 py-2 bg-red-500/20 text-red-300 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors font-medium"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const deleteVideoModal = document.getElementById('deleteVideoModal');
+  const deleteVideoTitle = document.getElementById('deleteVideoTitle');
+  const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+  let videoToDelete = null;
+
+  function openDeleteVideoModal(videoId, videoTitle) {
+    videoToDelete = videoId;
+    deleteVideoTitle.textContent = videoTitle;
+    deleteVideoModal.classList.remove('hidden');
+  }
+
+  function closeDeleteVideoModal() {
+    deleteVideoModal.classList.add('hidden');
+    videoToDelete = null;
+  }
+
+  async function confirmDeleteVideo() {
+    if (!videoToDelete) return;
+
+    try {
+      confirmDeleteBtn.disabled = true;
+      confirmDeleteBtn.classList.add('opacity-50');
+      confirmDeleteBtn.textContent = 'Deleting...';
+
+      const response = await fetch(`/api/user/video/${videoToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Close modal
+        closeDeleteVideoModal();
+        
+        // Show success message
+        showSuccessToast('Video deleted successfully');
+        
+        // Reload the page after a short delay
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        showErrorToast(data.detail || 'Failed to delete video');
+        confirmDeleteBtn.disabled = false;
+        confirmDeleteBtn.classList.remove('opacity-50');
+        confirmDeleteBtn.textContent = 'Delete';
+      }
+    } catch (error) {
+      console.error('Error deleting video:', error);
+      showErrorToast('An error occurred while deleting the video');
+      confirmDeleteBtn.disabled = false;
+      confirmDeleteBtn.classList.remove('opacity-50');
+      confirmDeleteBtn.textContent = 'Delete';
+    }
+  }
+
+  // Close modal when clicking outside
+  deleteVideoModal.addEventListener('click', (e) => {
+    if (e.target === deleteVideoModal) {
+      closeDeleteVideoModal();
+    }
+  });
+
+  // Helper functions for toast notifications
+  function showSuccessToast(message) {
+    // You can use an existing toast system if available
+    // or create a simple notification
+    console.log('Success:', message);
+    // If you have a toast library, use it here
+  }
+
+  function showErrorToast(message) {
+    // You can use an existing toast system if available
+    // or create a simple notification
+    console.error('Error:', message);
+    // If you have a toast library, use it here
+  }
+</script>

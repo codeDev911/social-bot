@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from db import prisma as db
 from lib.depends import get_current_user
+import cloudinary.uploader
 
 router = APIRouter(prefix="/api/user", tags=["user"])
 
@@ -154,3 +155,54 @@ async def update_profile(profile: UserProfileUpdate, user = Depends(get_current_
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating profile: {str(e)}")
+
+# DELETE - Delete a video
+@router.delete("/video/{video_id}", response_model=dict)
+async def delete_video(video_id: int, user = Depends(get_current_user)):
+    """Delete a video by ID from database and Cloudinary."""
+    try:
+        # First check if the video exists and belongs to the current user
+        video = await db.video.find_unique(
+            where={"id": video_id}
+        )
+        
+        if not video:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        if video.userId != user.id:
+            raise HTTPException(status_code=403, detail="Unauthorized: You can only delete your own videos")
+        
+        # Delete from Cloudinary
+        try:
+            if video.cloudinary_id:
+                cloudinary.uploader.destroy(video.cloudinary_id, resource_type="video")
+        except Exception as cloudinary_error:
+            print(f"Warning: Failed to delete from Cloudinary: {str(cloudinary_error)}")
+            # Don't fail the entire operation if Cloudinary deletion fails
+            # but log it for debugging
+        
+        # Delete the video from database
+        deleted_video = await db.video.delete(
+            where={"id": video_id}
+        )
+        
+        # Update usage to decrement scheduledToday if video was pending/scheduled
+        if deleted_video.upload_status in ["Pending", "Processing"]:
+            await db.usage.update(
+                where={"userId": user.id},
+                data={
+                    "scheduledToday": {
+                        "decrement": 1
+                    }
+                }
+            )
+        
+        return {
+            "success": True,
+            "message": "Video deleted successfully"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting video: {str(e)}")

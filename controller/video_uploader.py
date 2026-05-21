@@ -34,12 +34,16 @@ class UploadVideo:
         for upload_to in self.upload_target:
             try:
                 if upload_to == "Youtube":
+                    print("Uploading to Youtube... ")
                     await upload_to_youtube(self.user,self.video)
                 elif upload_to == "Tiktok":
+                    print("Uploading to Tiktok... ")
                     await upload_to_tiktok(self.user,self.video)
                 elif upload_to == "Facebook":
+                    print("Uploading to Facebook... ")
                     await upload_to_facebook(self.user,self.video)
                 elif upload_to == "Instagram":
+                    print("Uploading to Instagram... ")
                     await upload_to_instagram(self.user,self.video)
                 else:
                     print(f"Unknown platform: {upload_to}")
