@@ -1,6 +1,6 @@
 from db import prisma
 
-async def create_video(user_id:int,secure_url:str,asset_id:str,title:str,upload_destinations:any=["Youtube"]):
+async def create_video(user_id:int,secure_url:str,asset_id:str,title:str,upload_destinations:any=["Youtube"],video_id=None):
     video = await prisma.video.create(
         data={
             "user":{
@@ -13,7 +13,8 @@ async def create_video(user_id:int,secure_url:str,asset_id:str,title:str,upload_
             "title":title,
             "upload_destinations":upload_destinations,
             "upload_id":"",
-            "upload_status":"Pending"
+            "upload_status":"Pending",
+            "externalId": video_id
         },
         include={
             "user":{

@@ -136,3 +136,233 @@ def trigger_deleted(recipient, file_name, title, size, triggered_at, video_statu
     subject = "Deleted Triggered Successfully"
     body = html_content(file_name, title, size, triggered_at, video_status)
     return send_email(subject, body, recipient)
+
+
+def build_scheduled_videos_email(
+    user_name: str,
+    default_upload_dest: str,
+    videos: list
+    ):
+    video_cards = ""
+
+
+    for video in videos:
+        platform_color = {
+            "youtube": "#FF0000",
+            "tiktok": "#000000",
+            "instagram": "#E1306C",
+            "facebook": "#1877F2"
+        }.get(video.get("platform", "").lower(), "#6B7280")
+
+        video_cards += f"""
+        <tr>
+            <td style="padding:0 30px 20px 30px;">
+                <table width="100%" cellpadding="0" cellspacing="0"
+                    style="border:1px solid #E5E7EB;border-radius:12px;background:#FFFFFF;">
+
+                    <tr>
+                        <td style="padding:20px;">
+
+                            <div style="
+                                display:inline-block;
+                                background:{platform_color};
+                                color:white;
+                                padding:6px 12px;
+                                border-radius:20px;
+                                font-size:12px;
+                                font-weight:bold;
+                                margin-bottom:12px;">
+                                {video["platform"].upper()}
+                            </div>
+
+                            <h3 style="
+                                margin:0 0 12px 0;
+                                font-size:18px;
+                                color:#111827;
+                                line-height:26px;">
+                                {video["title"]}
+                            </h3>
+
+                            <table width="100%">
+                                <tr>
+                                    <td style="padding:6px 0;color:#6B7280;width:120px;">
+                                        Quality Score
+                                    </td>
+                                    <td style="padding:6px 0;color:#111827;">
+                                        {video["score"]}
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="padding:6px 0;color:#6B7280;">
+                                        Video ID
+                                    </td>
+                                    <td style="padding:6px 0;color:#111827;">
+                                        {video["externalId"]}
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="padding:6px 0;color:#6B7280;">
+                                        Destination
+                                    </td>
+                                    <td style="padding:6px 0;color:#111827;">
+                                        {default_upload_dest}
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <div style="margin-top:18px;">
+                                <a href="{video['url']}"
+                                style="
+                                        background:#111827;
+                                        color:#ffffff;
+                                        text-decoration:none;
+                                        padding:12px 18px;
+                                        border-radius:8px;
+                                        display:inline-block;
+                                        font-weight:600;">
+                                    View Original Video
+                                </a>
+                            </div>
+
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+        """
+
+    return f"""
+    
+
+    <!DOCTYPE html>
+
+    <html>
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Videos Scheduled</title>
+    </head>
+
+    <body style="
+        margin:0;
+        padding:0;
+        background:#F3F4F6;
+        font-family:Arial,Helvetica,sans-serif;">
+
+    <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+    <td align="center" style="padding:40px 20px;">
+
+    <table width="700" cellpadding="0" cellspacing="0"
+        style="
+            background:#ffffff;
+            border-radius:18px;
+            overflow:hidden;
+            box-shadow:0 10px 35px rgba(0,0,0,0.08);">
+
+    
+    <tr>
+        <td style="
+            background:#111827;
+            padding:50px 40px;
+            text-align:center;">
+
+            <h1 style="
+                margin:0;
+                color:white;
+                font-size:32px;">
+                New Videos Scheduled
+            </h1>
+
+            <p style="
+                margin-top:15px;
+                color:#D1D5DB;
+                font-size:16px;
+                line-height:26px;">
+                Fresh content matching your topics has been discovered and added to your publishing queue.
+            </p>
+
+        </td>
+    </tr>
+
+    <tr>
+        <td style="padding:35px 30px;">
+
+            <p style="
+                margin:0 0 15px;
+                color:#374151;
+                font-size:16px;">
+                Hello {user_name},
+            </p>
+
+            <p style="
+                margin:0;
+                color:#6B7280;
+                font-size:15px;
+                line-height:26px;">
+                We discovered <strong>{len(videos)}</strong> new videos and successfully scheduled them for publishing to:
+            </p>
+
+            <div style="
+                margin-top:20px;
+                background:#F9FAFB;
+                border:1px solid #E5E7EB;
+                padding:18px;
+                border-radius:10px;">
+
+                <strong style="color:#111827;">
+                    {default_upload_dest}
+                </strong>
+
+            </div>
+
+        </td>
+    </tr>
+
+    {video_cards}
+
+    <tr>
+        <td style="
+            padding:30px;
+            background:#F9FAFB;
+            border-top:1px solid #E5E7EB;
+            text-align:center;">
+
+            <p style="
+                margin:0;
+                color:#6B7280;
+                font-size:13px;">
+                This notification was generated automatically by our content automation platform.
+            </p>
+
+        </td>
+    </tr>
+    
+
+    </table>
+
+    </td>
+    </tr>
+    </table>
+
+    </body>
+    </html>
+    """
+
+
+def new_video_scheduled_mail(recipient, videos,user_name, default_upload_dest):
+    subject = "New Video Scheduled Successfully"
+    destinations = ", ".join(default_upload_dest)
+    body = build_scheduled_videos_email(
+    user_name=user_name,
+    default_upload_dest=destinations,
+    videos=videos
+    )
+    return send_email(subject, body, recipient)
+
+
+
+

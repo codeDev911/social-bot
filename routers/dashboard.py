@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, Request, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, Request, Response, UploadFile,Header
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from controller.pexels import UploadPexelVideo
@@ -18,9 +18,18 @@ from pydantic import BaseModel
 from typing import Optional
 from dotenv import load_dotenv
 from controller.auth import set_user_credentials
+from controller.mail_controller import new_video_scheduled_mail
 import os
 import json
+import secrets
+import hashlib
+import uuid
+from datetime import datetime
+import logging
+
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter(prefix="/dashboard")
@@ -31,6 +40,8 @@ INTERNAL_SECRET=os.getenv("INTERNAL_SECRET")
 class BufferConnectRequest(BaseModel):
     bufferApiKey: str
 
+class GenerateApiKeyRequest(BaseModel):
+    name: str = "Discovery Service"
 
 class DynamicEditRequest(BaseModel):
     audioControls: dict = {}
@@ -397,6 +408,350 @@ async def trigger_delete_uploaded_files(background_tasks: BackgroundTasks):
     background_tasks.add_task(await delete_uploaded_files())
     print("Delete uploaded files triggered")
     return {"message":"Delete uploaded files triggered"}
+
+
+ 
+
+# ==========================================
+# API KEY MANAGEMENT ENDPOINTS
+# ==========================================
+
+
+@router.post("/api/settings/generate-api-key")
+async def generate_api_key(
+    name: str = Query("Discovery Service"),
+    current_user = Depends(get_current_user)
+):
+    """Generate an API key for external video discovery service"""
+    try:
+        if isinstance(current_user, RedirectResponse):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        # Generate secure random token
+        raw_token = secrets.token_urlsafe(32)
+        
+        # Hash it for storage (never store plain tokens)
+        hashed = hashlib.sha256(raw_token.encode()).hexdigest()
+        
+        updated = await prisma.userapikey.create(
+            data={
+                "userId": current_user.id,
+                "apiKey": hashed,
+                "name": name
+            }
+        )
+
+        # Return the plain token only once (user must save it)
+        return {
+            "success": True,
+            "message": "API key generated. Save it securely!",
+            "apiKey": raw_token,  # Only return once
+            "userId": current_user.id,
+            "expiresAt": updated.expiresAt
+        }
+
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/settings/api-key-status")
+async def get_api_key_status(current_user = Depends(get_current_user)):
+    """Check if user has an active API key"""
+    try:
+        if isinstance(current_user, RedirectResponse):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        api_key = await prisma.userapikey.find_many(
+            where={"userId": current_user.id}
+        )
+
+        result = []
+        for key in api_key:
+             result.append({
+                "hasApiKey": True,
+                "name": key.name,
+                "isActive": key.isActive,
+                "lastUsedAt": key.lastUsedAt,
+                "createdAt": key.createdAt
+            })
+       
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/api/settings/api-key")
+async def revoke_api_key(current_user = Depends(get_current_user)):
+    """Revoke user's API key"""
+    try:
+        if isinstance(current_user, RedirectResponse):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        await prisma.userapikey.update(
+            where={"userId": current_user.id},
+            data={"isActive": False}
+        )
+
+        return {"success": True, "message": "API key revoked"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==========================================
+# UPLOAD DEFAULTS ENDPOINT
+# ==========================================
+
+@router.get("/api/settings/upload-defaults")
+async def get_upload_defaults(current_user = Depends(get_current_user)):
+    """Get user's default upload destinations"""
+    try:
+        if isinstance(current_user, RedirectResponse):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        user_config = await prisma.userconfig.find_unique(
+            where={"userId": current_user.id}
+        )
+
+        if not user_config:
+            return {
+                "success": True,
+                "destinations": ["tiktok"],  # Default
+                "captionGenEnabled": True,
+                "hashtagGenEnabled": True
+            }
+
+        destinations = user_config.defaultUploadDests if isinstance(user_config.defaultUploadDests, list) else ["tiktok"]
+        
+        return {
+            "success": True,
+            "destinations": destinations,
+            "captionGenEnabled": True,
+            "hashtagGenEnabled": True
+        }
+
+    except Exception as e:
+        logger.error(f"Error fetching upload defaults: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/settings/upload-defaults")
+async def save_upload_defaults(
+    upload_destinations: list = Query(...),
+    current_user = Depends(get_current_user)
+):
+    """Save user's default upload destinations"""
+    try:
+        if isinstance(current_user, RedirectResponse):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        # Receiving ["Youtube,Tiktok"] converting -> ["Youtube","Tiktok"]
+        upload_destinations = [
+            item.strip()
+            for value in upload_destinations
+            for item in value.split(',')
+        ]
+        print("Received upload destinations:", upload_destinations)
+
+        # Validate destinations
+        valid_destinations = ["Tiktok", "Youtube", "Facebook", "Instagram"]
+        destinations = [d for d in upload_destinations if d in valid_destinations]
+        print("after destinations:", destinations)
+
+        if not destinations:
+            raise HTTPException(status_code=400, detail="At least one valid destination required")
+
+        # Get or create userconfig
+        user_config = await prisma.userconfig.find_unique(
+            where={"userId": current_user.id}
+        )
+
+        if user_config:
+            # Update existing
+            await prisma.userconfig.update(
+                where={"userId": current_user.id},
+                data={"defaultUploadDests": destinations}
+            )
+        else:
+            # Create new
+            await prisma.userconfig.create(
+                data={
+                    "userId": current_user.id,
+                    "defaultUploadDests": destinations
+                }
+            )
+
+        logger.info(f"✅ Upload defaults saved for user {current_user.id}: {destinations}")
+        return {
+            "success": True,
+            "message": "Upload defaults saved",
+            "destinations": destinations
+        }
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Error saving upload defaults: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==========================================
+# VIDEO INGEST ENDPOINT (from discovery service)
+# ==========================================
+
+async def _process_discovered_videos(
+    user_id: int,
+    videos_data: list,
+    upload_destinations: list,
+    background_tasks: BackgroundTasks
+):
+    """Background task: Download and upload discovered videos using FromPlatform"""
+    try:
+        user = await prisma.user.find_unique(
+            where={"id": user_id}, 
+        )
+        uploaded_successfully = 0
+        uploaded_videos=[]
+        for video_data in videos_data:
+            try:
+                video_url = video_data.get("videoUrl")
+                video_id = video_data.get("externalId")
+                platform = video_data.get("platform", "tiktok")
+
+                is_duplicated = await prisma.video.find_first(
+                    where={
+                        "externalId": video_id,
+                    }
+                )
+
+                if is_duplicated:
+                    logger.warning("Duplicated video found, skipping: " + video_url)
+                    continue
+
+                if not video_url:
+                    logger.warning("Skipping video without URL")
+                    continue
+
+                logger.info(f"🔄 Processing: {video_data.get('title')} from {platform}")
+
+                # Use FromPlatform just like upload-from-url does
+                down_and_upload_from = FromPlatform(
+                    video_url=video_url,
+                    user_id=user_id,
+                    upload_targets=upload_destinations,
+                    video_id=video_id
+                )
+                 
+                # Queue the actual download + upload to background
+                background_tasks.add_task(await down_and_upload_from[platform])
+                uploaded_successfully += 1
+
+                uploaded_videos.append({
+                        "url": video_url,
+                        "title": video_data.get("title"),
+                        "score":video_data.get("score"),
+                        "platform": video_data.get("platform"),
+                        "externalId": video_data.get("externalId")
+                })
+
+            except Exception as e:
+                logger.error(f"Error processing video: {str(e)}")
+                continue
+
+            finally:
+                if uploaded_successfully >= 2:  # Limit to 2 videos per run to prevent overload
+                    print(f"Uploaded {uploaded_successfully} videos, stopping to prevent overload")
+                    new_video_scheduled_mail(
+                        recipient=user.email,
+                         videos=uploaded_videos,user_name=user.fullname, default_upload_dest=upload_destinations
+                        )
+                    break
+                else:
+                    continue
+
+        logger.info(f"✅ Queued {len(videos_data)} videos for user {user_id}")
+
+    except Exception as e:
+        logger.error(f"Fatal error in video processing: {str(e)}")
+
+
+@router.post("/api/videos/ingest-discovered")
+async def ingest_discovered_videos(
+    payload: dict,
+    authorization: str = Header(None),
+    background_tasks: BackgroundTasks = BackgroundTasks()
+):
+    """
+    Receive discovered videos from external discovery service
+    Auth: Bearer <user-api-key>
+    Downloads & uploads using FromPlatform (same as upload-from-url)
+    """
+    try:
+        # 1. AUTHORIZATION CHECK
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Missing or invalid authorization")
+
+        raw_token = authorization.replace("Bearer ", "").strip()
+        hashed_token = hashlib.sha256(raw_token.encode()).hexdigest()
+
+        api_key_record = await prisma.userapikey.find_unique(
+            where={"apiKey": hashed_token}
+        )
+
+        if not api_key_record or not api_key_record.isActive:
+            logger.warning(f"Invalid API key attempt")
+            raise HTTPException(status_code=401, detail="Invalid or revoked API key")
+
+        user_id = api_key_record.userId
+
+        # 2. GET USER DETAILS
+        user = await prisma.user.find_unique(
+            where={"id": user_id},
+            include={ "userConfig": True}
+        )
+
+        if not user:
+            logger.error(f"User {user_id} not found")
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # 3. VALIDATE PAYLOAD
+        videos = payload.get("videos", [])
+        if not videos:
+            return {"success": False, "message": "No videos provided"}
+
+        if not isinstance(videos, list):
+            raise HTTPException(status_code=400, detail="Videos must be an array")
+
+        # Get upload destinations from user credentials
+        upload_destinations = user.userConfig.defaultUploadDests
+        print("Upload destinations from user config:", upload_destinations)
+        logger.info(f"📥 Ingest: {len(videos)} videos for user {user_id}")
+
+        # 4. QUEUE FOR PROCESSING
+        background_tasks.add_task(
+            _process_discovered_videos,
+            user_id=user_id,
+            videos_data=videos,
+            upload_destinations=upload_destinations if isinstance(upload_destinations, list) else [upload_destinations] if upload_destinations else ["tiktok"],
+            background_tasks=background_tasks
+        )
+
+        # Update API key last used
+        await prisma.userapikey.update(
+            where={"apiKey": hashed_token},
+            data={"lastUsedAt": datetime.now()}
+        )
+
+        return {"success": True, "message": f"Processing {len(videos)} videos"}
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Ingest error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 # Update video details (title, captions, upload destinations)

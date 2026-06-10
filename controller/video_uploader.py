@@ -9,6 +9,7 @@ load_dotenv()
 from db import prisma 
 from controller.user_credentials import get_tiktok_client, get_youtube_client,get_facebook_client,get_instagram_client
 import os
+from controller.mail_controller import new_video_scheduled_mail
 import requests
 from controller.buffer import publish_instantly
 
@@ -28,7 +29,7 @@ class UploadVideo:
     def __init__(self, user,video):
         self.user = user
         self.video = video
-        self.upload_target = video.upload_destinations if video.upload_destinations else user.userConfig.defaultUploadDest
+        self.upload_target = video.upload_destinations if video.upload_destinations else user.userConfig.defaultUploadDests
 
     async def upload(self):
         for upload_to in self.upload_target:

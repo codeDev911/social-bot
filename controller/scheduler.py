@@ -19,7 +19,7 @@ def create_user_job(user_id: str, hour: int, minute: int, timezone: str = "Asia/
             "enabled": True,
             "saveResponses": True,
             "requestMethod":1, # 1 for POST
-            "schedule": {
+            "schedule": {   
                 "timezone": timezone,
                 "hours": [hour],    # e.g., 20 for 8 PM
                 "minutes": [minute], 

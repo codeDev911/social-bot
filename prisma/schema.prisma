@@ -29,7 +29,31 @@ model Video {
   user                User            @relation(fields: [userId], references: [id])
   updatedAt           DateTime        @updatedAt
   userId              Int
+  scrapedFrom     String?  @default("unkown")     // "tiktok" | "instagram" | etc
+  externalId      String?    @default(cuid())   // Platform's native ID
+  keywords        String[]     // Array of keywords/topics
+  
+  @@index([scrapedFrom])
+  @@index([externalId])
   created_at          DateTime        @default(now())
+}
+
+
+model UserApiKey {
+  id              Int       @id @default(autoincrement())
+  userId          Int       
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  apiKey          String    @unique  // SHA256 hashed token
+  name            String?   @default("Discover Service")// e.g., "Discovery Service"
+  
+  isActive        Boolean   @default(true)
+  lastUsedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  expiresAt       DateTime?
+  
+  @@index([apiKey])
+  @@index([userId])
 }
 
 model userConfig {
@@ -41,11 +65,15 @@ model userConfig {
   defaultCaption    String        @default("")
   defaultHtags      String        @default("")
   defaultUploadDest UploadTargets @default(Youtube)
+  defaultUploadDests UploadTargets[] @default([Youtube])
   captionGenEnabled Boolean       @default(true)
   hashtagGenEnabled Boolean       @default(true)
   // Notification Preferences
   emailOnUpload     Boolean       @default(true)
   bufferApiKey     String        @default("")
+
+  autoIngestEnabled Boolean @default(false)
+  atuoIngestJson Json    @default("{}") // Store auto-ingest related settings as JSON (e.g., source platforms, filters, etc)
 
   // Scheduling
   scheduled   String @default("")
@@ -76,6 +104,7 @@ model User {
   plan           userPlan?
   userConfig     userConfig?
   dynamicEdits   DynamicEdit?
+  userApiKey     UserApiKey[]
 }
 
 model userPlan {

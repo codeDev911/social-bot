@@ -78,7 +78,7 @@ def deserialize_and_map_dynamic_edits(dynamic_edits_config):
 
 
 
-async def upload_to_cloudinary(filePath:str,userId:any,upload_targets:any):
+async def upload_to_cloudinary(filePath:str,userId:any,upload_targets:any,video_id=None):
     """This will upload the asset to cloudinary and create video in database will save the details needed"""
     
     # Fetch user's dynamic edit configuration
@@ -109,7 +109,7 @@ async def upload_to_cloudinary(filePath:str,userId:any,upload_targets:any):
     )
 
     print("Uploaded video to Cloudinary:", upload_response['secure_url'])
-    video = await create_video(userId,upload_response["secure_url"],upload_response["asset_id"],str(datetime.datetime.now()),upload_targets)        
+    video = await create_video(userId,upload_response["secure_url"],upload_response["asset_id"],str(datetime.datetime.now()),upload_targets,video_id)        
     userPlan = video.user.plan.type
 
 
@@ -130,9 +130,10 @@ qjs_path = os.path.join(os.getcwd(), "bin", "qjs")
 
 
 class FromPlatform: 
-    def __init__(self,video_url,user_id:int,upload_targets=["Youtube"]):
+    def __init__(self,video_url,user_id:int,upload_targets=["Youtube"],video_id=None):
         self.user_id = user_id,
         self.video_url =  video_url
+        self.video_id =  video_id
         self.upload_targets = upload_targets
         self.proxy_url =  f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
 
@@ -149,7 +150,7 @@ class FromPlatform:
             ydl_opts = { 
             'format': 'b[ext=mp4]', # 'b' forces a single pre-merged video+audio file (bypasses heavy merging)
             # 'format': 'bestvideo+bestaudio/best', # high-quality 1080p/4K
-            'proxy': self.proxy_url,  # TikTok often blocks requests from certain IPs, using a proxy can help bypass this
+            #  'proxy': self.proxy_url,  # TikTok often blocks requests from certain IPs, using a proxy can help bypass this
             'ffmpeg_location': ffmpeg_binary_path,
             'quiet': True,
             "outtmpl": f"{sanitized_file_path}",
@@ -164,7 +165,7 @@ class FromPlatform:
             print("userid",self.user_id[0])
             print("upload_targets",self.upload_targets) 
 
-            await upload_to_cloudinary(sanitized_file_path,self.user_id[0],self.upload_targets)
+            await upload_to_cloudinary(sanitized_file_path,self.user_id[0],self.upload_targets,self.video_id)
 
             await prisma.usage.update(
                 where={
