@@ -394,15 +394,16 @@ async def trigger_upload(background_tasks: BackgroundTasks,user_id:int,secret:st
          }
     )
 
+    videos_of_a_users = 0
     for video in pending_videos:
-        videos_of_a_users = 0
         if not video.user.id in  uploaded_users: # check if the user videos is already uploaded or not
             # Added this to background task to upload without waiting for the response
             background_tasks.add_task(await UploadVideo(video.user,video).upload())
-            videos_of_a_users+=1
+            videos_of_a_users +=1
             # Upload 2 videos of each user daily to avoid cloudinary upload limit and also to avoid uploading all videos of a user if he has many pending videos
             if(videos_of_a_users >= 2):
                 uploaded_users.append(video.user.id)
+                videos_of_a_users = 0
                 
     return {"message": "upload process triggered"}
 
