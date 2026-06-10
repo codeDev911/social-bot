@@ -139,7 +139,7 @@ class FromPlatform:
         self.upload_targets = upload_targets
         self.proxy_url =  self.get_proxy()
 
-    def get_proxy(self):
+    def get_proxy(self): 
         random_proxy = random.choice(proxies)
         return random_proxy
 
@@ -155,7 +155,7 @@ class FromPlatform:
             ydl_opts = { 
             'format': 'b[ext=mp4]', # 'b' forces a single pre-merged video+audio file (bypasses heavy merging)
             # 'format': 'bestvideo+bestaudio/best', # high-quality 1080p/4K
-            # 'proxy': self.proxy_url,  # TikTok often blocks requests from certain IPs, using a proxy can help bypass this
+            'proxy': self.proxy_url,  # TikTok often blocks requests from certain IPs, using a proxy can help bypass this
             'ffmpeg_location': ffmpeg_binary_path,
             'quiet': True,
             "outtmpl": f"{sanitized_file_path}",
