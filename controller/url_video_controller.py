@@ -12,6 +12,7 @@ from db import prisma
 from imageio_ffmpeg import get_ffmpeg_exe
 from controller.copyright_transformer import build_transformations_array
 import json
+from lib.proxies import proxies
 load_dotenv()
 # Setup redis
 redis_conn = Redis.from_url("redis://default_ro:AqNxACQgZGE5ZTUxOGEtMDQzZi00NjdjLTk1YjYtOTZlODIyYWU5YmQzr8ysXHUHAEZBtQODSduNaoQZvxvc-N6CjMlVFsDpUww=@fly-contentby-redis.upstash.io:6379")
@@ -127,6 +128,7 @@ PROXY_PORT = "80"
 
 qjs_path = os.path.join(os.getcwd(), "bin", "qjs")
 
+import random
 
 
 class FromPlatform: 
@@ -135,8 +137,11 @@ class FromPlatform:
         self.video_url =  video_url
         self.video_id =  video_id
         self.upload_targets = upload_targets
-        self.proxy_url =  f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
+        self.proxy_url =  self.get_proxy()
 
+    def get_proxy(self):
+        random_proxy = random.choice(proxies)
+        return random_proxy
 
     def get_temp_file_name(self):
         FOLDER_PATH = "/tmp"
