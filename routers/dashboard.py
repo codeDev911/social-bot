@@ -193,7 +193,7 @@ async def dashboard_home(request:Request,current_user: dict = Depends(get_curren
             order={
                  "updatedAt":"desc"   
             },
-            take=20
+            take=10
         )
         total_videos_count = await prisma.video.count(
             where={
@@ -531,10 +531,14 @@ async def get_upload_defaults(current_user = Depends(get_current_user)):
             }
 
         destinations = user_config.defaultUploadDests if isinstance(user_config.defaultUploadDests, list) else ["tiktok"]
-        
+        captions = user_config.defaultCaption if isinstance(user_config.defaultCaption, str) else ""
+        htags = user_config.defaultHtags if isinstance(user_config.defaultHtags, str) else ""
+
         return {
             "success": True,
             "destinations": destinations,
+            "defaultCaption": captions,
+            "defaultHtags": htags,
             "captionGenEnabled": True,
             "hashtagGenEnabled": True
         }
@@ -648,7 +652,7 @@ async def _process_discovered_videos(
                     video_url=video_url,
                     user_id=user_id,
                     upload_targets=upload_destinations,
-                    video_id=video_id
+                    video_id=video_id   
                 )
                  
                 # Queue the actual download + upload to background

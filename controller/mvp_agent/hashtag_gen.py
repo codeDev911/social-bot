@@ -6,13 +6,13 @@ gemini_client = OpenAI(
     base_url="https://generativelanguage.googleapis.com/v1beta/"
 )
 
-def generate_hashtags(topic: str,  platform_cfg: dict) -> list[str]:
+def generate_hashtags(topic: str, tone: str,  platform_cfg: dict) -> list[str]:
     prompt = (
         f"Suggest up to {platform_cfg['hashtags_max']} relevant hashtags "
-        f"for a post about: {topic}. Use both niche and broad tags."
+        f"for a post titled: {topic},  tone: {tone}. Use both niche and broad tags."
     )
     resp = gemini_client.chat.completions.create(
-        model="gemini-1.5-flash",
+        model="gemini-2.5-flash",
         messages=[
             {"role": "system", "content": "You generate effective social media hashtags."},
             {"role": "user", "content": prompt}

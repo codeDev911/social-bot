@@ -5,8 +5,6 @@ from dotenv import load_dotenv
 import os
 from models.video import create_video
 import datetime 
-from redis import Redis
-from rq import Queue
 from wroker import generate_caption_htags
 from db import prisma
 from imageio_ffmpeg import get_ffmpeg_exe
@@ -14,16 +12,7 @@ from controller.copyright_transformer import build_transformations_array
 import json
 from lib.proxies import proxies
 load_dotenv()
-# Setup redis
-redis_conn = Redis.from_url("redis://default_ro:AqNxACQgZGE5ZTUxOGEtMDQzZi00NjdjLTk1YjYtOTZlODIyYWU5YmQzr8ysXHUHAEZBtQODSduNaoQZvxvc-N6CjMlVFsDpUww=@fly-contentby-redis.upstash.io:6379")
-
-q = Queue("automates",connection = redis_conn)
-
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET")
-)
+import asyncio
 
 
 tempFiles = []
@@ -79,7 +68,7 @@ def deserialize_and_map_dynamic_edits(dynamic_edits_config):
 
 
 
-async def upload_to_cloudinary(filePath:str,userId:any,upload_targets:any,video_id=None):
+async def upload_to_cloudinary(filePath:str,userId:any,upload_targets:any,video_id=None,title=None):
     """This will upload the asset to cloudinary and create video in database will save the details needed"""
     
     # Fetch user's dynamic edit configuration
@@ -98,7 +87,7 @@ async def upload_to_cloudinary(filePath:str,userId:any,upload_targets:any,video_
         }
         # Deserialize and map field names
         dynamic_edits_config = deserialize_and_map_dynamic_edits(raw_config)
-    
+
     # Build transformations from user config or use defaults
     transformations_list = build_transformations_array(userId, dynamic_edits_config)
     
@@ -110,15 +99,22 @@ async def upload_to_cloudinary(filePath:str,userId:any,upload_targets:any,video_
     )
 
     print("Uploaded video to Cloudinary:", upload_response['secure_url'])
-    video = await create_video(userId,upload_response["secure_url"],upload_response["asset_id"],str(datetime.datetime.now()),upload_targets,video_id)        
+    video = await create_video(userId,upload_response["secure_url"],upload_response["asset_id"],title,upload_targets,video_id)        
     userPlan = video.user.plan.type
+    
 
-
-    # Add a worker that generate Caption and #tags for video. use Redis and rq for this
-    # This will push the worker to the redis to the first arguments is a function and the rest are the arguments of the generate_caption function
-    print("Assigned to redis queue a job")
-    q.enqueue(generate_caption_htags,video.id,userPlan,"New viral video","trends")
-
+    # Add a worker that generate Caption and #tags for video. 
+    print("Assigned to asyncio task to generate #tags and captions")
+    asyncio.create_task(
+        generate_caption_htags(
+            video.id,
+            userPlan,
+            title,
+            "trends",
+            None
+        )
+    )
+    
 
 
 PROXY_USER = os.getenv("WEBSHARE_USERNAME")
@@ -138,6 +134,7 @@ class FromPlatform:
         self.video_id =  video_id
         self.upload_targets = upload_targets
         self.proxy_url =  self.get_proxy()
+        self.title= "Untitled video"
 
     def get_proxy(self): 
         random_proxy = random.choice(proxies)
@@ -154,8 +151,6 @@ class FromPlatform:
         try:
             ydl_opts = { 
             'format': 'b[ext=mp4]', # 'b' forces a single pre-merged video+audio file (bypasses heavy merging)
-            # 'format': 'bestvideo+bestaudio/best', # high-quality 1080p/4K
-            'proxy': self.proxy_url,  # TikTok often blocks requests from certain IPs, using a proxy can help bypass this
             'ffmpeg_location': ffmpeg_binary_path,
             'quiet': True,
             "outtmpl": f"{sanitized_file_path}",
@@ -163,14 +158,21 @@ class FromPlatform:
             'merge_output_format': 'mp4',
             } 
 
+            if self.video_url.startswith("https://www.youtube.com/") or self.video_url.startswith("https://youtu.be/"):
+                ydl_opts['format'] = 'bestvideo+bestaudio/best'  # YouTube specific format
+            else :
+                ydl_opts['proxy'] =  self.proxy_url  #  if not youtube then use proxy for other platforms like tiktok, facebook, instagram
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([self.video_url])
-                print("video downloaded")    
-            
+                info = ydl.extract_info(self.video_url, download=True)
+                self.title = info.get("title")
+                # uploader = info.get("uploader")
+                # duration = info.get("duration")
+
             print("userid",self.user_id[0])
             print("upload_targets",self.upload_targets) 
 
-            await upload_to_cloudinary(sanitized_file_path,self.user_id[0],self.upload_targets,self.video_id)
+            await upload_to_cloudinary(sanitized_file_path,self.user_id[0],self.upload_targets,self.video_id,self.title)
 
             await prisma.usage.update(
                 where={

@@ -543,6 +543,10 @@
         
         document.getElementById('captionGenEnabled').checked = config.captionGenEnabled !== false;
         document.getElementById('hashtagGenEnabled').checked = config.hashtagGenEnabled !== false;
+        document.getElementById('defaultCaption').value = config.defaultCaption || '';
+
+        document.getElementById('defaultHtags').value = config.defaultHtags || '';
+
       } else {
         // Try old endpoint for other config
         const oldResponse = await fetch(`${API_BASE}/user/config`, {
@@ -1102,7 +1106,6 @@ async function loadApiKeyStatus() {
     try {
         const res = await fetch('/dashboard/api/settings/api-key-status');
         const data = await res.json();
-        console.log(data);
         
         let html = '';
         if (data) { 

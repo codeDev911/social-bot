@@ -13,7 +13,7 @@ def generate_captions(topic: str, tone: str, platform_cfg: dict) -> list[str]:
         f"(max {platform_cfg['caption_max']} chars) for a {tone} post about: {topic}."
     )
     resp = gemini_client.chat.completions.create(
-        model="gemini-1.5-flash",
+        model="gemini-2.5-flash",
         messages=[
             {"role": "system", "content": "You generate catchy social media captions."},
             {"role": "user", "content": prompt}
