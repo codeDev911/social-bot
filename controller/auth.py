@@ -8,33 +8,21 @@ from prisma import errors
 import os
 
 
-def set_user_credentials(user, token_data, provider: str) -> str:
-    # Default fallback
-    cre_data = {provider: json.dumps(token_data)}
+def set_user_credentials(user, token_data,provider:str) -> any:
+    cre_data = {provider: token_data}
     cre_json = json.dumps(cre_data)
-    channel_name = token_data.get("name")
-    
-    if user is not None and user.credentials is not None:
-        user_creds = dict(user.credentials)
-        
-        # SAFELY check if the provider exists first before trying to load JSON
-        if provider in user_creds:
-            existing_data = json.loads(user_creds[provider])
-            current_name = existing_data.get("name")
-            
-            if channel_name == current_name:
-                print("Updating existing credentials for provider:", provider)
+    if user is not None:
+        if user.credentials is not None:
+            # Merge or update TikTok credentials in user's credentials
+            user_creds = user.credentials
+            if provider in user_creds:
                 user_creds[provider] = json.dumps(token_data)
             else:
-                print(f"Name mismatch for {provider}. Current: {current_name}, New: {channel_name}. Ignoring update.")
-                # We do nothing here, so we don't overwrite the old one.
-        else:
-            print("Adding entirely new provider:", provider)
-            user_creds[provider] = json.dumps(token_data)
-            
-        cre_json = json.dumps(user_creds)
-        
-    return cre_json
+                user_creds = {**user.credentials, provider:json.dumps(token_data)}
+            # Save the updated credentials back to the user
+            cre_json = json.dumps(user_creds)
+    return cre_json         
+
 
 
 async def authGoogle (code:str,state:any = None): 

@@ -225,7 +225,6 @@ async def dashboard_home(request:Request,current_user: dict = Depends(get_curren
             },
     )
   
-        print(user_info.credentials)
 
         return templates.TemplateResponse(
             "dashboard/index.html",
@@ -900,44 +899,22 @@ async def buffer_connect(body: BufferConnectRequest, current_user = Depends(get_
             )
         
         # Call the get_profiles_graphql function with the provided API key
-        channels_array = get_profiles_graphql(api_key=buffer_api_key)
-        channels = channels_array[::-1]
+        channels = get_profiles_graphql(api_key=buffer_api_key)
         user = await prisma.user.find_unique(where={"id": current_user.id})
+
+        # print(channels)
         if channels is None:
             raise HTTPException(status_code=400, detail="Failed to fetch Buffer profiles. No channels found.")
         
-        current_creds = dict(user.credentials) if user and user.credentials else {}
-
-        # 2. Loop through channels and build the new dictionary in memory
         for channel in channels:
-            provider = channel["service"].lower()
-            channel_name = channel["name"]
-            
-            # Create a unique key so TikTok 1 and TikTok 2 don't collide
-            unique_key = f"{provider}_{channel_name}" 
-            
-            token_data = {
-                "client_id": channel["id"],
-                "client_secret": channel["id"], 
-                "name": channel_name, 
-                "service": "buffer"
-            }
-            
-            # Add or update it in our local dictionary
-            # We serialize the inner token_data to a string based on your previous code structure
-            current_creds[unique_key] = json.dumps(token_data)
-            print(f"Prepared credentials for: {channel_name} under key '{unique_key}'")
+            cre_json=set_user_credentials(user, {"client_id": channel["id"],"client_secret":channel["id"], "name": channel["name"], "service": "buffer"}, provider=channel["service"].lower())
 
-        # 3. Convert the final, merged dictionary to a JSON string
-        final_cre_json = json.dumps(current_creds)
-
-        # 4. Do exactly ONE database update after the loop finishes
-        await prisma.user.update(
-            where={"id": user.id},
-            data={
-                "credentials": final_cre_json,
-            }
-        )
+            await prisma.user.update(
+                where={"id": user.id},
+                data={
+                    "credentials": cre_json,
+                }
+            )
 
         return {"message": "Buffer connected successfully", "status": "connected", "channels": channels}
     except HTTPException:
