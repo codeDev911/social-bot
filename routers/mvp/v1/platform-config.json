@@ -8,8 +8,8 @@
     ]
   },
   "tiktok": {
-    "caption_max": 2200,
-    "hashtags_max": 20,
+    "caption_max": 100,
+    "hashtags_max": 5,
     "time_windows_local": [
       ["13:00", "15:00"],
       ["19:00", "23:00"]
