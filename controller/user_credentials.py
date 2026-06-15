@@ -36,7 +36,6 @@ def get_tiktok_client(credentials):
 def get_facebook_client(credentials):
     """Get Facebook Client Credentials"""
     cre_obj = json.loads(credentials["facebook"])
-
     return cre_obj
 
 def get_instagram_client(credentials):

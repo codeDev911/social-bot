@@ -34,7 +34,7 @@ class UploadVideo:
 
     async def upload(self):
         for upload_to in self.upload_target:
-            try:
+            # try:
                 if upload_to == "Youtube":
                     print("Uploading to Youtube... ")
                     await upload_to_youtube(self.user,self.video)
@@ -49,9 +49,8 @@ class UploadVideo:
                     await upload_to_instagram(self.user,self.video)
                 else:
                     print(f"Unknown platform: {upload_to}")
-            except Exception as e:
-                print(f"Error uploading to {upload_to}: {str(e)}")
-
+            # except Exception as e:
+            #     pass
 
 async def upload_to_youtube(user,video):
 
@@ -148,7 +147,7 @@ async def upload_using_buffer(user,video,client_credentials,post_type=None):
         print("No  credentials found.")
         return {"status_code": 400, "message": "No  credentials found."}
     
-     
+    print("Client credentials found, proceeding with upload...")
     platformId = client_credentials['client_id'] 
     caption = video.captions if video.captions else f"{user.userConfig.defaultCaption} {user.userConfig.defaultHtags}"
     
@@ -160,7 +159,7 @@ async def upload_using_buffer(user,video,client_credentials,post_type=None):
                 where={"id": video.id},
                 data={"upload_status": "Uploaded"}
             )
-            send_mail(user.email, video.cloudinary_url, video.title, "Uploaded")
+            # send_mail(user.email, video.cloudinary_url, video.title, "Uploaded")
 
             print("Video uploaded to TikTok.")
         else:
@@ -168,7 +167,7 @@ async def upload_using_buffer(user,video,client_credentials,post_type=None):
                 where={"id": video.id},
                 data={"upload_status": "Failed"}
             )
-            send_mail(user.email, video.cloudinary_url, video.title, "Failed")
+            # send_mail(user.email, video.cloudinary_url, video.title, "Failed")
             print(f"Buffer upload failed: {response.get('error')}")
         return response
     except Exception as e:
@@ -177,7 +176,7 @@ async def upload_using_buffer(user,video,client_credentials,post_type=None):
             where={"id": video.id},
             data={"upload_status": "Failed"}
         )
-        send_mail(user.email, video.cloudinary_url, video.title, "Failed")
+        # send_mail(user.email, video.cloudinary_url, video.title, "Failed")
         print(f"Error uploading: {str(e)}")
         return error_response
     finally:
