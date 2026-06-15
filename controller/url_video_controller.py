@@ -94,6 +94,7 @@ async def upload_to_cloudinary(filePath:str,userId:any,upload_targets:any,video_
     upload_response = cloudinary.uploader.upload(
         filePath,
         resource_type="video",
+        eager_async= True,
         transformation = transformations_list,
         folder="social-bot-videos"  # Optional: Specify a folder in Cloudinary
     )
