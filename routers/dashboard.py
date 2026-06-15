@@ -905,18 +905,16 @@ async def buffer_connect(body: BufferConnectRequest, current_user = Depends(get_
         # print(channels)
         if channels is None:
             raise HTTPException(status_code=400, detail="Failed to fetch Buffer profiles. No channels found.")
-        cre_json = {}
 
         for channel in channels:
             cre_json=set_user_credentials(user, {"client_id": channel["id"],"client_secret":channel["id"], "name": channel["name"], "service": "buffer"}, provider=channel["service"].lower())
 
-        print(cre_json)
-        await prisma.user.update(
-            where={"id": user.id},
-            data={
-                "credentials": cre_json,
-            }
-        )
+            await prisma.user.update(
+                where={"id": user.id},
+                data={
+                    "credentials": cre_json,
+                }
+            )
 
         return {"message": "Buffer connected successfully", "status": "connected", "channels": channels}
     except HTTPException:
