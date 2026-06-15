@@ -8,21 +8,30 @@ from prisma import errors
 import os
 
 
-def set_user_credentials(user, token_data,provider:str) -> any:
-    cre_data = {provider: token_data}
-    cre_json = json.dumps(cre_data)
-    if user is not None:
-        if user.credentials is not None:
-            # Merge or update TikTok credentials in user's credentials
-            user_creds = user.credentials
-            if provider in user_creds:
-                user_creds[provider] = json.dumps(token_data)
-            else:
-                user_creds = {**user.credentials, provider:json.dumps(token_data)}
-            # Save the updated credentials back to the user
-            cre_json = json.dumps(user_creds)
-    return cre_json         
+def set_user_credentials(user, token_data: dict, provider: str) -> str:
+    # 1. Handle the case where there is no user
+    if user is None:
+        return json.dumps({provider: token_data})
 
+    # 2. Safely load existing credentials into a dictionary
+    existing_creds = user.credentials
+    
+    # If the database stores this as a JSON string, we need to parse it back to a dict first
+    if isinstance(existing_creds, str):
+        try:
+            existing_creds = json.loads(existing_creds)
+        except json.JSONDecodeError:
+            existing_creds = {} # Fallback if the string is malformed
+    elif not existing_creds:
+        # If it's None or empty
+        existing_creds = {}
+
+    # 3. Add or update the specific provider's data
+    # We do NOT use json.dumps() here to avoid double-encoding the data
+    existing_creds[provider] = token_data
+
+    # 4. Serialize the entire merged dictionary back to a single JSON string
+    return json.dumps(existing_creds)
 
 
 async def authGoogle (code:str,state:any = None): 
