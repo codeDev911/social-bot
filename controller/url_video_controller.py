@@ -10,9 +10,10 @@ from db import prisma
 from imageio_ffmpeg import get_ffmpeg_exe
 from controller.copyright_transformer import build_transformations_array
 import json
-from lib.proxies import proxies
+from lib.proxies import proxies_list
 load_dotenv()
 import asyncio
+import random
 
 
 tempFiles = []
@@ -125,7 +126,6 @@ PROXY_PORT = "80"
 
 qjs_path = os.path.join(os.getcwd(), "bin", "qjs")
 
-import random
 
 
 class FromPlatform: 
@@ -138,8 +138,18 @@ class FromPlatform:
         self.title= "Untitled video"
 
     def get_proxy(self): 
-        random_proxy = random.choice(proxies)
-        return random_proxy
+
+        username = 'auexai_DCodx'
+        password = 'KxQ+1Hv~z7vtL7ml'
+        proxy = random.choice(proxies_list)
+        countryCode = proxy["countryCode"]
+        entryPoint = proxy["entryPoint"]
+        ip = proxy["ip"]
+        port = proxy["port"]
+        proxy = f"{ip}:{port}"
+        proxy_url = 'https://user-%s-country-%s:%s@%s' % (username,countryCode, password, proxy)
+
+        self.proxy_url = proxy_url
 
     def get_temp_file_name(self):
         FOLDER_PATH = "/tmp"
@@ -154,15 +164,14 @@ class FromPlatform:
             'format': 'b[ext=mp4]', # 'b' forces a single pre-merged video+audio file (bypasses heavy merging)
             'ffmpeg_location': ffmpeg_binary_path,
             'quiet': True,
+            'proxy':self.proxy_url,
             "outtmpl": f"{sanitized_file_path}",
             'postprocessors': [],  
             'merge_output_format': 'mp4',
             } 
 
-            if self.video_url.startswith("https://www.youtube.com/") or self.video_url.startswith("https://youtu.be/"):
+            if self.video_url.startswith("https://www.youtube.com") or self.video_url.startswith("https://youtu.be/"):
                 ydl_opts['format'] = 'bestvideo+bestaudio/best'  # YouTube specific format
-            else :
-                ydl_opts['proxy'] =  self.proxy_url  #  if not youtube then use proxy for other platforms like tiktok, facebook, instagram
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(self.video_url, download=True)
