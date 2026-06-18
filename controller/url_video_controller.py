@@ -144,9 +144,8 @@ class FromPlatform:
         proxy = random.choice(proxies_list)
         countryCode = proxy["countryCode"]
         entryPoint = proxy["entryPoint"]
-        ip = proxy["ip"]
         port = proxy["port"]
-        proxy = f"{ip}:{port}"
+        proxy = f"{entryPoint}:{port}"
         proxy_url = 'https://user-%s-country-%s:%s@%s' % (username,countryCode, password, proxy)
 
         return proxy_url
