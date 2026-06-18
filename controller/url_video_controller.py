@@ -149,7 +149,7 @@ class FromPlatform:
         proxy = f"{ip}:{port}"
         proxy_url = 'https://user-%s-country-%s:%s@%s' % (username,countryCode, password, proxy)
 
-        self.proxy_url = proxy_url
+        return proxy_url
 
     def get_temp_file_name(self):
         FOLDER_PATH = "/tmp"
