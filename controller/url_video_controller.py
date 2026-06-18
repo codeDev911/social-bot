@@ -97,7 +97,8 @@ async def upload_to_cloudinary(filePath:str,userId:any,upload_targets:any,video_
         resource_type="video",
         eager_async= True,
         transformation = transformations_list,
-        folder="social-bot-videos"  # Optional: Specify a folder in Cloudinary
+        folder="social-bot-videos",
+        overwrite= True,
     )
 
     print("Uploaded video to Cloudinary:", upload_response['secure_url'])
@@ -147,7 +148,6 @@ class FromPlatform:
         port = proxy["port"]
         proxy = f"{entryPoint}:{port}"
         proxy_url = 'https://user-%s-country-%s:%s@%s' % (username,countryCode, password, proxy)
-
         return proxy_url
 
     def get_temp_file_name(self):

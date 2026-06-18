@@ -9,7 +9,7 @@ def get_proxy():
         entryPoint = proxy["entryPoint"]
         port = proxy["port"]
         proxy = f"{entryPoint}:{port}"
-        proxy_url = 'https://user-%s-country-%s:%s@%s' % (username,countryCode, password, proxy)
+        proxy_url = 'http://user-%s-country-%s:%s@%s' % (username,countryCode, password, proxy)
 
         print(proxy_url)
 
