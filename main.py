@@ -17,6 +17,7 @@ from routers.mvp.v1.generate import router as mvp_routes
 from routers.checkout import router as checkout_routes
 from routers.api.schedule import router as schedule_routes
 from routers.api.user import router as user_routes
+from routers.ai_discovery import router as ai_discovery_routes
 load_dotenv() 
 app = FastAPI()
  
@@ -27,6 +28,7 @@ app.include_router(mvp_routes)
 app.include_router(checkout_routes)
 app.include_router(schedule_routes)
 app.include_router(user_routes) 
+app.include_router(ai_discovery_routes) 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,

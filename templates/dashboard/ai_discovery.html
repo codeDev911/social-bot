@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-8">
+  <!-- Header -->
+  <section class="pt-8 flex items-center justify-between">
+    <div>
+      <h1 class="text-4xl font-bold text-white mb-2">AI Discovery</h1>
+      <p class="text-slate-400">Automatically find trending videos across platforms and queue the best ones</p>
+    </div>
+    <div class="flex items-center space-x-3">
+      <span id="active_status_label" class="text-sm font-medium {{ 'text-emerald-400' if config.isActive else 'text-slate-400' }}">
+        {{ 'Active' if config.isActive else 'Inactive' }}
+      </span> 
+      <button type="button" id="toggle_active_btn" onclick="toggleActive()"
+        class="relative w-12 h-6 rounded-full transition-colors {{ 'bg-brand-orange' if config.isActive else 'bg-white/10' }}">
+        <span id="toggle_dot" class="absolute top-1 {{ 'left-7' if config.isActive else 'left-1' }} w-4 h-4 bg-white rounded-full transition-all"></span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Status Overview -->
+  <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="glass rounded-xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-sm text-slate-400">Last Run</span>
+        <svg class="w-5 h-5 text-brand-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <p class="text-lg font-bold text-white" id="last_run_label">
+        {{ config.lastRunAt.strftime('%b %d, %I:%M %p') if config.lastRunAt else 'Never run yet' }}
+      </p>
+      <p class="text-xs mt-1 {{ 'text-emerald-400' if config.lastRunStatus == 'success' else ('text-red-400' if config.lastRunStatus == 'failed' else 'text-slate-400') }}">
+        {{ config.lastRunStatus or 'idle' }}{% if config.lastRunVideoCount %} · {{ config.lastRunVideoCount }} videos found{% endif %}
+      </p>
+    </div>
+
+    <div class="glass rounded-xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-sm text-slate-400">Next Scheduled Run</span>
+        <svg class="w-5 h-5 text-brand-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+      </div>
+      <p class="text-lg font-bold text-white" id="next_run_label">
+        {{ config.nextRunAt.strftime('%b %d, %I:%M %p') if config.nextRunAt else 'Not scheduled' }}
+      </p>
+      <p class="text-xs text-slate-400 mt-1">{{ config.timezone }}</p>
+    </div>
+
+    <div class="glass rounded-xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-sm text-slate-400">Top Trend Found</span>
+        <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+        </svg>
+      </div>
+      {% if config.lastRunTopVideoUrl %}
+      <a href="{{ config.lastRunTopVideoUrl }}" target="_blank" class="text-sm font-medium text-brand-cyan hover:underline truncate block">
+        View top video →
+      </a>
+      {% else %}
+      <p class="text-sm text-slate-400">No results yet</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- Configuration -->
+  <section class="glass rounded-xl p-6">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-2xl font-bold text-white mb-1">Configuration</h2>
+        <p class="text-sm text-slate-400">Keywords, platforms, and quality thresholds for discovery</p>
+      </div>
+      <button type="button" onclick="runNow()" id="run_now_btn"
+        class="btn-gradient px-4 py-2 rounded-lg text-white font-medium text-sm">Run Now</button>
+    </div>
+
+    <form id="config_form" class="space-y-6">
+      <div id="config_status" class="text-brand-cyan font-medium text-sm"></div>
+
+      <!-- Search Keywords -->
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-3">Search Keywords</label>
+        <div id="profiles_list" class="space-y-2 mb-2">
+          {% for profile in search_profiles %}
+          <div class="flex items-center space-x-2 profile-row">
+            <input type="text" value="{{ profile.query }}" class="profile-input flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:border-brand-orange/50 focus:outline-none transition-colors" placeholder="e.g. fifa 2026 highlights">
+            <button type="button" onclick="this.parentElement.remove()" class="p-2 text-slate-400 hover:text-red-400 transition-colors">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          {% endfor %}
+        </div>
+        <button type="button" onclick="addProfileRow()" class="text-sm text-brand-cyan hover:underline">+ Add keyword</button>
+      </div>
+
+      <!-- Platform Selection -->
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-3">Search Platforms</label>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {% for platform in ["Youtube", "Tiktok", "Instagram", "Facebook"] %}
+          <label class="flex items-center space-x-2 p-2 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:border-brand-orange/30 transition-colors">
+            <input type="checkbox" id="platform_{{ platform }}" class="platform-checkbox w-4 h-4 rounded border-slate-400 text-brand-orange focus:ring-brand-orange"
+              {{ 'checked' if platform in config.enabledPlatforms else '' }}>
+            <span class="text-sm text-slate-300">{{ platform }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Quality + Recency -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Minimum Quality Score</label>
+          <input type="range" id="min_score" min="0" max="1" step="0.05" value="{{ config.minScore }}"
+            class="w-full accent-brand-orange" oninput="document.getElementById('min_score_label').innerText = this.value">
+          <p class="text-xs text-slate-400 mt-1">Threshold: <span id="min_score_label">{{ config.minScore }}</span></p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Videos per Run</label>
+          <input type="number" id="batch_size" min="1" max="50" value="{{ config.batchSize }}"
+            class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Recency Window</label>
+          <select id="time_filter" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+            <option value="day" {{ 'selected' if config.timeFilter == 'day' else '' }}>Past day</option>
+            <option value="week" {{ 'selected' if config.timeFilter == 'week' else '' }}>Past week</option>
+            <option value="month" {{ 'selected' if config.timeFilter == 'month' else '' }}>Past month</option>
+            <option value="year" {{ 'selected' if config.timeFilter == 'year' else '' }}>Past year</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Schedule -->
+      <div class="border-t border-white/10 pt-6">
+        <label class="block text-sm font-medium text-slate-300 mb-3">Run Schedule</label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <select id="cron_preset" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors" onchange="document.getElementById('cron_custom').value = this.value">
+              <option value="0 */3 * * *" {{ 'selected' if config.cronExpr == '0 */3 * * *' else '' }}>Every 3 hours</option>
+              <option value="0 */6 * * *" {{ 'selected' if config.cronExpr == '0 */6 * * *' else '' }}>Every 6 hours</option>
+              <option value="0 */12 * * *" {{ 'selected' if config.cronExpr == '0 */12 * * *' else '' }}>Every 12 hours</option>
+              <option value="0 9 * * *" {{ 'selected' if config.cronExpr == '0 9 * * *' else '' }}>Once daily (9am)</option>
+              <option value="0 9,21 * * *" {{ 'selected' if config.cronExpr == '0 9,21 * * *' else '' }}>Twice daily</option>
+              <option value="0 9 * * 1" {{ 'selected' if config.cronExpr == '0 9 * * 1' else '' }}>Weekly (Monday 9am)</option>
+              <option value="custom">Custom cron expression...</option>
+            </select>
+            <input type="text" id="cron_custom" value="{{ config.cronExpr }}" placeholder="0 */6 * * *"
+              class="hidden mt-2 w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white text-sm font-mono focus:border-brand-orange/50 focus:outline-none transition-colors">
+          </div>
+          <div>
+            <select id="timezone_select" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-brand-orange/50 focus:outline-none transition-colors">
+              {% for tz in ["UTC", "Asia/Karachi", "America/New_York", "America/Los_Angeles", "Europe/London", "Asia/Dubai", "Asia/Kolkata"] %}
+              <option value="{{ tz }}" {{ 'selected' if config.timezone == tz else '' }}>{{ tz }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <button type="submit" class="flex-1 btn-gradient rounded-lg text-white font-medium py-2">Save Configuration</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<script>
+  const configStatus = document.getElementById("config_status");
+
+  function addProfileRow() {
+    const list = document.getElementById("profiles_list");
+    const row = document.createElement("div");
+    row.className = "flex items-center space-x-2 profile-row";
+    row.innerHTML = `
+      <input type="text" class="profile-input flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:border-brand-orange/50 focus:outline-none transition-colors" placeholder="e.g. fifa 2026 highlights">
+      <button type="button" onclick="this.parentElement.remove()" class="p-2 text-slate-400 hover:text-red-400 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>`;
+    list.appendChild(row);
+  }
+
+  // Show custom cron field if "custom" selected
+  document.getElementById("cron_preset").addEventListener("change", (e) => {
+    document.getElementById("cron_custom").classList.toggle("hidden", e.target.value !== "custom");
+  });
+
+  function collectFormPayload() {
+    const profiles = Array.from(document.querySelectorAll(".profile-input"))
+      .map(i => i.value.trim())
+      .filter(v => v.length > 0)
+      .map(query => ({ query, type: "keyword" }));
+
+    const platforms = Array.from(document.querySelectorAll(".platform-checkbox"))
+      .filter(cb => cb.checked)
+      .map(cb => cb.id.replace("platform_", ""));
+
+    const cronPreset = document.getElementById("cron_preset").value;
+    const cronExpr = cronPreset === "custom"
+      ? document.getElementById("cron_custom").value.trim()
+      : cronPreset;
+
+    return {
+      searchProfiles: profiles,
+      enabledPlatforms: platforms,
+      minScore: parseFloat(document.getElementById("min_score").value),
+      batchSize: parseInt(document.getElementById("batch_size").value),
+      timeFilter: document.getElementById("time_filter").value,
+      cronExpr: cronExpr,
+      timezone: document.getElementById("timezone_select").value,
+    };
+  }
+
+  document.getElementById("config_form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const payload = collectFormPayload();
+
+    if (payload.searchProfiles.length === 0) {
+      alert("Add at least one search keyword");
+      return;
+    }
+    if (payload.enabledPlatforms.length === 0) {
+      alert("Select at least one platform");
+      return;
+    }
+
+    configStatus.innerText = "Saving...";
+    try {
+      await axios.put("/dashboard/api/ai-discovery/config", payload);
+      configStatus.innerText = "Configuration saved!";
+      setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+      configStatus.innerText = "Save failed — check your inputs.";
+      console.error(err);
+    }
+  });
+
+  async function toggleActive() {
+    const btn = document.getElementById("toggle_active_btn");
+    const dot = document.getElementById("toggle_dot");
+    const label = document.getElementById("active_status_label");
+    const currentlyActive = btn.classList.contains("bg-brand-orange");
+    const newState = !currentlyActive;
+
+    try {
+      await axios.put("/dashboard/api/ai-discovery/config", { isActive: newState });
+      btn.classList.toggle("bg-brand-orange", newState);
+      btn.classList.toggle("bg-white/10", !newState);
+      dot.classList.toggle("left-7", newState);
+      dot.classList.toggle("left-1", !newState);
+      label.innerText = newState ? "Active" : "Inactive";
+      label.classList.toggle("text-emerald-400", newState);
+      label.classList.toggle("text-slate-400", !newState);
+    } catch (err) {
+      alert("Failed to update status");
+      console.error(err);
+    }
+  }
+
+  async function runNow() {
+    const btn = document.getElementById("run_now_btn");
+    btn.disabled = true;
+    btn.innerText = "Queuing...";
+    try {
+      const res = await axios.post("/dashboard/api/ai-discovery/run-now");
+      btn.innerText = "Queued!";
+      configStatus.innerText = res.data.message || "Run queued";
+      setTimeout(() => { btn.disabled = false; btn.innerText = "Run Now"; }, 3000);
+    } catch (err) {
+      btn.disabled = false;
+      btn.innerText = "Run Now";
+      alert(err.response?.data?.detail || "Failed to queue run — make sure AI Discovery is active");
+    }
+  }
+</script>
+{% endblock %}

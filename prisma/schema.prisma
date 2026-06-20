@@ -105,6 +105,7 @@ model User {
   userConfig     userConfig?
   dynamicEdits   DynamicEdit?
   userApiKey     UserApiKey[]
+  aiDiscoveryConfig AiDiscoveryConfig?
 }
 
 model userPlan {
@@ -148,6 +149,61 @@ model DynamicEdit {
   updatedAt DateTime @updatedAt
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADD THIS MODEL to your schema.prisma
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AiDiscoveryConfig {
+  id     Int  @id @unique @default(autoincrement())
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // ── Master toggle ────────────────────────────────────────────────────────
+  isActive Boolean @default(false)
+
+  // ── Search profiles ─────────────────────────────────────────────────────
+  // [{ "query": "fifa 2026 highlights", "type": "keyword" }, ...]
+  searchProfiles Json @default("[]")
+
+  // ── Platform targeting ──────────────────────────────────────────────────
+  enabledPlatforms UploadTargets[] @default([Youtube, Tiktok, Instagram, Facebook])
+
+  // ── Filtering thresholds ────────────────────────────────────────────────
+  minScore        Float @default(0.20)
+  batchSize       Int   @default(10)
+  maxPerPlatform  Int   @default(20)
+
+  // ── Recency window: "day" | "week" | "month" | "year" ─────────────────
+  timeFilter String @default("week")
+
+  // ── Scheduling ───────────────────────────────────────────────────────────
+  cronExpr   String    @default("0 */6 * * *")  // every 6 hours
+  timezone   String    @default("UTC")
+  lastRunAt  DateTime?
+  nextRunAt  DateTime?
+
+  // ── Run history / status (for dashboard display) ──────────────────────────
+  lastRunStatus      String?  @default("idle")   // idle | running | success | failed
+  lastRunVideoCount  Int      @default(0)
+  lastRunTopVideoUrl String?
+  lastRunViralVideoUrl String?
+  lastRunError       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([nextRunAt, isActive])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADD this single line inside your existing `model User { ... }` block,
+// next to the other optional relations (userConfig, dynamicEdits, etc):
+// ─────────────────────────────────────────────────────────────────────────────
+//
+//   
+//
 enum UserPlanType {
   free
   starter
