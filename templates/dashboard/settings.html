@@ -1086,11 +1086,10 @@ function copyToClipboard() {
     alert('✅ API Key copied to clipboard!');
 }
 
-async function revokeApiKey() {
+async function revokeApiKey(id) {
     if (!confirm('Are you sure? This will revoke your current API key.')) return;
-    
     try {
-        const res = await fetch('/dashboard/api/settings/api-key', { method: 'DELETE' });
+        const res = await fetch(`/dashboard/api/settings/api-key?id=${id}`, { method: 'DELETE' });
         const data = await res.json();
         
         if (data.success) {
@@ -1116,7 +1115,7 @@ async function loadApiKeyStatus() {
                     <span class="text-gray-300 my-1 text-sm">Last used: ${data[i].lastUsedAt ? new Date(data[i].lastUsedAt).toLocaleString() : 'Never'}</span>
                     <span class="text-gray-300 mb-2 text-sm">Created: ${new Date(data[i].createdAt).toLocaleString()}</span>
 
-                    <button type="button" onclick="revokeApiKey()" class="px-6 py-2 rounded-lg border border-brand-orange/30 text-brand-orange font-medium text-sm hover:bg-brand-orange/10 transition-colors" >Revoke</button>
+                    <button type="button" onclick="revokeApiKey(${data[i].id})" class="px-6 py-2 rounded-lg border border-brand-orange/30 text-brand-orange font-medium text-sm hover:bg-brand-orange/10 transition-colors" >Revoke</button>
 
               </div>
             `;

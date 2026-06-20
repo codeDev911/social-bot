@@ -438,7 +438,7 @@ async def generate_api_key(
         raw_token = secrets.token_urlsafe(32)
         
         # Hash it for storage (never store plain tokens)
-        hashed = hashlib.sha256(raw_token.encode()).hexdigest()
+        hashed = hashlib.sha256(raw_token.strip().encode()).hexdigest()
         
         updated = await prisma.userapikey.create(
             data={
@@ -452,7 +452,7 @@ async def generate_api_key(
         return {
             "success": True,
             "message": "API key generated. Save it securely!",
-            "apiKey": raw_token,  # Only return once
+            "apiKey": raw_token.strip(),  # Only return once
             "userId": current_user.id,
             "expiresAt": updated.expiresAt
         }
@@ -476,6 +476,7 @@ async def get_api_key_status(current_user = Depends(get_current_user)):
         result = []
         for key in api_key:
              result.append({
+                "id": key.id,
                 "hasApiKey": True,
                 "name": key.name,
                 "isActive": key.isActive,
@@ -490,20 +491,21 @@ async def get_api_key_status(current_user = Depends(get_current_user)):
 
 
 @router.delete("/api/settings/api-key")
-async def revoke_api_key(current_user = Depends(get_current_user)):
+async def revoke_api_key(current_user = Depends(get_current_user),id: int = Query(...)):
     """Revoke user's API key"""
     try:
         if isinstance(current_user, RedirectResponse):
             raise HTTPException(status_code=401, detail="Unauthorized")
-
+        print(current_user.id)
         await prisma.userapikey.update(
-            where={"userId": current_user.id},
+            where={"id":id},
             data={"isActive": False}
         )
 
         return {"success": True, "message": "API key revoked"}
 
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
 

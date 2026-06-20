@@ -53,7 +53,7 @@ MASTER_API_KEY = os.getenv("MASTER_API_KEY", "")
 
 def hash_api_key(raw_key: str) -> str:
     """Match however UserApiKey.apiKey is hashed elsewhere in your app."""
-    return hashlib.sha256(raw_key.encode()).hexdigest()
+    return hashlib.sha256(raw_key.strip().encode()).hexdigest()
 
 
 async def get_user_from_bearer(authorization: str = Header(...)) -> User:
@@ -65,10 +65,11 @@ async def get_user_from_bearer(authorization: str = Header(...)) -> User:
         raise HTTPException(status_code=401, detail="Missing Bearer token")
 
     raw_key = authorization.removeprefix("Bearer ").strip()
-    hashed = hash_api_key(raw_key)
 
+
+    # Also print the saved hash from DB for direct comparison
     key_row = await prisma.userapikey.find_unique(
-        where={"apiKey": hashed},
+        where={"apiKey": hashlib.sha256(raw_key.encode()).hexdigest()},
         include={"user": True},
     )
 
@@ -339,7 +340,7 @@ async def bot_get_config(user: User = Depends(get_user_from_bearer)):
     enabled = [platform_map[p] for p in config.enabledPlatforms if p in platform_map]
 
     return {
-        "search_profiles":   json.loads(config.searchProfiles or "[]"),
+        "search_profiles":   config.searchProfiles or "[]",
         "enabled_platforms": enabled,
         "min_score":         config.minScore,
         "batch_size":        config.batchSize,
@@ -426,8 +427,7 @@ async def get_due_users(_: None = Depends(require_master_key)):
     Returns users whose nextRunAt has passed. Also rotates nextRunAt
     forward so the dispatcher doesn't re-fire them every 15 min.
     """
-    now = datetime.now(timezone.utc)
-
+    now = datetime.now(timezone.utc) 
     due_configs = await prisma.aidiscoveryconfig.find_many(
         where={"isActive": True, "nextRunAt": {"lte": now}},
         include={"user": {"include": {"userApiKey": True}}},
