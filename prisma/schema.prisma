@@ -45,6 +45,7 @@ model UserApiKey {
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   apiKey          String    @unique  // SHA256 hashed token
+  raw_token       String?   // Store the raw token for one-time return (not hashed)
   name            String?   @default("Discover Service")// e.g., "Discovery Service"
   
   isActive        Boolean   @default(true)

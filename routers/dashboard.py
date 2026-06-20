@@ -444,6 +444,7 @@ async def generate_api_key(
             data={
                 "userId": current_user.id,
                 "apiKey": hashed,
+                "raw_token": raw_token.strip(),  # Store raw token for one-time return
                 "name": name
             }
         )

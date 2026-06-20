@@ -444,7 +444,7 @@ async def get_due_users(_: None = Depends(require_master_key)):
             # NOTE: if UserApiKey.apiKey stores a one-way SHA256 hash,
             # you cannot recover the raw key here. See FIX_NOTES for
             # the encryption alternative if this matters for your flow.
-            "api_key": active_key.apiKey,
+            "api_key": active_key.raw_token,
         })
 
         await prisma.aidiscoveryconfig.update(
