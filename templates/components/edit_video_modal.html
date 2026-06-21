@@ -1,49 +1,37 @@
 <!-- Edit Video Modal -->
-<div id="editVideoModal"
-     class="hidden fixed inset-0 z-50 items-center justify-center p-5"
-     style="background:rgba(10,11,13,.8);backdrop-filter:blur(6px)">
+<div id="editVideoModal" class="evm-backdrop hidden">
+  <div class="evm-modal">
 
-  <div class="relative w-full max-w-2xl rounded-2xl overflow-hidden flex flex-col"
-       style="background:var(--bg-raised);border:1px solid var(--hairline-2);max-height:90vh">
-
-    <!-- ── Header ── -->
-    <div class="flex-shrink-0 flex items-center justify-between px-6 py-5"
-         style="border-bottom:1px solid var(--hairline);background:var(--bg-raised)">
+    <!-- Header -->
+    <div class="evm-header">
       <div>
-        <p class="font-mono text-[10px] uppercase tracking-[.08em] mb-0.5" style="color:var(--dimmer)">Video</p>
-        <h2 class="font-display font-semibold text-base tracking-tight" style="color:var(--paper)">Edit Video</h2>
+        <p class="evm-eyebrow">Video</p>
+        <h2 class="evm-title">Edit Video</h2>
       </div>
-      <button type="button" onclick="closeEditVideoModal()"
-              class="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors"
-              style="border-color:var(--hairline-2);color:var(--dim);background:none">
+      <button type="button" onclick="closeEditVideoModal()" class="evm-close-btn">
         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
       </button>
     </div>
 
-    <!-- ── Scrollable body ── -->
-    <div class="overflow-y-auto flex-1">
-      <form id="editVideoForm" class="px-6 py-5 flex flex-col gap-5">
+    <!-- Scrollable body -->
+    <div class="evm-body">
+      <form id="editVideoForm" class="evm-form">
         <input type="hidden" id="editVideoId">
 
         <!-- Video preview + meta -->
-        <div class="flex gap-4 p-4 rounded-xl" style="background:var(--bg-r2);border:1px solid var(--hairline)">
-          <!-- Thumbnail / preview -->
-          <div class="flex-shrink-0 w-28 h-20 rounded-lg overflow-hidden"
-               style="background:var(--bg);border:1px solid var(--hairline-2)">
-            <video id="editVideoPreview"
-                   class="w-full h-full object-cover"
-                   muted playsinline></video>
+        <div class="evm-preview-row">
+          <div class="evm-preview-thumb">
+            <video id="editVideoPreview" muted playsinline></video>
           </div>
-          <!-- Meta -->
-          <div class="flex-1 min-w-0 flex flex-col gap-2.5 justify-center">
+          <div class="evm-preview-meta">
             <div>
-              <p class="font-mono text-[10px] uppercase tracking-[.07em] mb-0.5" style="color:var(--dimmer)">Video URL</p>
-              <p id="editVideoUrl" class="font-mono text-xs truncate" style="color:var(--dim)"></p>
+              <p class="evm-label">Video URL</p>
+              <p id="editVideoUrl" class="evm-url"></p>
             </div>
             <div>
-              <p class="font-mono text-[10px] uppercase tracking-[.07em] mb-0.5" style="color:var(--dimmer)">Upload Status</p>
+              <p class="evm-label">Upload Status</p>
               <span id="editVideoStatusChip" class="chip"></span>
             </div>
           </div>
@@ -51,67 +39,35 @@
 
         <!-- Title -->
         <div>
-          <label class="block font-mono text-[10px] uppercase tracking-[.07em] mb-2" style="color:var(--dimmer)">
-            Video Title
-          </label>
-          <input type="text" id="editVideoTitle"
-                 placeholder="Enter video title"
-                 class="w-full rounded-lg px-4 py-2.5 text-sm outline-none transition-colors"
-                 style="background:var(--bg-r2);border:1px solid var(--hairline-2);color:var(--paper);"
-                 onfocus="this.style.borderColor='var(--signal-dim)'"
-                 onblur="this.style.borderColor='var(--hairline-2)'"
-                 required>
+          <label class="evm-label" for="editVideoTitle">Video Title</label>
+          <input type="text" id="editVideoTitle" placeholder="Enter video title" class="evm-input" required>
         </div>
 
         <!-- Description -->
         <div>
-          <label class="block font-mono text-[10px] uppercase tracking-[.07em] mb-2" style="color:var(--dimmer)">
-            Description
-          </label>
-          <textarea id="editVideoDescription"
-                    placeholder="Enter video description"
-                    rows="3"
-                    class="w-full rounded-lg px-4 py-2.5 text-sm outline-none transition-colors resize-none"
-                    style="background:var(--bg-r2);border:1px solid var(--hairline-2);color:var(--paper);font-family:inherit;"
-                    onfocus="this.style.borderColor='var(--signal-dim)'"
-                    onblur="this.style.borderColor='var(--hairline-2)'"></textarea>
+          <label class="evm-label" for="editVideoDescription">Description</label>
+          <textarea id="editVideoDescription" placeholder="Enter video description" rows="3" class="evm-textarea"></textarea>
         </div>
 
         <!-- Upload destinations -->
         <div>
-          <label class="block font-mono text-[10px] uppercase tracking-[.07em] mb-3" style="color:var(--dimmer)">
-            Upload Destinations
-          </label>
-          <div id="editPlatformsList" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <!-- injected by JS -->
-          </div>
+          <label class="evm-label" style="margin-bottom:12px;">Upload Destinations</label>
+          <div id="editPlatformsList" class="evm-platform-grid"></div>
         </div>
 
-        <!-- Divider -->
-        <div style="border-top:1px solid var(--hairline)"></div>
+        <div class="evm-divider"></div>
 
         <!-- Actions -->
-        <div class="flex gap-3">
-          <button type="button" onclick="closeEditVideoModal()"
-                  class="flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-colors"
-                  style="border-color:var(--hairline-2);color:var(--dim);background:none">
-            Cancel
-          </button>
+        <div class="evm-actions">
+          <button type="button" onclick="closeEditVideoModal()" class="evm-btn evm-btn-ghost">Cancel</button>
 
           <!-- Reschedule (shown for Failed videos) -->
-          <button type="button" id="editVideoRescheduleBtn"
-                  onclick="rescheduleVideoFromModal()"
-                  class="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors hidden"
-                  style="background:rgba(255,180,84,.1);color:var(--amber);border:1px solid rgba(255,180,84,.25)">
+          <button type="button" id="editVideoRescheduleBtn" onclick="rescheduleVideoFromModal()" class="evm-btn evm-btn-amber hidden">
             Reschedule
           </button>
 
           <!-- Save (hidden for Failed) -->
-          <button type="submit" id="editVideoSubmitBtn"
-                  class="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
-                  style="background:var(--signal);color:#06140C">
-            Save changes
-          </button>
+          <button type="submit" id="editVideoSubmitBtn" class="evm-btn evm-btn-primary">Save changes</button>
         </div>
 
       </form>
@@ -120,31 +76,125 @@
 </div>
 
 <style>
-  /* keep modal hidden until .open is added */
-  #editVideoModal.hidden { display: none; }
-  #editVideoModal:not(.hidden) { display: flex; }
+  /* ── backdrop + modal shell ───────────────────────────────────────── */
+  .evm-backdrop {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(10,11,13,0.8); backdrop-filter: blur(6px);
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .evm-backdrop.hidden { display: none; }
+  .evm-backdrop:not(.hidden) { display: flex; }
 
-  /* platform checkbox cards */
+  .evm-modal {
+    position: relative; width: 100%; max-width: 640px;
+    border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;
+    background: var(--bg-raised); border: 1px solid var(--hairline-2);
+    max-height: 90vh;
+  }
+
+  /* ── header ───────────────────────────────────────────────────────── */
+  .evm-header {
+    flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 24px; border-bottom: 1px solid var(--hairline); background: var(--bg-raised);
+  }
+  .evm-eyebrow {
+    font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--dimmer); margin-bottom: 2px;
+  }
+  .evm-title { font-family: var(--font-display); font-weight: 600; font-size: 17px; color: var(--paper); letter-spacing: -0.01em; }
+  .evm-close-btn {
+    width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--hairline-2); color: var(--dim); background: none; cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .evm-close-btn:hover { border-color: var(--dim); color: var(--paper); }
+
+  /* ── body / form ──────────────────────────────────────────────────── */
+  .evm-body { overflow-y: auto; flex: 1; }
+  .evm-form { padding: 22px 24px; display: flex; flex-direction: column; gap: 20px; }
+
+  .evm-label {
+    display: block; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--dimmer); margin-bottom: 8px;
+  }
+
+  .evm-preview-row {
+    display: flex; gap: 16px; padding: 16px; border-radius: 12px;
+    background: var(--bg-raised-2); border: 1px solid var(--hairline);
+  }
+  .evm-preview-thumb {
+    flex-shrink: 0; width: 112px; height: 80px; border-radius: 8px; overflow: hidden;
+    background: var(--bg); border: 1px solid var(--hairline-2);
+  }
+  .evm-preview-thumb video { width: 100%; height: 100%; object-fit: cover; }
+  .evm-preview-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; justify-content: center; }
+  .evm-url { font-family: var(--font-mono); font-size: 11.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .evm-input, .evm-textarea {
+    width: 100%; background: var(--bg-raised-2); border: 1px solid var(--hairline-2);
+    border-radius: 8px; padding: 10px 14px; color: var(--paper); font-size: 14px;
+    font-family: var(--font-body); transition: border-color 0.15s ease; outline: none;
+  }
+  .evm-input::placeholder, .evm-textarea::placeholder { color: var(--dimmer); }
+  .evm-input:focus, .evm-textarea:focus { border-color: var(--signal-dim); }
+  .evm-textarea { resize: none; font-family: var(--font-body); }
+  .evm-input:disabled, .evm-textarea:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .evm-platform-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  @media (min-width: 480px) { .evm-platform-grid { grid-template-columns: repeat(4, 1fr); } }
+
+  .evm-divider { border-top: 1px solid var(--hairline); }
+
+  .evm-actions { display: flex; gap: 12px; }
+  .evm-btn {
+    flex: 1; padding: 11px; border-radius: 8px; font-family: var(--font-body);
+    font-weight: 600; font-size: 13.5px; cursor: pointer; transition: all 0.15s ease;
+    border: 1px solid transparent; text-align: center;
+  }
+  .evm-btn-ghost { background: none; border-color: var(--hairline-2); color: var(--dim); }
+  .evm-btn-ghost:hover { border-color: var(--dim); color: var(--paper); }
+  .evm-btn-primary { background: var(--signal); color: #06140C; }
+  .evm-btn-primary:hover:not(:disabled) { background: #5FFFA5; }
+  .evm-btn-primary:disabled { opacity: 0.7; cursor: default; }
+  .evm-btn-amber { background: rgba(255,180,84,0.1); color: var(--amber); border-color: rgba(255,180,84,0.25); }
+  .evm-btn-amber:hover { background: rgba(255,180,84,0.18); }
+
+  .hidden { display: none !important; }
+
+  /* ── status chip ──────────────────────────────────────────────────── */
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 11px; border-radius: 20px;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  }
+  .chip-green { background: rgba(63,255,141,0.1); color: var(--signal); border: 1px solid rgba(63,255,141,0.25); }
+  .chip-amber { background: rgba(255,180,84,0.1); color: var(--amber); border: 1px solid rgba(255,180,84,0.25); }
+  .chip-red   { background: rgba(255,107,107,0.1); color: var(--red); border: 1px solid rgba(255,107,107,0.25); }
+  .chip-dim   { background: rgba(138,141,146,0.1); color: var(--dim); border: 1px solid var(--hairline-2); }
+
+  /* ── platform checkbox cards ──────────────────────────────────────── */
   .edit-plat-check {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: border-color .15s ease;
-    border: 1px solid var(--hairline);
-    background: var(--bg-r2);
+    display: flex; align-items: center; gap: 9px; padding: 10px 12px;
+    border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease;
+    border: 1px solid var(--hairline); background: var(--bg-raised-2);
   }
   .edit-plat-check.checked { border-color: var(--signal-dim); }
   .edit-plat-check input { display: none; }
-
-  /* disabled state */
-  #editVideoTitle:disabled,
-  #editVideoDescription:disabled {
-    opacity: .45;
-    cursor: not-allowed;
+  .edit-plat-check .plat-name {
+    font-size: 13px; text-transform: capitalize; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
   }
+
+  /* platform glyphs */
+  .plat-glyph {
+    width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 9.5px; font-weight: 700;
+  }
+  .glyph-yt { background: rgba(255,107,107,0.14); color: #FF8A8A; }
+  .glyph-tt { background: rgba(143,143,255,0.14); color: #ABABFF; }
+  .glyph-ig { background: rgba(255,180,84,0.14); color: var(--amber); }
+  .glyph-fb { background: rgba(143,187,255,0.14); color: #8FBBFF; }
 </style>
 
 <script>
@@ -168,7 +218,7 @@
     facebook:  { tag: 'FB', cls: 'glyph-fb' },
   };
 
-  function platformKey(name) { return name.toLowerCase().replace('google','youtube'); }
+  function platformKey(name) { return name.toLowerCase().replace('google', 'youtube'); }
 
   // status chip colours
   function statusChip(status) {
@@ -176,19 +226,20 @@
       'pending':    ['chip-amber', '●'],
       'processing': ['chip-amber', '●'],
       'published':  ['chip-green', '✓'],
+      'uploaded':   ['chip-green', '✓'],
       'failed':     ['chip-red',   '✕'],
       'canceled':   ['chip-dim',   '—'],
     };
-    const [cls, icon] = map[(status||'').toLowerCase()] || ['chip-dim','—'];
+    const [cls, icon] = map[(status || '').toLowerCase()] || ['chip-dim', '—'];
     return { cls, icon };
   }
 
   function openEditVideoModal(videoData) {
-    editVideoId.value    = videoData.id;
+    editVideoId.value = videoData.id;
     editVideoTitle.value = videoData.title || '';
     editVideoDescription.value = videoData.captions || '';
     editVideoPreview.src = videoData.cloudinary_url || '';
-    editVideoUrl.textContent   = videoData.cloudinary_url || 'N/A';
+    editVideoUrl.textContent = videoData.cloudinary_url || 'N/A';
 
     // status chip
     const { cls, icon } = statusChip(videoData.upload_status);
@@ -212,11 +263,11 @@
     if (!Array.isArray(destinations)) destinations = [];
 
     providers.forEach(platform => {
-      const key    = platformKey(platform);
-      const conf   = PLAT_CONFIG[key] || { tag: platform.slice(0,2).toUpperCase(), cls: 'glyph-fb' };
-      const isOn   = destinations.includes(platform);
+      const key = platformKey(platform);
+      const conf = PLAT_CONFIG[key] || { tag: platform.slice(0, 2).toUpperCase(), cls: 'glyph-fb' };
+      const isOn = destinations.includes(platform);
 
-      const label  = document.createElement('label');
+      const label = document.createElement('label');
       label.className = 'edit-plat-check' + (isOn ? ' checked' : '');
       label.onclick = () => {
         const cb = label.querySelector('input');
@@ -227,8 +278,8 @@
 
       label.innerHTML = `
         <input type="checkbox" value="${platform}" ${isOn ? 'checked' : ''}>
-        <span class="w-7 h-7 rounded-md flex items-center justify-center font-mono text-[9px] font-bold flex-shrink-0 ${conf.cls}">${conf.tag}</span>
-        <span class="plat-name text-sm capitalize" style="color:${isOn ? 'var(--paper)' : 'var(--dim)'}">${platform}</span>
+        <span class="plat-glyph ${conf.cls}">${conf.tag}</span>
+        <span class="plat-name" style="color:${isOn ? 'var(--paper)' : 'var(--dim)'}">${platform}</span>
       `;
       editPlatformsList.appendChild(label);
     });
@@ -258,18 +309,17 @@
 
   editVideoForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const id          = editVideoId.value;
-    const title       = editVideoTitle.value.trim();
+    const id = editVideoId.value;
+    const title = editVideoTitle.value.trim();
     const description = editVideoDescription.value;
     const destinations = Array.from(editPlatformsList.querySelectorAll('input[type="checkbox"]'))
       .filter(cb => cb.checked).map(cb => cb.value);
 
-    if (!title)              { alert('Please enter a video title'); return; }
-    if (!destinations.length){ alert('Please select at least one platform'); return; }
+    if (!title) { alert('Please enter a video title'); return; }
+    if (!destinations.length) { alert('Please select at least one platform'); return; }
 
     editVideoSubmitBtn.disabled = true;
     editVideoSubmitBtn.textContent = 'Saving...';
-    editVideoSubmitBtn.style.opacity = '.7';
 
     try {
       const res = await axios.put(`/dashboard/api/videos/${id}`, {
@@ -284,7 +334,6 @@
     } finally {
       editVideoSubmitBtn.disabled = false;
       editVideoSubmitBtn.textContent = 'Save changes';
-      editVideoSubmitBtn.style.opacity = '';
     }
   });
 

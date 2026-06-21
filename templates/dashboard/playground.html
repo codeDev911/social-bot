@@ -1,76 +1,192 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="space-y-8 pb-8">
+<style>
+  .pg-wrap { display: flex; flex-direction: column; gap: 28px; padding-bottom: 32px; }
+
+  .pg-title { font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .pg-sub { color: var(--dim); font-size: 15px; }
+
+  .pg-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 980px) { .pg-grid { grid-template-columns: 1fr; } }
+
+  /* ── preview panel ─────────────────────────────────────────────────── */
+  .pg-panel {
+    background: var(--bg-raised); border: 1px solid var(--hairline-2);
+    border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .pg-panel-title { font-family: var(--font-display); font-weight: 600; font-size: 17px; }
+
+  .pg-video-wrap {
+    position: relative; background: #000; border-radius: 10px; overflow: hidden;
+    aspect-ratio: 16/9; border: 1px solid var(--hairline-2);
+  }
+  .pg-video-wrap video { width: 100%; height: 100%; display: block; }
+  .pg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none; }
+
+  /* status readout */
+  .pg-readout {
+    background: var(--bg-raised-2); border: 1px solid var(--hairline);
+    border-radius: 10px; padding: 14px 16px;
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 20px;
+  }
+  @media (max-width: 480px) { .pg-readout { grid-template-columns: 1fr; } }
+  .pg-readout-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .pg-readout-key { font-family: var(--font-mono); font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; }
+  .pg-readout-val { font-family: var(--font-mono); font-size: 12px; color: var(--paper); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+
+  .pg-btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pg-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px; border-radius: 8px; font-family: var(--font-body); font-weight: 600;
+    font-size: 13.5px; cursor: pointer; transition: all 0.15s ease; border: 1px solid transparent;
+  }
+  .pg-btn-reset { background: rgba(255,107,107,0.08); border-color: rgba(255,107,107,0.25); color: var(--red); }
+  .pg-btn-reset:hover { background: rgba(255,107,107,0.15); }
+  .pg-btn-save { background: rgba(63,255,141,0.1); border-color: rgba(63,255,141,0.3); color: var(--signal); }
+  .pg-btn-save:hover:not(:disabled) { background: rgba(63,255,141,0.18); }
+  .pg-btn-save:disabled { opacity: 0.6; cursor: default; }
+
+  /* ── controls column ──────────────────────────────────────────────── */
+  .pg-controls { display: flex; flex-direction: column; gap: 12px; }
+
+  .pg-section {
+    background: var(--bg-raised); border: 1px solid var(--hairline-2);
+    border-radius: 12px; padding: 16px;
+  }
+  .pg-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
+  }
+  .pg-section-title {
+    font-family: var(--font-display); font-weight: 600; font-size: 13.5px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .pg-section-icon {
+    width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
+    background: rgba(63,255,141,0.08); display: flex; align-items: center; justify-content: center;
+  }
+  .pg-chevron { color: var(--dimmer); transition: transform 0.2s ease; flex-shrink: 0; }
+  .pg-section.collapsed .pg-chevron { transform: rotate(-90deg); }
+
+  .pg-section-content {
+    display: flex; flex-direction: column; gap: 12px; margin-top: 16px;
+    padding-top: 14px; border-top: 1px solid var(--hairline);
+  }
+  .pg-section.collapsed .pg-section-content { display: none; }
+
+  .pg-field-label {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--dim);
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block;
+  }
+  .pg-field-label .val { color: var(--signal); }
+
+  .pg-input, .pg-select {
+    width: 100%; background: var(--bg-raised-2); border: 1px solid var(--hairline-2);
+    border-radius: 7px; padding: 8px 11px; color: var(--paper); font-size: 13px;
+    font-family: var(--font-body); transition: border-color 0.15s ease;
+  }
+  .pg-input:focus, .pg-select:focus { outline: none; border-color: var(--signal-dim); }
+  .pg-select { cursor: pointer; }
+
+  .pg-range { width: 100%; accent-color: var(--signal); }
+  .pg-color { width: 100%; height: 30px; border-radius: 7px; cursor: pointer; border: 1px solid var(--hairline-2); background: var(--bg-raised-2); }
+
+  .pg-check-row { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+  .pg-check-row input { accent-color: var(--signal); width: 15px; height: 15px; }
+  .pg-check-row span { font-size: 13px; color: var(--paper); }
+
+  .pg-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+</style>
+
+<div class="pg-wrap">
+
   <!-- Header -->
-  <section class="pt-8">
-    <div class="mb-8">
-      <h1 class="text-4xl font-bold text-white mb-2">🎬 Video Playground</h1>
-      <p class="text-slate-400">Preview transformations in real-time before uploading</p>
-    </div>
+  <section>
+    <div class="eyebrow" style="margin-bottom:16px;"><span class="blip"></span>SANDBOX</div>
+    <h1 class="pg-title">Video Playground</h1>
+    <p class="pg-sub">Preview transformations in real-time before uploading</p>
   </section>
 
   <!-- Main Grid -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    
+  <div class="pg-grid">
+
     <!-- Video Preview -->
-    <div class="lg:col-span-2">
-      <div class="glass rounded-2xl p-6 space-y-4">
-        <h2 class="text-lg font-bold text-white">Live Preview</h2>
-        
-        <!-- Video Container with Canvas Overlay -->
-        <div id="videoWrapper" class="relative bg-black rounded-xl overflow-hidden" style="aspect-ratio: 16/9;">
-          <!-- Video -->
-          <video id="video" controls style="width: 100%; height: 100%; display: block;">
-            <source src="https://cdn.pixabay.com/video/2022/02/06/106883-674268697_large.mp4" type="video/mp4">
-          </video>
-          
-          <!-- Canvas for text overlay -->
-          <canvas id="textCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none;"></canvas>
-        </div>
+    <div class="pg-panel">
+      <h2 class="pg-panel-title">Live Preview</h2>
 
-        <!-- Info Display -->
-        <div class="p-4 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-400 space-y-1">
-          <p>📝 Text: <span id="infoText">Disabled</span></p>
-          <p>🔊 Audio: <span id="infoAudio">Normal (0%)</span></p>
-          <p>📐 Crop: <span id="infoCrop">None</span></p>
-          <p>🧭 Position: <span id="infoGravity">Auto</span></p>
-        </div>
+      <div id="videoWrapper" class="pg-video-wrap">
+        <video id="video" controls>
+          <source src="https://cdn.pixabay.com/video/2022/02/06/106883-674268697_large.mp4" type="video/mp4">
+        </video>
+        <canvas id="textCanvas" class="pg-canvas"></canvas>
+      </div>
 
-        <!-- Buttons -->
-        <div class="grid grid-cols-2 gap-3">
-          <button onclick="resetAll()" class="px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 text-sm">↻ Reset</button>
-          <button onclick="saveSettings()" id="saveBtn" class="px-4 py-2 bg-brand-orange/10 border border-brand-orange/30 text-brand-orange rounded-lg hover:bg-brand-orange/20 text-sm">💾 Save</button>
+      <!-- Info Display -->
+      <div class="pg-readout">
+        <div class="pg-readout-item">
+          <span class="pg-readout-key">Text</span>
+          <span class="pg-readout-val" id="infoText">Disabled</span>
         </div>
+        <div class="pg-readout-item">
+          <span class="pg-readout-key">Audio</span>
+          <span class="pg-readout-val" id="infoAudio">Normal (0%)</span>
+        </div>
+        <div class="pg-readout-item">
+          <span class="pg-readout-key">Crop</span>
+          <span class="pg-readout-val" id="infoCrop">None</span>
+        </div>
+        <div class="pg-readout-item">
+          <span class="pg-readout-key">Position</span>
+          <span class="pg-readout-val" id="infoGravity">Auto</span>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="pg-btn-row">
+        <button onclick="resetAll()" class="pg-btn pg-btn-reset">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Reset
+        </button>
+        <button onclick="saveSettings()" id="saveBtn" class="pg-btn pg-btn-save">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+          Save
+        </button>
       </div>
     </div>
 
     <!-- Controls -->
-    <div class="space-y-4">
-      
+    <div class="pg-controls">
+
       <!-- Text -->
-      <div class="glass rounded-xl p-4">
-        <h3 class="text-sm font-bold text-white mb-3 cursor-pointer" onclick="toggleSection(this)">📝 Text Overlay</h3>
-        <div class="section-content space-y-2 text-xs">
-          <label class="flex items-center gap-2">
-            <input type="checkbox" id="textEnable" onchange="applyEffects()" class="w-4 h-4">
-            <span class="text-slate-300">Enable</span>
+      <div class="pg-section">
+        <div class="pg-section-head" onclick="toggleSection(this.parentElement)">
+          <span class="pg-section-title">
+            <span class="pg-section-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h6m-6 4h10"/></svg></span>
+            Text Overlay
+          </span>
+          <svg class="pg-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="pg-section-content">
+          <label class="pg-check-row">
+            <input type="checkbox" id="textEnable" onchange="applyEffects()">
+            <span>Enable</span>
           </label>
           <div>
-            <label class="text-slate-400 block mb-1">Text</label>
-            <input type="text" id="textValue" value="@brand" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+            <label class="pg-field-label">Text</label>
+            <input type="text" id="textValue" value="@brand" onchange="applyEffects()" class="pg-input">
           </div>
           <div>
-            <label class="text-slate-400 block mb-1">Size: <span id="sizeVal">48</span>px</label>
-            <input type="range" id="textSize" min="8" max="120" value="48" onchange="document.getElementById('sizeVal').textContent = this.value; applyEffects()" class="w-full">
+            <label class="pg-field-label">Size: <span class="val" id="sizeVal">48</span>px</label>
+            <input type="range" id="textSize" min="8" max="120" value="48" onchange="document.getElementById('sizeVal').textContent = this.value; applyEffects()" class="pg-range">
           </div>
           <div>
-            <label class="text-slate-400 block mb-1">Color</label>
-            <input type="color" id="textColor" value="#F97316" onchange="applyEffects()" class="w-full h-6 cursor-pointer">
+            <label class="pg-field-label">Color</label>
+            <input type="color" id="textColor" value="#3FFF8D" onchange="applyEffects()" class="pg-color">
           </div>
           <div>
-            <label class="text-slate-400 block mb-1">Position</label>
-            <select id="textPos" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+            <label class="pg-field-label">Position</label>
+            <select id="textPos" onchange="applyEffects()" class="pg-select">
               <option value="center">Center</option>
               <option value="top">Top</option>
               <option value="bottom">Bottom</option>
@@ -81,27 +197,33 @@
             </select>
           </div>
           <div>
-            <label class="text-slate-400 block mb-1">Opacity: <span id="opacVal">100</span>%</label>
-            <input type="range" id="textOpacity" min="0" max="100" value="100" onchange="document.getElementById('opacVal').textContent = this.value; applyEffects()" class="w-full">
+            <label class="pg-field-label">Opacity: <span class="val" id="opacVal">100</span>%</label>
+            <input type="range" id="textOpacity" min="0" max="100" value="100" onchange="document.getElementById('opacVal').textContent = this.value; applyEffects()" class="pg-range">
           </div>
         </div>
       </div>
 
       <!-- Audio -->
-      <div class="glass rounded-xl p-4">
-        <h3 class="text-sm font-bold text-white mb-3 cursor-pointer" onclick="toggleSection(this)">🔊 Audio</h3>
-        <div class="section-content space-y-2 text-xs">
+      <div class="pg-section">
+        <div class="pg-section-head" onclick="toggleSection(this.parentElement)">
+          <span class="pg-section-title">
+            <span class="pg-section-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M9 9v6h4l5 5V4l-5 5H9z"/></svg></span>
+            Audio
+          </span>
+          <svg class="pg-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="pg-section-content">
           <div>
-            <label class="text-slate-400 block mb-1">Volume: <span id="volVal">0</span>%</label>
-            <input type="range" id="audioVol" min="-100" max="200" value="0" onchange="document.getElementById('volVal').textContent = this.value; applyEffects()" class="w-full">
+            <label class="pg-field-label">Volume: <span class="val" id="volVal">0</span>%</label>
+            <input type="range" id="audioVol" min="-100" max="200" value="0" onchange="document.getElementById('volVal').textContent = this.value; applyEffects()" class="pg-range">
           </div>
-          <label class="flex items-center gap-2">
-            <input type="checkbox" id="audioMute" onchange="applyEffects()" class="w-4 h-4">
-            <span class="text-slate-300">Mute</span>
+          <label class="pg-check-row">
+            <input type="checkbox" id="audioMute" onchange="applyEffects()">
+            <span>Mute</span>
           </label>
           <div>
-            <label class="text-slate-400 block mb-1">Frequency</label>
-            <select id="audioFreq" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+            <label class="pg-field-label">Frequency</label>
+            <select id="audioFreq" onchange="applyEffects()" class="pg-select">
               <option value="">Default</option>
               <option value="22050">22.05 kHz</option>
               <option value="44100">44.1 kHz</option>
@@ -112,12 +234,18 @@
       </div>
 
       <!-- Crop -->
-      <div class="glass rounded-xl p-4">
-        <h3 class="text-sm font-bold text-white mb-3 cursor-pointer" onclick="toggleSection(this)">📐 Crop</h3>
-        <div class="section-content space-y-2 text-xs">
+      <div class="pg-section">
+        <div class="pg-section-head" onclick="toggleSection(this.parentElement)">
+          <span class="pg-section-title">
+            <span class="pg-section-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg></span>
+            Crop
+          </span>
+          <svg class="pg-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="pg-section-content">
           <div>
-            <label class="text-slate-400 block mb-1">Mode</label>
-            <select id="cropMode" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+            <label class="pg-field-label">Mode</label>
+            <select id="cropMode" onchange="applyEffects()" class="pg-select">
               <option value="none">None</option>
               <option value="scale">Scale</option>
               <option value="crop">Crop</option>
@@ -125,8 +253,8 @@
             </select>
           </div>
           <div>
-            <label class="text-slate-400 block mb-1">Gravity</label>
-            <select id="gravity" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+            <label class="pg-field-label">Gravity</label>
+            <select id="gravity" onchange="applyEffects()" class="pg-select">
               <option value="center">Center</option>
               <option value="north">Top</option>
               <option value="south">Bottom</option>
@@ -142,25 +270,39 @@
       </div>
 
       <!-- Trim -->
-      <div class="glass rounded-xl p-4">
-        <h3 class="text-sm font-bold text-white mb-3 cursor-pointer" onclick="toggleSection(this)">✂️ Trim</h3>
-        <div class="section-content space-y-2 text-xs">
-          <div>
-            <label class="text-slate-400 block mb-1">Start (sec)</label>
-            <input type="number" id="trimStart" min="0" value="0" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
-          </div>
-          <div>
-            <label class="text-slate-400 block mb-1">Duration (sec)</label>
-            <input type="number" id="trimDur" min="1" value="30" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+      <div class="pg-section">
+        <div class="pg-section-head" onclick="toggleSection(this.parentElement)">
+          <span class="pg-section-title">
+            <span class="pg-section-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6m0-6l-6 6m15-6a3 3 0 11-6 0 3 3 0 016 0zM9 18a3 3 0 11-6 0 3 3 0 016 0z"/></svg></span>
+            Trim
+          </span>
+          <svg class="pg-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="pg-section-content">
+          <div class="pg-grid-2">
+            <div>
+              <label class="pg-field-label">Start (sec)</label>
+              <input type="number" id="trimStart" min="0" value="0" onchange="applyEffects()" class="pg-input">
+            </div>
+            <div>
+              <label class="pg-field-label">Duration (sec)</label>
+              <input type="number" id="trimDur" min="1" value="30" onchange="applyEffects()" class="pg-input">
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Quality -->
-      <div class="glass rounded-xl p-4">
-        <h3 class="text-sm font-bold text-white mb-3 cursor-pointer" onclick="toggleSection(this)">⚙️ Quality</h3>
-        <div class="section-content space-y-2 text-xs">
-          <select id="quality" onchange="applyEffects()" class="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white">
+      <div class="pg-section">
+        <div class="pg-section-head" onclick="toggleSection(this.parentElement)">
+          <span class="pg-section-title">
+            <span class="pg-section-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></span>
+            Quality
+          </span>
+          <svg class="pg-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="pg-section-content">
+          <select id="quality" onchange="applyEffects()" class="pg-select">
             <option value="auto">Auto</option>
             <option value="90">90 (High)</option>
             <option value="75">75 (Medium)</option>
@@ -171,24 +313,7 @@
 
     </div>
   </div>
-
 </div>
-
-<style>
-  .glass {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-  }
-
-  .section-content {
-    display: block;
-  }
-
-  .section-hidden {
-    display: none;
-  }
-</style>
 
 <script>
   const video = document.getElementById('video');
@@ -196,10 +321,9 @@
   const ctx = canvas.getContext('2d');
   let animFrameId;
 
-  // Toggle section visibility
-  function toggleSection(el) {
-    const content = el.nextElementSibling;
-    content.classList.toggle('section-hidden');
+  // Toggle section visibility (now toggles the whole .pg-section for chevron rotation)
+  function toggleSection(sectionEl) {
+    sectionEl.classList.toggle('collapsed');
   }
 
   // Get current settings
@@ -235,11 +359,7 @@
     const settings = getSettings();
 
     // TEXT OVERLAY
-    if (settings.text.enabled) {
-      canvas.style.display = 'block';
-    } else {
-      canvas.style.display = 'none';
-    }
+    canvas.style.display = settings.text.enabled ? 'block' : 'none';
 
     // AUDIO
     if (settings.audio.mute) {
@@ -253,11 +373,8 @@
     // CROP & GRAVITY
     const wrapper = document.getElementById('videoWrapper');
     wrapper.style.overflow = 'hidden';
-    
-    if (settings.crop.mode === 'none') {
-      wrapper.style.aspectRatio = '16/9';
-      video.style.objectFit = 'contain';
-    } else if (settings.crop.mode === 'scale') {
+
+    if (settings.crop.mode === 'none' || settings.crop.mode === 'scale') {
       wrapper.style.aspectRatio = '16/9';
       video.style.objectFit = 'contain';
     } else if (settings.crop.mode === 'crop') {
@@ -268,17 +385,10 @@
       video.style.objectFit = 'cover';
     }
 
-    // Apply gravity
     const gravityMap = {
-      'center': '50% 50%',
-      'north': '50% 0%',
-      'south': '50% 100%',
-      'east': '100% 50%',
-      'west': '0% 50%',
-      'northeast': '100% 0%',
-      'northwest': '0% 0%',
-      'southeast': '100% 100%',
-      'southwest': '0% 100%'
+      'center': '50% 50%', 'north': '50% 0%', 'south': '50% 100%',
+      'east': '100% 50%', 'west': '0% 50%', 'northeast': '100% 0%',
+      'northwest': '0% 0%', 'southeast': '100% 100%', 'southwest': '0% 100%'
     };
     video.style.objectPosition = gravityMap[settings.crop.gravity] || '50% 50%';
 
@@ -292,20 +402,16 @@
   // Draw text on canvas continuously
   function drawText() {
     const settings = getSettings();
-    
+
     if (!settings.text.enabled) {
       animFrameId = requestAnimationFrame(drawText);
       return;
     }
 
-    // Set canvas size
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
-
-    // Clear
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Font size based on canvas height
     const fontSize = (settings.text.size / 100) * canvas.height;
     ctx.font = `bold ${fontSize}px Arial`;
     ctx.fillStyle = settings.text.color;
@@ -313,17 +419,15 @@
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Shadow
     ctx.shadowColor = 'rgba(0,0,0,0.8)';
     ctx.shadowBlur = 10;
     ctx.shadowOffsetX = 2;
     ctx.shadowOffsetY = 2;
 
-    // Position
     let x = canvas.width / 2;
     let y = canvas.height / 2;
 
-    switch(settings.text.pos) {
+    switch (settings.text.pos) {
       case 'top': y = canvas.height * 0.15; break;
       case 'bottom': y = canvas.height * 0.85; break;
       case 'top-left': x = canvas.width * 0.1; y = canvas.height * 0.15; break;
@@ -333,15 +437,15 @@
     }
 
     ctx.fillText(settings.text.value, x, y);
-
     animFrameId = requestAnimationFrame(drawText);
   }
 
   // Save settings
   async function saveSettings() {
     const btn = document.getElementById('saveBtn');
+    const originalHTML = btn.innerHTML;
     btn.disabled = true;
-    btn.textContent = '⏳ Saving...';
+    btn.innerHTML = 'Saving...';
 
     try {
       const response = await fetch('/dashboard/api/playground/save', {
@@ -362,35 +466,25 @@
             audioCodec: 'aac',
             removeAudio: document.getElementById('audioMute').checked
           },
-          resize: {
-            cropMode: document.getElementById('cropMode').value
-          },
+          resize: { cropMode: document.getElementById('cropMode').value },
           trim: {
             startOffset: parseFloat(document.getElementById('trimStart').value) || 0,
             duration: parseFloat(document.getElementById('trimDur').value) || 30
           },
-          gravity: {
-            gravity: document.getElementById('gravity').value
-          },
-          quality: {
-            quality: document.getElementById('quality').value
-          }
+          gravity: { gravity: document.getElementById('gravity').value },
+          quality: { quality: document.getElementById('quality').value }
         })
       });
 
       if (response.ok) {
-        btn.textContent = '✅ Saved!';
-        setTimeout(() => {
-          btn.textContent = '💾 Save';
-          btn.disabled = false;
-        }, 2000);
+        btn.innerHTML = 'Saved';
+        setTimeout(() => { btn.innerHTML = originalHTML; btn.disabled = false; }, 2000);
+      } else {
+        throw new Error('Save failed');
       }
     } catch (e) {
-      btn.textContent = '❌ Error';
-      setTimeout(() => {
-        btn.textContent = '💾 Save';
-        btn.disabled = false;
-      }, 2000);
+      btn.innerHTML = 'Error';
+      setTimeout(() => { btn.innerHTML = originalHTML; btn.disabled = false; }, 2000);
     }
   }
 
@@ -399,7 +493,7 @@
     document.getElementById('textEnable').checked = false;
     document.getElementById('textValue').value = '@brand';
     document.getElementById('textSize').value = 48;
-    document.getElementById('textColor').value = '#F97316';
+    document.getElementById('textColor').value = '#3FFF8D';
     document.getElementById('textOpacity').value = 100;
     document.getElementById('textPos').value = 'center';
     document.getElementById('audioVol').value = 0;
@@ -418,7 +512,6 @@
     applyEffects();
   }
 
-  // Start animation loop
   window.addEventListener('load', () => {
     applyEffects();
     drawText();
@@ -428,5 +521,4 @@
     cancelAnimationFrame(animFrameId);
   });
 </script>
-
 {% endblock %}

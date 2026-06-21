@@ -166,8 +166,43 @@
 
   .nav-links a:hover { color: var(--paper); }
 
+  .nav-links-items { 
+    display:flex; gap:36px;
+  }
+  #menu-button {
+    display:none;
+  }
+  #hilighted {
+    color: var(--hairline);
+    background: var(--signal);
+  }
   @media (max-width: 860px) {
-    .nav-links-items { display: none; }
+    #menu-button {
+      display:flex;
+    }
+    .nav-links-items { 
+      display: flex;
+      gap:20px;
+      flex-direction: column;
+      align-items: start;
+     }
+    .nav-links { 
+      position: fixed;
+      background: rgba(10, 11, 13, 0.949);
+      width: 50%;
+      height: 100vh;
+      top:0;
+      align-items: start;
+      padding:20px;
+      left:0;
+      display: none;
+      flex-direction: column;
+      backdrop-filter: blur(30px);
+
+     }
+     .nav-links.show {
+      display:flex;
+     }
   }
 
   .btn {
@@ -1222,7 +1257,7 @@
   <div class="wrap nav-inner">
     <div class="logo"><span class="logo-dot"></span>Social Bot</div>
     <div class="nav-links">
-      <div class="nav-links-items" style="display:flex; gap:36px;">
+      <div class="nav-links-items" >
         <a href="#discovery">AI Discovery</a>
         <a href="#how">How it works</a>
         <a href="#pricing">Pricing</a>
@@ -1231,6 +1266,8 @@
       <a href="https://social-bot-nine.vercel.app/login" class="btn btn-ghost">Log in</a>
       <a href="https://social-bot-nine.vercel.app/login" class="btn btn-primary">Try it free</a>
     </div>
+          <button onClick="toggleNavLinks()" class="btn btn-ghost" id="menu-button">Menu</button>
+
   </div>
 </nav>
 
@@ -1240,7 +1277,7 @@
 
     <div class="hero-grid">
       <div>
-        <h1 class="hero-title">Stop searching.<br>Start <span class="accent">shipping</span>.</h1>
+        <h1 class="hero-title">Stop searching.<br>Start <span id="hilighted">shipping.</span></h1>
         <p class="hero-sub">Social Bot scouts the internet for what's about to take off, then schedules it everywhere — YouTube, TikTok, Instagram, Facebook — while you do literally anything else.</p>
         <div class="hero-cta">
           <a href="https://social-bot-nine.vercel.app/login" class="btn btn-primary btn-lg">Start discovering free</a>
@@ -1274,7 +1311,7 @@
     <div class="discovery-grid">
       <div>
         <div class="section-label">01 — AI Discovery</div>
-        <h2 class="section-title">A scout that never sleeps.</h2>
+        <h2 class="section-title">A scout that <span id="hilighted"> never</span> sleeps.</h2>
         <p class="section-desc" style="margin-bottom: 40px;">Tell it what you care about. It watches every platform for content that's gaining momentum right now, scores it, and brings you the videos worth your time — before everyone else finds them.</p>
 
         <div class="feature-list">
@@ -1339,7 +1376,7 @@
   <div class="wrap">
     <div class="section-head">
       <div class="section-label">02 — Distribution</div>
-      <h2 class="section-title">One queue. Every platform. Zero touching.</h2>
+      <h2 class="section-title">One queue. <span id="hilighted"> Every platform.</span> Zero touching.</h2>
       <p class="section-desc">Once content is in your queue, distribution runs itself. Smart timing, format conversion, captions, and hashtags happen automatically, then your video ships exactly when your audience is watching.</p>
     </div>
 
@@ -1384,7 +1421,7 @@
   <div class="wrap">
     <div class="section-head">
       <div class="section-label">03 — How it works</div>
-      <h2 class="section-title">From signal to published, with nobody at the wheel.</h2>
+      <h2 class="section-title">From <span id="hilighted"> signal</span> to published, with nobody at the wheel.</h2>
       <p class="section-desc">One continuous flow, on a loop you control. Raw signals come in on the left, only the best survive the gate, and what's left fans out to every platform automatically.</p>
     </div>
 
@@ -1472,7 +1509,7 @@
   <div class="wrap">
     <div class="section-head">
       <div class="section-label">04 — Why it works</div>
-      <h2 class="section-title">Built for people who'd rather create than search.</h2>
+      <h2 class="section-title">Built for people who'd rather <span id="hilighted"> create</span> than search.</h2>
     </div>
 
     <div class="grid-3">
@@ -1520,7 +1557,7 @@
   <div class="wrap">
     <div class="section-head">
       <div class="section-label">05 — Pricing</div>
-      <h2 class="section-title">Start free. Scale when you're ready.</h2>
+      <h2 class="section-title">Start free. Scale <span id="hilighted"> when you're</span> ready.</h2>
       <p class="section-desc">Every plan includes AI Discovery, smart scheduling, and cross-platform distribution.</p>
     </div>
 
@@ -1561,7 +1598,7 @@
   <div class="wrap">
     <div class="section-head">
       <div class="section-label">06 — Reviews</div>
-      <h2 class="section-title">Trusted by creators who'd rather not search for content manually.</h2>
+      <h2 class="section-title">Trusted by <span id="hilighted"> creators</span> who'd rather not search for content <span id="hilighted"> manually</span>.</h2>
     </div>
 
     <div class="quote-grid">
@@ -1593,7 +1630,7 @@
 <section class="final-cta">
   <div class="wrap">
     <div class="eyebrow" style="margin-left:auto;margin-right:auto;display:inline-flex;"><span class="blip"></span>READY WHEN YOU ARE</div>
-    <h2>Your next viral post is already out there.<br>Let it find you.</h2>
+    <h2>Your next <span id="hilighted"> viral post is already</span> out there.<br>Let it find you.</h2>
     <p>Free to start. No credit card. Discovery runs the moment you turn it on.</p>
     <div class="hero-cta">
       <a href="https://social-bot-nine.vercel.app/login" class="btn btn-primary btn-lg">Try Social Bot free</a>
@@ -1722,7 +1759,13 @@
     targetY = (e.clientY / window.innerHeight) * 100;
   }, { passive: true });
 
+  function toggleNavLinks () {
+    const navLinks = document.querySelector('.nav-links');
+    navLinks.classList.toggle('show');
+  }
+
   function animateGlow() {
+
     curX += (targetX - curX) * 0.08;
     curY += (targetY - curY) * 0.08;
     root.style.setProperty('--mx', curX + '%');

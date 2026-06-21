@@ -9,7 +9,22 @@
   .vl-table-wrap {
     background: var(--bg-raised); border: 1px solid var(--hairline-2);
     border-radius: 12px; overflow: hidden;
+    display: flex; flex-direction: column;
   }
+
+  .vl-scroll-area {
+    overflow-y: auto;
+    overflow-x: auto;
+    max-height: 560px;
+  }
+
+  /* keep header visible while scrolling */
+  .vl-table thead { position: sticky; top: 0; z-index: 1; background: var(--bg-raised); }
+
+  .vl-scroll-area::-webkit-scrollbar { width: 8px; height: 8px; }
+  .vl-scroll-area::-webkit-scrollbar-track { background: transparent; }
+  .vl-scroll-area::-webkit-scrollbar-thumb { background: rgba(63,255,141,0.2); border-radius: 4px; }
+  .vl-scroll-area::-webkit-scrollbar-thumb:hover { background: rgba(63,255,141,0.35); }
 
   .vl-table { width: 100%; border-collapse: collapse; }
 
@@ -104,24 +119,41 @@
   }
   .vl-empty-btn:hover { background: #5FFFA5; transform: translateY(-1px); }
 
-  @media (max-width: 760px) {
-    .vl-table-wrap { overflow-x: auto; }
-    .vl-table { min-width: 720px; }
+  @media (max-width: 860px) {
+    .vl-title-text { max-width: 160px; }
+    .vl-pill span.pill-label-full { display: none; }
+  }
+
+  /* hide less-critical columns on narrow screens instead of just scrolling */
+  @media (max-width: 700px) {
+    .vl-col-platforms, .vl-col-date { display: none; }
+  }
+
+  @media (max-width: 480px) {
+    .vl-table td, .vl-table th { padding: 12px 14px; }
+    .vl-title-text { max-width: 130px; font-size: 13px; }
+    .vl-empty { padding: 48px 18px; }
+  }
+
+  /* fallback: if table still can't fit (very small screens or long content), scroll horizontally */
+  @media (max-width: 420px) {
+    .vl-scroll-area { overflow-x: auto; }
+    .vl-table { min-width: 460px; }
   }
 </style>
 
 <section>
-  <h2 class="vl-head">Recent Videos</h2>
   {% set video_items = videos if videos is defined and videos else [] %}
 
-  <div class="vl-table-wrap"> 
+  <div class="vl-table-wrap">
     {% if video_items %}
+    <div class="vl-scroll-area">
     <table class="vl-table">
       <thead>
         <tr>
           <th>Video Title</th>
-          <th>Platforms</th>
-          <th>Upload Date</th>
+          <th class="vl-col-platforms">Platforms</th>
+          <th class="vl-col-date">Upload Date</th>
           <th class="al-center">Status</th>
           <th class="al-right">Actions</th>
         </tr>
@@ -145,14 +177,14 @@
           </td>
 
           <!-- Platforms -->
-          <td>
+          <td class="vl-col-platforms">
             <div style="display:flex; flex-wrap:wrap; gap:6px;">
               <span class="vl-pill">{{ video.upload_destinations }}</span>
             </div>
           </td>
 
           <!-- Upload Date -->
-          <td>
+          <td class="vl-col-date">
             <div class="vl-date-row">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--dimmer)" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -173,10 +205,10 @@
               <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
               UPLOADED
             </span>
-            {% elif video.upload_status == 'Pending' %}
+            {% elif video.upload_status == 'Processing' %}
             <span class="vl-status st-processing">
               <svg class="vl-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-              PENDING
+              PROCESSING
             </span>
             {% else %}
             <span class="vl-status st-other">
@@ -213,6 +245,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
     {% else %}
     <!-- Empty State -->
     <div class="vl-empty">
