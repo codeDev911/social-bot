@@ -1,281 +1,300 @@
 <!-- Edit Video Modal -->
-<div
-  id="editVideoModal"
-  class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
->
-  <div class="bg-gray-900 rounded-xl shadow-2xl border border-white/10 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-    <!-- Modal Header -->
-    <div class="sticky top-0 flex items-center justify-between p-6 border-b border-white/10 bg-gray-900">
-      <h2 class="text-2xl font-bold text-white">Edit Video</h2>
-      <button
-        type="button"
-        onclick="closeEditVideoModal()"
-        class="p-2 hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-white"
-      >
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+<div id="editVideoModal"
+     class="hidden fixed inset-0 z-50 items-center justify-center p-5"
+     style="background:rgba(10,11,13,.8);backdrop-filter:blur(6px)">
+
+  <div class="relative w-full max-w-2xl rounded-2xl overflow-hidden flex flex-col"
+       style="background:var(--bg-raised);border:1px solid var(--hairline-2);max-height:90vh">
+
+    <!-- ── Header ── -->
+    <div class="flex-shrink-0 flex items-center justify-between px-6 py-5"
+         style="border-bottom:1px solid var(--hairline);background:var(--bg-raised)">
+      <div>
+        <p class="font-mono text-[10px] uppercase tracking-[.08em] mb-0.5" style="color:var(--dimmer)">Video</p>
+        <h2 class="font-display font-semibold text-base tracking-tight" style="color:var(--paper)">Edit Video</h2>
+      </div>
+      <button type="button" onclick="closeEditVideoModal()"
+              class="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors"
+              style="border-color:var(--hairline-2);color:var(--dim);background:none">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
       </button>
     </div>
 
-    <!-- Modal Content -->
-    <form id="editVideoForm" class="space-y-6 p-6">
-      <!-- Hidden video ID -->
-      <input type="hidden" id="editVideoId" />
+    <!-- ── Scrollable body ── -->
+    <div class="overflow-y-auto flex-1">
+      <form id="editVideoForm" class="px-6 py-5 flex flex-col gap-5">
+        <input type="hidden" id="editVideoId">
 
-      <!-- Video Preview -->
-      <div class="flex gap-6">
-        <div class="flex-shrink-0">
-          <div class="w-24 h-24 rounded-lg bg-gradient-to-br from-brand-orange/20 to-brand-cyan/20 flex items-center justify-center border border-brand-orange/30 overflow-hidden">
-            <video
-              id="editVideoPreview"
-              class="w-full h-full object-cover rounded-lg"
-              controls
-              muted
-            ></video>
+        <!-- Video preview + meta -->
+        <div class="flex gap-4 p-4 rounded-xl" style="background:var(--bg-r2);border:1px solid var(--hairline)">
+          <!-- Thumbnail / preview -->
+          <div class="flex-shrink-0 w-28 h-20 rounded-lg overflow-hidden"
+               style="background:var(--bg);border:1px solid var(--hairline-2)">
+            <video id="editVideoPreview"
+                   class="w-full h-full object-cover"
+                   muted playsinline></video>
+          </div>
+          <!-- Meta -->
+          <div class="flex-1 min-w-0 flex flex-col gap-2.5 justify-center">
+            <div>
+              <p class="font-mono text-[10px] uppercase tracking-[.07em] mb-0.5" style="color:var(--dimmer)">Video URL</p>
+              <p id="editVideoUrl" class="font-mono text-xs truncate" style="color:var(--dim)"></p>
+            </div>
+            <div>
+              <p class="font-mono text-[10px] uppercase tracking-[.07em] mb-0.5" style="color:var(--dimmer)">Upload Status</p>
+              <span id="editVideoStatusChip" class="chip"></span>
+            </div>
           </div>
         </div>
-        <div class="flex-1 flex flex-col justify-center space-y-2">
-          <div>
-            <p class="text-xs text-slate-400 uppercase tracking-wide">Video URL</p>
-            <p id="editVideoUrl" class="text-sm text-slate-300 break-all"></p>
-          </div>
-          <div>
-            <p class="text-xs text-slate-400 uppercase tracking-wide">Upload Status</p>
-            <p id="editVideoStatus" class="text-sm text-slate-300"></p>
+
+        <!-- Title -->
+        <div>
+          <label class="block font-mono text-[10px] uppercase tracking-[.07em] mb-2" style="color:var(--dimmer)">
+            Video Title
+          </label>
+          <input type="text" id="editVideoTitle"
+                 placeholder="Enter video title"
+                 class="w-full rounded-lg px-4 py-2.5 text-sm outline-none transition-colors"
+                 style="background:var(--bg-r2);border:1px solid var(--hairline-2);color:var(--paper);"
+                 onfocus="this.style.borderColor='var(--signal-dim)'"
+                 onblur="this.style.borderColor='var(--hairline-2)'"
+                 required>
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label class="block font-mono text-[10px] uppercase tracking-[.07em] mb-2" style="color:var(--dimmer)">
+            Description
+          </label>
+          <textarea id="editVideoDescription"
+                    placeholder="Enter video description"
+                    rows="3"
+                    class="w-full rounded-lg px-4 py-2.5 text-sm outline-none transition-colors resize-none"
+                    style="background:var(--bg-r2);border:1px solid var(--hairline-2);color:var(--paper);font-family:inherit;"
+                    onfocus="this.style.borderColor='var(--signal-dim)'"
+                    onblur="this.style.borderColor='var(--hairline-2)'"></textarea>
+        </div>
+
+        <!-- Upload destinations -->
+        <div>
+          <label class="block font-mono text-[10px] uppercase tracking-[.07em] mb-3" style="color:var(--dimmer)">
+            Upload Destinations
+          </label>
+          <div id="editPlatformsList" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <!-- injected by JS -->
           </div>
         </div>
-      </div>
 
-      <!-- Video Title -->
-      <div>
-        <label class="block text-sm font-medium text-slate-300 mb-2">Video Title</label>
-        <input
-          type="text"
-          id="editVideoTitle"
-          placeholder="Enter video title"
-          class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:border-brand-orange/50 focus:outline-none transition-colors"
-          required
-        />
-      </div>
+        <!-- Divider -->
+        <div style="border-top:1px solid var(--hairline)"></div>
 
-      <!-- Description/Caption -->
-      <div>
-        <label class="block text-sm font-medium text-slate-300 mb-2">Description</label>
-        <textarea
-          id="editVideoDescription"
-          placeholder="Enter video description"
-          class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:border-brand-orange/50 focus:outline-none transition-colors resize-none"
-          rows="3"
-        ></textarea>
-      </div>
+        <!-- Actions -->
+        <div class="flex gap-3">
+          <button type="button" onclick="closeEditVideoModal()"
+                  class="flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-colors"
+                  style="border-color:var(--hairline-2);color:var(--dim);background:none">
+            Cancel
+          </button>
 
-      <!-- Upload Destinations -->
-      <div>
-        <label class="block text-sm font-medium text-slate-300 mb-3">Upload Destinations</label>
-        <div id="editPlatformsList" class="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <!-- Platforms will be dynamically added here -->
+          <!-- Reschedule (shown for Failed videos) -->
+          <button type="button" id="editVideoRescheduleBtn"
+                  onclick="rescheduleVideoFromModal()"
+                  class="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors hidden"
+                  style="background:rgba(255,180,84,.1);color:var(--amber);border:1px solid rgba(255,180,84,.25)">
+            Reschedule
+          </button>
+
+          <!-- Save (hidden for Failed) -->
+          <button type="submit" id="editVideoSubmitBtn"
+                  class="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
+                  style="background:var(--signal);color:#06140C">
+            Save changes
+          </button>
         </div>
-      </div>
 
-      <!-- Form Status -->
-      <div id="editVideoStatus" class="text-sm font-medium text-center hidden"></div>
-
-      <!-- Action Buttons -->
-      <div class="flex gap-3 pt-4 border-t border-white/10">
-        <button
-          type="button"
-          onclick="closeEditVideoModal()"
-          class="flex-1 px-4 py-2 border border-white/10 text-slate-300 rounded-lg hover:border-white/20 hover:text-white transition-colors font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          id="editVideoRescheduleBtn"
-          onclick="rescheduleVideoFromModal()"
-          class="flex-1 px-4 py-2 bg-brand-orange/20 text-brand-orange border border-brand-orange/30 rounded-lg hover:bg-brand-orange/30 transition-colors font-medium hidden"
-        >
-          Reschedule
-        </button>
-        <button
-          type="submit"
-          id="editVideoSubmitBtn"
-          class="flex-1 px-4 py-2 bg-gradient-to-r from-brand-orange to-brand-cyan text-gray-900 rounded-lg hover:shadow-lg hover:shadow-brand-orange/50 transition-all font-semibold"
-        >
-          Save Changes
-        </button>
-      </div>
-    </form>
+      </form>
+    </div>
   </div>
 </div>
 
+<style>
+  /* keep modal hidden until .open is added */
+  #editVideoModal.hidden { display: none; }
+  #editVideoModal:not(.hidden) { display: flex; }
+
+  /* platform checkbox cards */
+  .edit-plat-check {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .15s ease;
+    border: 1px solid var(--hairline);
+    background: var(--bg-r2);
+  }
+  .edit-plat-check.checked { border-color: var(--signal-dim); }
+  .edit-plat-check input { display: none; }
+
+  /* disabled state */
+  #editVideoTitle:disabled,
+  #editVideoDescription:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+  }
+</style>
+
 <script>
-  const editVideoModal = document.getElementById('editVideoModal');
-  const editVideoForm = document.getElementById('editVideoForm');
-  const editVideoId = document.getElementById('editVideoId');
-  const editVideoTitle = document.getElementById('editVideoTitle');
+  const editVideoModal       = document.getElementById('editVideoModal');
+  const editVideoForm        = document.getElementById('editVideoForm');
+  const editVideoId          = document.getElementById('editVideoId');
+  const editVideoTitle       = document.getElementById('editVideoTitle');
   const editVideoDescription = document.getElementById('editVideoDescription');
-  const editVideoPreview = document.getElementById('editVideoPreview');
-  const editVideoUrl = document.getElementById('editVideoUrl');
-  const editVideoStatus = document.getElementById('editVideoStatus');
-  const editPlatformsList = document.getElementById('editPlatformsList');
-  const editVideoSubmitBtn = document.getElementById('editVideoSubmitBtn');
+  const editVideoPreview     = document.getElementById('editVideoPreview');
+  const editVideoUrl         = document.getElementById('editVideoUrl');
+  const editVideoStatusChip  = document.getElementById('editVideoStatusChip');
+  const editPlatformsList    = document.getElementById('editPlatformsList');
+  const editVideoSubmitBtn   = document.getElementById('editVideoSubmitBtn');
   const editVideoRescheduleBtn = document.getElementById('editVideoRescheduleBtn');
-  
-  let currentVideoStatus = null; // Store current video status for reschedule check
+
+  // platform glyph config
+  const PLAT_CONFIG = {
+    youtube:   { tag: 'YT', cls: 'glyph-yt' },
+    tiktok:    { tag: 'TT', cls: 'glyph-tt' },
+    instagram: { tag: 'IG', cls: 'glyph-ig' },
+    facebook:  { tag: 'FB', cls: 'glyph-fb' },
+  };
+
+  function platformKey(name) { return name.toLowerCase().replace('google','youtube'); }
+
+  // status chip colours
+  function statusChip(status) {
+    const map = {
+      'pending':    ['chip-amber', '●'],
+      'processing': ['chip-amber', '●'],
+      'published':  ['chip-green', '✓'],
+      'failed':     ['chip-red',   '✕'],
+      'canceled':   ['chip-dim',   '—'],
+    };
+    const [cls, icon] = map[(status||'').toLowerCase()] || ['chip-dim','—'];
+    return { cls, icon };
+  }
 
   function openEditVideoModal(videoData) {
-    // Set video ID
-    editVideoId.value = videoData.id;
-    currentVideoStatus = videoData.upload_status;
-
-    // Set video details
+    editVideoId.value    = videoData.id;
     editVideoTitle.value = videoData.title || '';
     editVideoDescription.value = videoData.captions || '';
     editVideoPreview.src = videoData.cloudinary_url || '';
-    editVideoUrl.textContent = videoData.cloudinary_url || 'N/A';
-    editVideoStatus.textContent = videoData.upload_status || 'Unknown';
+    editVideoUrl.textContent   = videoData.cloudinary_url || 'N/A';
 
-    // Show/hide buttons based on status
-    if (videoData.upload_status === 'Failed') {
-      editVideoSubmitBtn.classList.add('hidden');
-      editVideoRescheduleBtn.classList.remove('hidden');
-      // Disable form inputs for failed videos
-      editVideoTitle.disabled = true;
-      editVideoDescription.disabled = true;
-    } else {
-      editVideoSubmitBtn.classList.remove('hidden');
-      editVideoRescheduleBtn.classList.add('hidden');
-      // Enable form inputs for non-failed videos
-      editVideoTitle.disabled = false;
-      editVideoDescription.disabled = false;
-    }
+    // status chip
+    const { cls, icon } = statusChip(videoData.upload_status);
+    editVideoStatusChip.className = `chip ${cls}`;
+    editVideoStatusChip.textContent = `${icon} ${videoData.upload_status || 'Unknown'}`;
 
-    // Get connected providers (convert provider names to platform format)
-    const connectedProviders = videoData.connected_providers || [];
-    const availablePlatforms = connectedProviders.map(provider => {
-      if (provider === 'google') return 'Youtube';
-      return provider.charAt(0).toUpperCase() + provider.slice(1);
-    });
+    // failed → show reschedule, hide save, disable fields
+    const isFailed = (videoData.upload_status === 'Failed');
+    editVideoSubmitBtn.classList.toggle('hidden', isFailed);
+    editVideoRescheduleBtn.classList.toggle('hidden', !isFailed);
+    editVideoTitle.disabled = isFailed;
+    editVideoDescription.disabled = isFailed;
 
-    // Set platform checkboxes
+    // platform checkboxes
     editPlatformsList.innerHTML = '';
-    
-    // Ensure upload_destinations is an array
-    let currentDestinations = videoData.upload_destinations || [];
-    if (typeof currentDestinations === 'string') {
-      currentDestinations = JSON.parse(currentDestinations);
-    }
-    if (!Array.isArray(currentDestinations)) {
-      currentDestinations = [];
-    }
-    
+    const providers = (videoData.connected_providers || []).map(p =>
+      p === 'google' ? 'Youtube' : p.charAt(0).toUpperCase() + p.slice(1)
+    );
+    let destinations = videoData.upload_destinations || [];
+    if (typeof destinations === 'string') { try { destinations = JSON.parse(destinations); } catch { destinations = []; } }
+    if (!Array.isArray(destinations)) destinations = [];
 
-    availablePlatforms.forEach(platform => {
-      const isChecked = currentDestinations.includes(platform);
-      const checkboxId = `edit_platform_${platform}`;
+    providers.forEach(platform => {
+      const key    = platformKey(platform);
+      const conf   = PLAT_CONFIG[key] || { tag: platform.slice(0,2).toUpperCase(), cls: 'glyph-fb' };
+      const isOn   = destinations.includes(platform);
 
-      const label = document.createElement('label');
-      label.className = 'flex items-center space-x-2 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:border-brand-orange/30 transition-colors';
+      const label  = document.createElement('label');
+      label.className = 'edit-plat-check' + (isOn ? ' checked' : '');
+      label.onclick = () => {
+        const cb = label.querySelector('input');
+        cb.checked = !cb.checked;
+        label.classList.toggle('checked', cb.checked);
+        label.querySelector('.plat-name').style.color = cb.checked ? 'var(--paper)' : 'var(--dim)';
+      };
 
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.id = checkboxId;
-      input.className = 'w-4 h-4 rounded border-slate-400 text-brand-orange focus:ring-brand-orange';
-      input.value = platform;
-      input.checked = isChecked;
-
-      const span = document.createElement('span');
-      span.className = 'text-sm text-slate-300 capitalize';
-      span.textContent = platform;
-
-      label.appendChild(input);
-      label.appendChild(span);
+      label.innerHTML = `
+        <input type="checkbox" value="${platform}" ${isOn ? 'checked' : ''}>
+        <span class="w-7 h-7 rounded-md flex items-center justify-center font-mono text-[9px] font-bold flex-shrink-0 ${conf.cls}">${conf.tag}</span>
+        <span class="plat-name text-sm capitalize" style="color:${isOn ? 'var(--paper)' : 'var(--dim)'}">${platform}</span>
+      `;
       editPlatformsList.appendChild(label);
     });
 
-    // Show modal
     editVideoModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
   }
 
   function closeEditVideoModal() {
     editVideoModal.classList.add('hidden');
+    document.body.style.overflow = '';
     editVideoForm.reset();
+    editVideoPreview.src = '';
   }
 
   async function rescheduleVideoFromModal() {
-    const videoId = editVideoId.value;
+    const id = editVideoId.value;
     try {
-      const response = await axios.post(`/dashboard/api/videos/${videoId}/reschedule`);
-      alert('Video rescheduled successfully! Status updated to Pending.');
+      await axios.post(`/dashboard/api/videos/${id}/reschedule`);
       closeEditVideoModal();
       location.reload();
-    } catch (error) {
-      console.error('Error rescheduling video:', error);
-      const errorMsg = error.response?.data?.detail || 'Failed to reschedule video';
-      alert(`Error: ${errorMsg}`);
+    } catch (err) {
+      const msg = err.response?.data?.detail || 'Failed to reschedule video';
+      alert(`Error: ${msg}`);
     }
   }
 
-  // Handle form submission
   editVideoForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-
-    const videoId = editVideoId.value;
-    const title = editVideoTitle.value;
+    const id          = editVideoId.value;
+    const title       = editVideoTitle.value.trim();
     const description = editVideoDescription.value;
+    const destinations = Array.from(editPlatformsList.querySelectorAll('input[type="checkbox"]'))
+      .filter(cb => cb.checked).map(cb => cb.value);
 
-    // Get selected platforms
-    const platformCheckboxes = editPlatformsList.querySelectorAll('input[type="checkbox"]');
-    const uploadDestinations = [];
-    platformCheckboxes.forEach((checkbox) => {
-      if (checkbox.checked) {
-        uploadDestinations.push(checkbox.value);
-      }
-    });
-
-    if (!title.trim()) {
-      alert('Please enter a video title');
-      return;
-    }
-
-    if (uploadDestinations.length === 0) {
-      alert('Please select at least one platform');
-      return;
-    }
+    if (!title)              { alert('Please enter a video title'); return; }
+    if (!destinations.length){ alert('Please select at least one platform'); return; }
 
     editVideoSubmitBtn.disabled = true;
     editVideoSubmitBtn.textContent = 'Saving...';
+    editVideoSubmitBtn.style.opacity = '.7';
 
     try {
-      const response = await axios.put(`/dashboard/api/videos/${videoId}`, {
-        title: title,
-        captions: description,
-        upload_destinations: uploadDestinations
+      const res = await axios.put(`/dashboard/api/videos/${id}`, {
+        title, captions: description, upload_destinations: destinations
       });
-
-      if (response.status === 200) {
-        alert('Video updated successfully!');
+      if (res.status === 200) {
         closeEditVideoModal();
-        // Reload the page to show updated data
-        setTimeout(() => {
-          location.reload();
-        }, 500);
+        setTimeout(() => location.reload(), 400);
       }
-    } catch (error) {
-      console.error('Error updating video:', error);
+    } catch {
       alert('Failed to update video. Please try again.');
     } finally {
       editVideoSubmitBtn.disabled = false;
-      editVideoSubmitBtn.textContent = 'Save Changes';
+      editVideoSubmitBtn.textContent = 'Save changes';
+      editVideoSubmitBtn.style.opacity = '';
     }
   });
 
-  // Close modal when clicking outside
-  editVideoModal.addEventListener('click', (e) => {
-    if (e.target === editVideoModal) {
-      closeEditVideoModal();
-    }
+  // close on backdrop click
+  editVideoModal.addEventListener('click', e => {
+    if (e.target === editVideoModal) closeEditVideoModal();
+  });
+
+  // close on Escape
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !editVideoModal.classList.contains('hidden')) closeEditVideoModal();
   });
 </script>

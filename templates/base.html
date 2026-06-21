@@ -1,526 +1,322 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Social Bot - Automate Your Content</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.2.1/axios.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Unbounded:wght@200..900&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="icon" href="/static/icon.png" type="image/png" />
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              "brand-orange": "#F97316",
-              "brand-cyan": "#06B6D4",
-              "dark-900": "#030712",
-              "dark-850": "#0a0e27",
-              "dark-800": "#111827",
-              "slate-400": "#94A3B8",
-            },
-            fontFamily: {
-              unbounded: ["Unbounded", "sans-serif"],
-              "noto-sans": ["Noto Sans", "sans-serif"],
-            },
-          },
-        },
-      };
-    </script>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Social Bot - Automate Your Content</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.2.1/axios.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" href="/static/icon.png" type="image/png" />
+<style>
+  :root {
+    --bg: #0A0B0D;
+    --bg-raised: #111317;
+    --bg-raised-2: #15171C;
+    --paper: #F2F1ED;
+    --dim: #8A8D92;
+    --dimmer: #5A5D63;
+    --hairline: #1E2024;
+    --hairline-2: #26282D;
+    --signal: #3FFF8D;
+    --signal-dim: #1E7A4A;
+    --amber: #FFB454;
+    --amber-dim: #8A5E26;
+    --red: #FF6B6B;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
 
-      :root {
-        color-scheme: dark;
-      }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
 
-      html,
-      body {
-        height: 100%;
-        background: #101011;
-      }
+  body {
+    background: var(--bg);
+    color: var(--paper);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
 
-      body {
-        font-family: "Noto Sans", sans-serif;
-        color: #f1f5f9;
-        overflow-x: hidden;
-      }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
 
-      h1,
-      h2,
-      h3,
-      h4,
-      h5,
-      h6 {
-        font-family: "Unbounded", sans-serif;
-        font-weight: 600;
-        letter-spacing: -0.5px;
-      }
+  a { color: inherit; text-decoration: none; }
+  ::selection { background: var(--signal); color: #06140C; }
+  html { scroll-behavior: smooth; }
 
-      /* Glass morphism surfaces */
-      .glass {
-        background: #12141ab3;
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(115, 127, 143, 0.15);
-      }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: rgba(10,11,13,0.4); }
+  ::-webkit-scrollbar-thumb { background: rgba(63,255,141,0.25); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(63,255,141,0.4); }
 
-      .glass-strong {
-        background: #12141ab3;
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-      }
+  /* ── scan lines + mouse glow, identical to index.html ─────────────── */
+  .scanlines {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    opacity: 0.5;
+  }
 
-      /* Gradient buttons */
-      .btn-gradient {
-        background: linear-gradient(135deg, #f97316 0%, #06b6d4 100%);
-        transition: all 0.3s ease;
-      }
+  .bg-glow {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: radial-gradient(560px circle at var(--mx, 50%) var(--my, 20%), rgba(63,255,141,0.05), transparent 70%);
+  }
 
-      .btn-gradient:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 20px 40px rgba(249, 115, 22, 0.25);
-      }
+  @media (prefers-reduced-motion: reduce) { .bg-glow { display: none; } }
 
-      /* Animated gradient text */
-      .gradient-text {
-        background: linear-gradient(135deg, #f97316 0%, #06b6d4 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
+  .pulse-dot { animation: pulse-dot-kf 2s ease-in-out infinite; }
+  @keyframes pulse-dot-kf { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-      /* Smooth scrolling */
-      html {
-        scroll-behavior: smooth;
-      }
+  /* ── shared component classes, lifted from index.html ─────────────── */
+  .glass {
+    background: var(--bg-raised);
+    border: 1px solid var(--hairline-2);
+    border-radius: 12px;
+  }
 
-      /* Selection style */
-      ::selection {
-        background: rgba(249, 115, 22, 0.3);
-        color: #f1f5f9;
-      }
+  .glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(63,255,141,0.04) 1px, transparent 1px);
+    background-size: 18px 18px;
+    pointer-events: none;
+    border-radius: inherit;
+  }
 
-      /* Scrollbar styling */
-      ::-webkit-scrollbar {
-        width: 8px;
-      }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-body); font-weight: 600; font-size: 14px;
+    padding: 10px 20px; border-radius: 6px; cursor: pointer;
+    border: 1px solid transparent; transition: all 0.15s ease; white-space: nowrap;
+  }
+  .btn-primary { background: var(--signal); color: #06140C; }
+  .btn-primary:hover { background: #5FFFA5; transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--paper); border-color: var(--hairline-2); }
+  .btn-ghost:hover { border-color: var(--dim); }
 
-      ::-webkit-scrollbar-track {
-        background: rgba(15, 23, 42, 0.4);
-      }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 11.5px; color: var(--signal);
+    background: rgba(63,255,141,0.08); border: 1px solid rgba(63,255,141,0.25);
+    padding: 5px 12px; border-radius: 4px; letter-spacing: 0.02em;
+  }
+  .eyebrow .blip { width: 6px; height: 6px; border-radius: 50%; background: var(--signal); animation: pulse-dot-kf 1.6s ease-in-out infinite; }
 
-      ::-webkit-scrollbar-thumb {
-        background: rgba(249, 115, 22, 0.5);
-        border-radius: 4px;
-      }
+  .mono { font-family: var(--font-mono); }
 
-      ::-webkit-scrollbar-thumb:hover {
-        background: rgba(249, 115, 22, 0.7);
-      }
+  /* ── top nav ──────────────────────────────────────────────────────── */
+  .topnav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(10,11,13,0.85); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .topnav-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 64px; padding: 0 24px;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 600; font-size: 16px; }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 8px var(--signal); animation: pulse-dot-kf 2s ease-in-out infinite; }
 
-      /* Sidebar styling */
-      .sidebar {
-        transition: all 0.3s ease;
-        width: 280px;
-      }
+  .icon-btn {
+    padding: 8px; border-radius: 8px; color: var(--dim);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.05); color: var(--paper); }
 
-      .sidebar.mobile-hidden {
-        transform: translateX(-100%);
-        position: absolute;
-        height: 100vh;
-        left: 0;
-        top: 0;
-        z-index: 40;
-      }
+  .mobile-menu-btn { display: none; }
 
-      .sidebar-overlay {
-        display: none;
-      }
+  /* ── layout shell ─────────────────────────────────────────────────── */
+  .shell { display: flex; min-height: 100vh; position: relative; }
+  .main-col { flex: 1; display: flex; flex-direction: column; }
+  .content-area { flex: 1; display: flex; width: 100%; position: relative; z-index: 1; }
 
-      .sidebar-overlay.active {
-        display: block;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 30;
-      }
+  /* ── sidebar ──────────────────────────────────────────────────────── */
+  .sidebar {
+    width: 240px; flex-shrink: 0;
+    background: rgba(10,11,13,0.85); backdrop-filter: blur(12px);
+    border-right: 1px solid var(--hairline);
+    display: flex; flex-direction: column;
+    padding: 24px 14px;
+    height: calc(100vh - 64px);
+    position: sticky; top: 64px;
+    transition: transform 0.25s ease;
+  }
 
-      .sidebar-link {
-        transition: all 0.2s ease;
-      }
+  .sidebar-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
 
-      .sidebar-link.active {
-        background: rgba(249, 115, 22, 0.15);
-        border-left: 3px solid #f97316;
-        color: #f97316;
-      }
+  .sidebar-link {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; border-radius: 8px;
+    color: var(--dim); font-size: 14px; font-weight: 500;
+    border-left: 2px solid transparent;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .sidebar-link svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .sidebar-link:hover { background: rgba(255,255,255,0.03); color: var(--paper); }
+  .sidebar-link.active {
+    background: rgba(63,255,141,0.07);
+    border-left-color: var(--signal);
+    color: var(--signal);
+  }
 
-      .sidebar-link:hover {
-        background: rgba(249, 115, 22, 0.1);
-      }
+  .sidebar-foot { border-top: 1px solid var(--hairline); padding-top: 16px; margin-top: 16px; }
+  .user-row { display: flex; align-items: center; gap: 12px; padding: 0 4px; }
+  .user-avatar { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--hairline-2); flex-shrink: 0; object-fit: cover; }
+  .user-meta { min-width: 0; }
+  .user-name { font-size: 13.5px; font-weight: 500; color: var(--paper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-status { font-size: 11px; color: var(--dimmer); font-family: var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-      @media (max-width: 768px) {
-        .sidebar {
-          width: 280px;
-          transform: translateX(-100%);
-          position: absolute;
-          height: 100vh;
-          left: 0;
-          top: 0;
-          z-index: 40;
-        }
+  .sidebar-overlay { display: none; }
+  .sidebar-overlay.active {
+    display: block; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6); z-index: 39;
+  }
 
-        .sidebar.active {
-          transform: translateX(0);
-        }
-      }
-    </style>
-  </head>
-  <body class="min-h-screen">
-    <div class="flex min-h-screen w-screen">
-      <!-- Main Content Area -->
-      <div class="flex-1 flex flex-col">
-        <!-- Top Navigation (Compact) -->
-        <nav
-          class="sticky top-0 z-50 glass-strong border-b border-slate-700/30"
-        >
-          <div class="px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-              <!-- Mobile Menu Button -->
-              <button
-                class="md:hidden p-2 hover:bg-white/5 rounded-lg transition-colors"
-                id="sidebarToggle"
-              >
-                <svg
-                  class="w-6 h-6 text-slate-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                </svg>
-              </button>
+  /* ── page content ─────────────────────────────────────────────────── */
+  .page-content { flex: 1; padding: 28px 32px; min-width: 0; }
 
-              <a href="/" class="flex items-center space-x-2">
-                <img src="/static/icon.png" class="w-9 select-none" />
-                <h3 class="text-xl font-semibold mt-1">Social Bot</h3>
-              </a>
-              <!-- Spacer -->
-              <div class="flex-1"></div>
+  @media (max-width: 860px) {
+    .mobile-menu-btn { display: flex; }
+    .sidebar {
+      position: fixed; top: 50px; left: 0; z-index: 40;
+      height: 93%; transform: translateX(-100%);
+    }
+    .sidebar.active { transform: translateX(0); }
+    .page-content { padding: 20px 18px; }
+  }
+</style>
+</head>
+<body>
 
-              <!-- User Profile Dropdown -->
-              <div class="flex items-center space-x-4">
-                <a
-                  href="/dashboard/settings"
-                  class="p-2 hover:bg-white/5 rounded-lg transition-colors"
-                >
-                  <svg
-                    class="w-5 h-5 text-slate-300"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                    />
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                </a>
-              </div>
-            </div>
-          </div>
+<div class="scanlines"></div>
+<div class="bg-glow" id="bgGlow"></div>
+
+<div class="shell">
+  <div class="main-col">
+
+    <nav class="topnav">
+      <div class="topnav-inner">
+        <button class="icon-btn mobile-menu-btn" id="sidebarToggle" aria-label="Toggle menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+
+        <a href="/" class="logo"><span class="logo-dot"></span>Social Bot</a>
+
+        <div style="flex:1"></div>
+
+        <a href="/dashboard/settings" class="icon-btn" aria-label="Settings">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </a>
+      </div>
+    </nav>
+
+    <div class="content-area">
+      <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+      <aside class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+          <a href="/dashboard" class="sidebar-link {% if request.url.path == '/dashboard/' %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-3m0 0l7-4 7 4M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9m-9 5h4"/></svg>
+            Dashboard
+          </a>
+          <a href="/dashboard/videos" class="sidebar-link {% if 'videos' in request.url.path %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Videos
+          </a>
+          <a href="/dashboard/plan" class="sidebar-link {% if 'plan' in request.url.path %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            Plan
+          </a>
+          <a href="/dashboard/ai-discovery" class="sidebar-link {% if 'ai-discovery' in request.url.path %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.3-4.3"/></svg>
+            AI Discovery
+          </a>
+          <a href="/dashboard/settings" class="sidebar-link {% if 'settings' in request.url.path %}active{% endif %}">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Settings
+          </a>
         </nav>
 
-        <!-- Page Content -->
-        <main class="flex-1 w-full md:grid grid-cols-5 overflow-y-auto">
-          <div class="col-span-1">
-            <!-- Sidebar Overlay (Mobile) -->
-            <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-            <!-- Sidebar -->
-            <aside
-              class="sidebar h-[92vh] fixed z-50 glass-strong border-r border-slate-700/30 flex flex-col py-6 px-4"
-              id="sidebar"
-            >
-              <!-- Logo -->
-
-              <!-- Nav Links -->
-              <nav class="space-y-2 flex-1">
-                <a
-                  href="/dashboard"
-                  class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:text-white {% if request.url.path == '/dashboard/' %}active{% endif %}"
-                >
-                  <svg
-                    class="w-5 h-5 flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M3 12l2-3m0 0l7-4 7 4M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9m-9 5h4"
-                    />
-                  </svg>
-                  <span class="hidden md:inline">Dashboard</span>
-                </a>
-
-                <a
-                  href="/dashboard/videos"
-                  class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:text-white {% if 'videos' in request.url.path %}active{% endif %}"
-                >
-                  <svg
-                    class="w-5 h-5 flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                    />
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span class="hidden md:inline">Videos</span>
-                </a>
-
-                <a
-                  href="/dashboard/plan"
-                  class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:text-white {% if 'plan' in request.url.path %}active{% endif %}"
-                >
-                  <svg
-                    class="w-5 h-5 flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                    />
-                  </svg>
-                  <span class="hidden md:inline">Plan</span>
-                </a>
-                <a
-                  href="/dashboard/ai-discovery"
-                  class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:text-white {% if 'settings' in request.url.path %}active{% endif %}"
-                >
-                  <svg
-                    class="w-7"
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 64 64"
-                    fill="none"
-                  >
-                    <rect
-                      x="8"
-                      y="8"
-                      width="36"
-                      height="48"
-                      rx="6"
-                      stroke="white"
-                      stroke-width="2"
-                      stroke-dasharray="4 3"
-                      opacity=".4"
-                    />
-
-                    <rect
-                      x="14"
-                      y="18"
-                      width="16"
-                      height="3.5"
-                      rx="1.75"
-                      fill="white"
-                      opacity=".3"
-                    />
-                    <rect
-                      x="14"
-                      y="26"
-                      width="22"
-                      height="3.5"
-                      rx="1.75"
-                      fill="white"
-                      opacity=".4"
-                    />
-                    <rect
-                      x="14"
-                      y="34"
-                      width="12"
-                      height="3.5"
-                      rx="1.75"
-                      fill="white"
-                      opacity=".6"
-                    />
-                    <rect
-                      x="14"
-                      y="42"
-                      width="18"
-                      height="3.5"
-                      rx="1.75"
-                      fill="white"
-                      opacity=".8"
-                    />
-
-                    <path
-                      d="M12 50q0 2 2 2q-2 0-2 2q0-2-2-2q2 0 2-2z"
-                      fill="white"
-                      opacity=".7"
-                    />
-                    <path
-                      d="M46 12q0 3 3 3q-3 0-3 3q0-3-3-3q3 0 3-3z"
-                      fill="white"
-                    />
-
-                    <circle
-                      cx="40"
-                      cy="36"
-                      r="14"
-                      stroke="white"
-                      stroke-width="2.5"
-                      fill="white"
-                      fill-opacity=".05"
-                    />
-                    <path
-                      d="M50 46l8 8"
-                      stroke="white"
-                      stroke-width="3.5"
-                      stroke-linecap="round"
-                    />
-
-                    <path
-                      d="M40 25q0 11 11 11q-11 0-11 11q0-11-11-11q11 0 11-11z"
-                      fill="white"
-                    />
-
-                    <path
-                      d="M24 10c5-2.5 11-2.5 16 0"
-                      stroke="white"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      opacity=".9"
-                    />
-                  </svg>
-
-                  <span class="hidden md:inline">Ai Discovery</span>
-                </a>
-                <a
-                  href="/dashboard/settings"
-                  class="sidebar-link flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:text-white {% if 'settings' in request.url.path %}active{% endif %}"
-                >
-                  <svg
-                    class="w-5 h-5 flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                    />
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                  <span class="hidden md:inline">Settings</span>
-                </a>
-              </nav>
-
-              <!-- User Profile -->
-              <div class="border-t border-slate-700/30 pt-4 mt-4">
-                <div class="flex items-center space-x-3 px-2">
-                  <img
-                    src="{{ user_info.avator }}"
-                    alt="Profile"
-                    class="w-10 h-10 rounded-full border border-white/10 flex-shrink-0"
-                  />
-                  <div class="flex-1 hidden md:block min-w-0">
-                    <p class="text-sm font-medium text-white truncate">
-                      {{ user_info.fullname }}
-                    </p>
-                    <p class="text-xs text-slate-400 truncate">
-                      {{ user_info.account_status }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </aside>
+        <div class="sidebar-foot">
+          <div class="user-row">
+            <img src="{{ user_info.avator }}" alt="" class="user-avatar">
+            <div class="user-meta">
+              <div class="user-name">{{ user_info.fullname }}</div>
+              <div class="user-status">{{ user_info.account_status }}</div>
+            </div>
           </div>
-          <div class="col-span-4 p-4">{% block content %}{% endblock %}</div>
-        </main>
+        </div>
+      </aside>
+
+      <div class="page-content">
+        {% block content %}{% endblock %}
       </div>
     </div>
+  </div>
+</div>
 
-    <script>
-      // Sidebar toggle for mobile
-      const sidebar = document.getElementById("sidebar");
-      const sidebarOverlay = document.getElementById("sidebarOverlay");
-      const sidebarToggle = document.getElementById("sidebarToggle");
+<script>
+  const sidebar = document.getElementById("sidebar");
+  const sidebarOverlay = document.getElementById("sidebarOverlay");
+  const sidebarToggle = document.getElementById("sidebarToggle");
 
-      sidebarToggle.addEventListener("click", () => {
-        sidebar.classList.toggle("active");
-        sidebarOverlay.classList.toggle("active");
-      });
-
-      sidebarOverlay.addEventListener("click", () => {
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener("click", () => {
+      sidebar.classList.toggle("active");
+      sidebarOverlay.classList.toggle("active");
+    });
+  }
+  sidebarOverlay.addEventListener("click", () => {
+    sidebar.classList.remove("active");
+    sidebarOverlay.classList.remove("active");
+  });
+  document.querySelectorAll(".sidebar-link").forEach((link) => {
+    link.addEventListener("click", () => {
+      if (window.innerWidth <= 860) {
         sidebar.classList.remove("active");
         sidebarOverlay.classList.remove("active");
-      });
+      }
+    });
+  });
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 860) {
+      sidebar.classList.remove("active");
+      sidebarOverlay.classList.remove("active");
+    }
+  });
 
-      // Close sidebar when clicking a link on mobile
-      const sidebarLinks = document.querySelectorAll(".sidebar-link");
-      sidebarLinks.forEach((link) => {
-        link.addEventListener("click", () => {
-          if (window.innerWidth < 768) {
-            sidebar.classList.remove("active");
-            sidebarOverlay.classList.remove("active");
-          }
-        });
-      });
-
-      // Handle responsive behavior
-      window.addEventListener("resize", () => {
-        if (window.innerWidth >= 768) {
-          sidebar.classList.remove("active");
-          sidebarOverlay.classList.remove("active");
-        }
-      });
-    </script>
-  </body>
+  // mouse-reactive glow — identical behavior to index.html
+  const root = document.documentElement;
+  let targetX = 50, targetY = 20, curX = 50, curY = 20;
+  window.addEventListener('mousemove', (e) => {
+    targetX = (e.clientX / window.innerWidth) * 100;
+    targetY = (e.clientY / window.innerHeight) * 100;
+  }, { passive: true });
+  function animateGlow() {
+    curX += (targetX - curX) * 0.08;
+    curY += (targetY - curY) * 0.08;
+    root.style.setProperty('--mx', curX + '%');
+    root.style.setProperty('--my', curY + '%');
+    requestAnimationFrame(animateGlow);
+  }
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    requestAnimationFrame(animateGlow);
+  }
+</script>
+</body>
 </html>

@@ -1,167 +1,286 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="space-y-8">
+<style>
+  .pl-wrap { display: flex; flex-direction: column; gap: 32px; }
+
+  .pl-title {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: 32px; letter-spacing: -0.02em; margin-bottom: 8px;
+  }
+  .pl-sub { color: var(--dim); font-size: 15px; }
+
+  /* ── usage stat cards ─────────────────────────────────────────────── */
+  .pl-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  @media (max-width: 980px) { .pl-stat-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .pl-stat-grid { grid-template-columns: 1fr; } }
+
+  .pl-card {
+    background: var(--bg-raised); border: 1px solid var(--hairline-2);
+    border-radius: 12px; padding: 20px; position: relative; overflow: hidden;
+  }
+  .pl-card::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(63,255,141,0.04) 1px, transparent 1px);
+    background-size: 18px 18px; pointer-events: none;
+  }
+  .pl-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; position: relative; }
+  .pl-card-label { font-family: var(--font-mono); font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; }
+  .pl-icon-badge {
+    width: 34px; height: 34px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .pl-icon-signal { background: rgba(63,255,141,0.1); }
+  .pl-icon-amber { background: rgba(255,180,84,0.1); }
+  .pl-icon-purple { background: rgba(171,143,255,0.1); }
+  .pl-icon-cyan { background: rgba(143,210,255,0.1); }
+
+  .pl-card-value { font-family: var(--font-display); font-weight: 600; font-size: 28px; color: var(--paper); margin-bottom: 6px; position: relative; }
+  .pl-card-meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--dimmer); position: relative; }
+
+  /* ── section panels ───────────────────────────────────────────────── */
+  .pl-panel {
+    background: var(--bg-raised); border: 1px solid var(--hairline-2);
+    border-radius: 14px; padding: 30px;
+  }
+  .pl-panel-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 26px; }
+  .pl-panel-title { font-family: var(--font-display); font-weight: 600; font-size: 20px; margin-bottom: 4px; }
+  .pl-panel-desc { color: var(--dim); font-size: 13.5px; }
+
+  .pl-live-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 11.5px; color: var(--signal);
+    background: rgba(63,255,141,0.1); border: 1px solid rgba(63,255,141,0.2);
+    padding: 5px 11px; border-radius: 20px;
+  }
+  .pl-live-pill .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--signal); animation: pl-pulse 1.6s ease-in-out infinite; }
+  @keyframes pl-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* ── ai processing layout ─────────────────────────────────────────── */
+  .pl-ai-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+  @media (max-width: 880px) { .pl-ai-grid { grid-template-columns: 1fr; } }
+
+  .pl-bar-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .pl-bar-label { font-size: 13.5px; color: var(--paper); font-weight: 500; }
+  .pl-bar-num { font-family: var(--font-mono); font-size: 12.5px; color: var(--dim); }
+
+  .pl-bar-track { width: 100%; height: 8px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
+  .pl-bar-fill { height: 100%; background: var(--signal); border-radius: 999px; transition: width 0.4s ease; }
+
+  .pl-sub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+  @media (max-width: 480px) { .pl-sub-grid { grid-template-columns: 1fr; } }
+
+  .pl-mini-box {
+    background: var(--bg-raised-2); border: 1px solid var(--hairline-2);
+    border-radius: 10px; padding: 16px;
+  }
+  .pl-mini-dot-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .pl-mini-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .pl-mini-label { font-family: var(--font-mono); font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; }
+  .pl-mini-value { font-family: var(--font-display); font-weight: 600; font-size: 22px; color: var(--paper); margin-bottom: 2px; }
+  .pl-mini-sub { font-size: 12px; color: var(--dimmer); }
+
+  /* performance side box */
+  .pl-perf-box {
+    background: var(--bg-raised-2); border: 1px solid var(--hairline-2);
+    border-radius: 10px; padding: 20px;
+  }
+  .pl-perf-title { font-family: var(--font-display); font-weight: 600; font-size: 14px; margin-bottom: 16px; }
+  .pl-perf-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--hairline); }
+  .pl-perf-row:last-child { border-bottom: none; }
+  .pl-perf-key { font-family: var(--font-mono); font-size: 11.5px; color: var(--dim); }
+  .pl-perf-val { font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; }
+  .perf-signal { color: var(--signal); }
+  .perf-amber { color: var(--amber); }
+
+  /* ── current plan ─────────────────────────────────────────────────── */
+  .pl-plan-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 26px; }
+  .pl-plan-name {
+    font-family: var(--font-display); font-weight: 600; font-size: 26px;
+    background: linear-gradient(135deg, var(--signal), var(--amber));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .pl-plan-price { font-family: var(--font-mono); font-size: 13px; color: var(--dim); margin-top: 2px; }
+
+  .pl-feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 760px) { .pl-feat-grid { grid-template-columns: 1fr; } }
+
+  .pl-feat-box {
+    background: var(--bg-raised-2); border: 1px solid var(--hairline-2);
+    border-radius: 10px; padding: 16px;
+  }
+  .pl-feat-label { font-family: var(--font-mono); font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .pl-feat-value { font-family: var(--font-display); font-weight: 600; font-size: 20px; color: var(--paper); }
+  .pl-feat-unit { font-family: var(--font-body); font-weight: 400; font-size: 12px; color: var(--dimmer); }
+
+  .pl-billing-row {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+    margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--hairline);
+  }
+  .pl-billing-text { font-size: 13.5px; color: var(--paper); }
+  .pl-billing-sub { font-family: var(--font-mono); font-size: 11.5px; color: var(--dimmer); margin-top: 3px; }
+
+  .pl-upgrade-btn {
+    background: var(--signal); color: #06140C; border: none;
+    border-radius: 8px; padding: 11px 24px; font-family: var(--font-body);
+    font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.15s ease;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .pl-upgrade-btn:hover { background: #5FFFA5; transform: translateY(-1px); }
+</style>
+
+<div class="pl-wrap">
+
   <!-- Header -->
-  <section class="pt-8">
-    <h1 class="text-4xl font-bold text-white mb-2">Plan & Usage</h1>
-    <p class="text-slate-400">Monitor your usage, manage your subscription, and track your content performance</p>
+  <section>
+    <div class="eyebrow" style="margin-bottom:16px;"><span class="blip"></span>ACCOUNT</div>
+    <h1 class="pl-title">Plan &amp; Usage</h1>
+    <p class="pl-sub">Monitor your usage, manage your subscription, and track your content performance</p>
   </section>
 
   <!-- Usage Stats -->
-  <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-    <div class="glass rounded-xl p-6">
-      <div class="flex items-center justify-between mb-4">
-        <span class="text-sm text-slate-400">Today's Uploads</span>
-        <div class="w-10 h-10 rounded-lg bg-brand-orange/20 flex items-center justify-center">
-          <svg class="w-5 h-5 text-brand-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-          </svg>
+  <section class="pl-stat-grid">
+    <div class="pl-card">
+      <div class="pl-card-top">
+        <span class="pl-card-label">Today's Uploads</span>
+        <div class="pl-icon-badge pl-icon-amber">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
         </div>
       </div>
-      <p class="text-3xl font-bold text-white mb-2">{{ today_uploads or 0 }}</p>
-      <p class="text-xs text-slate-400">{{ 8 - (today_uploads or 0) }} remaining today</p>
+      <p class="pl-card-value">{{ today_uploads or 0 }}</p>
+      <p class="pl-card-meta">{{ 8 - (today_uploads or 0) }} remaining today</p>
     </div>
 
-    <div class="glass rounded-xl p-6">
-      <div class="flex items-center justify-between mb-4">
-        <span class="text-sm text-slate-400">Scheduled Videos</span>
-        <div class="w-10 h-10 rounded-lg bg-brand-cyan/20 flex items-center justify-center">
-          <svg class="w-5 h-5 text-brand-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
+    <div class="pl-card">
+      <div class="pl-card-top">
+        <span class="pl-card-label">Scheduled Videos</span>
+        <div class="pl-icon-badge pl-icon-signal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
       </div>
-      <p class="text-3xl font-bold text-white mb-2">{{ scheduled_videos or 0 }}</p>
-      <p class="text-xs text-slate-400">{{ 20 - (scheduled_videos or 0) }} slots available</p>
+      <p class="pl-card-value">{{ scheduled_videos or 0 }}</p>
+      <p class="pl-card-meta">{{ 20 - (scheduled_videos or 0) }} slots available</p>
     </div>
 
-    <div class="glass rounded-xl p-6">
-      <div class="flex items-center justify-between mb-4">
-        <span class="text-sm text-slate-400">Captions Generated</span>
-        <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-          <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-          </svg>
+    <div class="pl-card">
+      <div class="pl-card-top">
+        <span class="pl-card-label">Captions Generated</span>
+        <div class="pl-icon-badge pl-icon-purple">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#AB8FFF" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
         </div>
       </div>
-      <p class="text-3xl font-bold text-white mb-2">{{ caption_generations or 0 }}</p>
-      <p class="text-xs text-slate-400">{{ 100 - (caption_generations or 0) }} remaining this month</p>
+      <p class="pl-card-value">{{ caption_generations or 0 }}</p>
+      <p class="pl-card-meta">{{ 100 - (caption_generations or 0) }} remaining this month</p>
     </div>
 
-    <div class="glass rounded-xl p-6">
-      <div class="flex items-center justify-between mb-4">
-        <span class="text-sm text-slate-400">Hashtags Generated</span>
-        <div class="w-10 h-10 rounded-lg bg-emerald-400/20 flex items-center justify-center">
-          <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
-          </svg>
+    <div class="pl-card">
+      <div class="pl-card-top">
+        <span class="pl-card-label">Hashtags Generated</span>
+        <div class="pl-icon-badge pl-icon-cyan">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8FD2FF" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/></svg>
         </div>
       </div>
-      <p class="text-3xl font-bold text-white mb-2">{{ hashtag_generations or 0 }}</p>
-      <p class="text-xs text-slate-400">{{ 100 - (hashtag_generations or 0) }} remaining this month</p>
+      <p class="pl-card-value">{{ hashtag_generations or 0 }}</p>
+      <p class="pl-card-meta">{{ 100 - (hashtag_generations or 0) }} remaining this month</p>
     </div>
   </section>
 
   <!-- AI Processing Usage -->
-  <section class="glass rounded-2xl p-8 space-y-6">
-    <div class="flex items-center justify-between">
+  <section class="pl-panel">
+    <div class="pl-panel-head">
       <div>
-        <h2 class="text-xl font-bold text-white">AI Processing Usage</h2>
-        <p class="text-sm text-slate-400 mt-1">Powered by Gemini-1.75-Flash AI</p>
+        <div class="pl-panel-title">AI Processing Usage</div>
+        <p class="pl-panel-desc">Powered by Gemini-1.75-Flash AI</p>
       </div>
-      <div class="flex items-center space-x-2">
-        <div class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></div>
-        <span class="text-sm font-medium text-emerald-400">Active</span>
-      </div>
+      <div class="pl-live-pill"><span class="dot"></span>Active</div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2 space-y-4">
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm font-medium text-slate-300">Monthly AI Processing</span>
-            <span class="text-sm text-slate-400">{{ (ai_processing_used or 750) }}/{{ ai_processing_limit or 1000 }} requests</span>
-          </div>
-          <div class="w-full h-3 bg-white/10 rounded-full overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-brand-orange to-brand-cyan" style="width: {{ ((ai_processing_used or 750) / (ai_processing_limit or 1000)) * 100 }}%"></div>
-          </div>
+    <div class="pl-ai-grid">
+      <div>
+        <div class="pl-bar-row">
+          <span class="pl-bar-label">Monthly AI Processing</span>
+          <span class="pl-bar-num">{{ (ai_processing_used or 750) }}/{{ ai_processing_limit or 1000 }} requests</span>
+        </div>
+        <div class="pl-bar-track">
+          <div class="pl-bar-fill" style="width: {{ ((ai_processing_used or 750) / (ai_processing_limit or 1000)) * 100 }}%"></div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
-          <div class="p-4 rounded-lg bg-white/5 border border-white/10">
-            <div class="flex items-center space-x-2 mb-2">
-              <div class="w-2 h-2 rounded-full bg-brand-orange"></div>
-              <span class="text-xs text-slate-400">Caption AI</span>
+        <div class="pl-sub-grid">
+          <div class="pl-mini-box">
+            <div class="pl-mini-dot-row">
+              <span class="pl-mini-dot" style="background: var(--signal);"></span>
+              <span class="pl-mini-label">Caption AI</span>
             </div>
-            <p class="text-lg font-bold text-white">{{ caption_ai_usage or 420 }}</p>
-            <p class="text-xs text-slate-400">requests used</p>
+            <p class="pl-mini-value">{{ caption_ai_usage or 420 }}</p>
+            <p class="pl-mini-sub">requests used</p>
           </div>
-          <div class="p-4 rounded-lg bg-white/5 border border-white/10">
-            <div class="flex items-center space-x-2 mb-2">
-              <div class="w-2 h-2 rounded-full bg-brand-cyan"></div>
-              <span class="text-xs text-slate-400">Hashtag AI</span>
+          <div class="pl-mini-box">
+            <div class="pl-mini-dot-row">
+              <span class="pl-mini-dot" style="background: var(--amber);"></span>
+              <span class="pl-mini-label">Hashtag AI</span>
             </div>
-            <p class="text-lg font-bold text-white">{{ hashtag_ai_usage or 330 }}</p>
-            <p class="text-xs text-slate-400">requests used</p>
+            <p class="pl-mini-value">{{ hashtag_ai_usage or 330 }}</p>
+            <p class="pl-mini-sub">requests used</p>
           </div>
         </div>
       </div>
 
-      <div class="p-4 rounded-lg bg-white/5 border border-white/10">
-        <h3 class="text-sm font-semibold text-white mb-4">Performance</h3>
-        <div class="space-y-3">
-          <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-400">Avg Response</span>
-            <span class="text-xs font-bold text-emerald-400">1.2s</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-400">Success Rate</span>
-            <span class="text-xs font-bold text-emerald-400">99.8%</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-xs text-slate-400">Quality Score</span>
-            <span class="text-xs font-bold text-brand-orange">9.4/10</span>
-          </div>
+      <div class="pl-perf-box">
+        <div class="pl-perf-title">Performance</div>
+        <div class="pl-perf-row">
+          <span class="pl-perf-key">AVG RESPONSE</span>
+          <span class="pl-perf-val perf-signal">1.2s</span>
+        </div>
+        <div class="pl-perf-row">
+          <span class="pl-perf-key">SUCCESS RATE</span>
+          <span class="pl-perf-val perf-signal">99.8%</span>
+        </div>
+        <div class="pl-perf-row">
+          <span class="pl-perf-key">QUALITY SCORE</span>
+          <span class="pl-perf-val perf-amber">9.4/10</span>
         </div>
       </div>
     </div>
   </section>
 
   <!-- Current Plan -->
-  <section class="glass rounded-2xl p-8 space-y-6">
-    <div class="flex items-center justify-between">
+  <section class="pl-panel">
+    <div class="pl-plan-head">
       <div>
-        <h2 class="text-xl font-bold text-white">Current Plan</h2>
-        <p class="text-sm text-slate-400 mt-1">Your active subscription</p>
+        <div class="pl-panel-title">Current Plan</div>
+        <p class="pl-panel-desc">Your active subscription</p>
       </div>
-      <div class="text-right">
-        <p class="text-2xl font-bold gradient-text">{{ current_plan or 'Free' }}</p>
-        <p class="text-sm text-slate-400">{{ plan_price or '$0' }}/month</p>
+      <div style="text-align:right;">
+        <p class="pl-plan-name">{{ current_plan or 'Free' }}</p>
+        <p class="pl-plan-price">{{ plan_price or '$0' }}/month</p>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="p-4 rounded-lg bg-white/5 border border-white/10">
-        <p class="text-xs text-slate-400 mb-2">Video Uploads</p>
-        <p class="text-xl font-bold text-white">{{ plan_video_limit or 0 }}<span class="text-xs text-slate-400">/month</span></p>
+    <div class="pl-feat-grid">
+      <div class="pl-feat-box">
+        <div class="pl-feat-label">Video Uploads</div>
+        <div class="pl-feat-value">{{ plan_video_limit or 0 }} <span class="pl-feat-unit">/month</span></div>
       </div>
-      <div class="p-4 rounded-lg bg-white/5 border border-white/10">
-        <p class="text-xs text-slate-400 mb-2">Connected Accounts</p>
-        <p class="text-xl font-bold text-white">{{ plan_account_limit or 0 }}<span class="text-xs text-slate-400"> platforms</span></p>
+      <div class="pl-feat-box">
+        <div class="pl-feat-label">Connected Accounts</div>
+        <div class="pl-feat-value">{{ plan_account_limit or 0 }} <span class="pl-feat-unit">platforms</span></div>
       </div>
-      <div class="p-4 rounded-lg bg-white/5 border border-white/10">
-        <p class="text-xs text-slate-400 mb-2">AI Features</p>
-        <p class="text-xl font-bold text-white">{{ plan_ai_features or 'Basic' }}</p>
+      <div class="pl-feat-box">
+        <div class="pl-feat-label">AI Features</div>
+        <div class="pl-feat-value">{{ plan_ai_features or 'Basic' }}</div>
       </div>
     </div>
 
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-white/10">
+    <div class="pl-billing-row">
       <div>
-        <p class="text-sm text-slate-300">Next billing: {{ next_billing or 'January 15, 2025' }}</p>
-        <p class="text-xs text-slate-400 mt-1">Auto-renewal enabled</p>
+        <p class="pl-billing-text">Next billing: {{ next_billing or 'January 15, 2025' }}</p>
+        <p class="pl-billing-sub">AUTO-RENEWAL ENABLED</p>
       </div>
-      <a href="#" class="btn-gradient px-6 py-2 rounded-lg text-white font-medium text-sm">Upgrade Plan</a>
+      <a href="#" class="pl-upgrade-btn">
+        Upgrade Plan
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+      </a>
     </div>
   </section>
 </div>
