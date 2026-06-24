@@ -429,7 +429,7 @@ async def get_due_users(_: None = Depends(require_master_key)):
     """
     now = datetime.now(timezone.utc) 
     due_configs = await prisma.aidiscoveryconfig.find_many(
-        where={"isActive": True, "nextRunAt": {"lte": now}},
+        where={"isActive": True},
         include={"user": {"include": {"userApiKey": True}}},
     )
 
