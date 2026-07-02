@@ -71,10 +71,35 @@ async def home(request:Request):
     return templates.TemplateResponse('home.html',{"request":request})
 
 
+@app.get("/about",response_class=HTMLResponse)
+async def privacy_page(request:Request):
+    return templates.TemplateResponse(
+            "about.html", 
+            {
+                "request":request
+            }
+    )
 @app.get("/privacy",response_class=HTMLResponse)
 async def privacy_page(request:Request):
     return templates.TemplateResponse(
             "privacy.html", 
+            {
+                "request":request
+            }
+    )
+
+@app.get("/contact",response_class=HTMLResponse)
+async def privacy_page(request:Request):
+    return templates.TemplateResponse(
+            "contact.html", 
+            {
+                "request":request
+            }
+    )
+@app.get("/pricing",response_class=HTMLResponse)
+async def privacy_page(request:Request):
+    return templates.TemplateResponse(
+            "pricing.html", 
             {
                 "request":request
             }

@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contact Us • Social Bot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="/static/styles/main.css" />
+
+    <style>
+      .contact-hero {
+        padding: 90px 0 70px;
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      .contact-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 40px;
+        margin-top: 60px;
+      }
+
+      @media (max-width: 900px) {
+        .contact-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .contact-card {
+        background: var(--bg-raised);
+        border: 1px solid var(--hairline-2);
+        border-radius: 12px;
+        padding: 36px;
+      }
+
+      .contact-card h3 {
+        font-family: var(--font-display);
+        font-size: 24px;
+        margin-bottom: 8px;
+        letter-spacing: -0.02em;
+      }
+
+      .contact-card p {
+        color: var(--dim);
+        margin-bottom: 30px;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+
+      @media (max-width: 650px) {
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+
+      .field label {
+        font-size: 13px;
+        color: var(--paper);
+        font-family: var(--font-mono);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .field input,
+      .field textarea,
+      .field select {
+        background: var(--bg);
+        border: 1px solid var(--hairline-2);
+        color: var(--paper);
+        padding: 14px 16px;
+        border-radius: 8px;
+        font-family: var(--font-body);
+        transition: 0.2s;
+        resize: none;
+      }
+
+      .field input:focus,
+      .field textarea:focus,
+      .field select:focus {
+        outline: none;
+        border-color: var(--signal);
+        box-shadow: 0 0 0 3px rgba(63, 255, 141, 0.08);
+      }
+
+      textarea {
+        min-height: 180px;
+      }
+
+      .info-list {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        margin-top: 25px;
+      }
+
+      .info-item {
+        padding: 18px;
+        border: 1px solid var(--hairline);
+        background: var(--bg);
+        border-radius: 10px;
+      }
+
+      .info-item small {
+        color: var(--dimmer);
+        font-family: var(--font-mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .info-item h4 {
+        margin-top: 8px;
+        font-size: 17px;
+        font-weight: 500;
+      }
+
+      .faq-grid {
+        display: grid;
+        gap: 18px;
+        margin-top: 50px;
+      }
+
+      .faq-item {
+        background: var(--bg-raised);
+        border: 1px solid var(--hairline-2);
+        border-radius: 10px;
+        padding: 22px 24px;
+      }
+
+      .faq-item h4 {
+        margin-bottom: 10px;
+        font-size: 17px;
+        font-family: var(--font-display);
+      }
+
+      .faq-item p {
+        color: var(--dim);
+        line-height: 1.7;
+      }
+
+      .cta-box {
+        margin-top: 70px;
+        border-radius: 16px;
+        text-align: center;
+        padding: 70px 40px;
+      }
+
+      .cta-box h2 {
+        font-family: var(--font-display);
+        font-size: 42px;
+        margin-bottom: 15px;
+        letter-spacing: -0.03em;
+      }
+
+      .cta-box p {
+        color: var(--dim);
+        max-width: 620px;
+        margin: auto auto 35px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="scanlines"></div>
+    <div class="bg-field"></div>
+    <div class="bg-glow"></div>
+
+    <!-- Use your existing navbar here -->
+
+    <section class="contact-hero">
+      <div class="wrap">
+        <div class="eyebrow">
+          <span class="blip"></span>
+          CONTACT SUPPORT
+        </div>
+
+        <h1 class="hero-title">
+          We'd love to <span id="hilighted">hear from you.</span>
+        </h1>
+
+        <p class="hero-sub">
+          Whether you have a question, need technical support, found a bug, or
+          want to partner with Social Bot, our team is ready to help.
+        </p>
+
+        <div class="contact-grid">
+          <div class="contact">
+            <h3>Send us a message</h3>
+
+            <p>
+              Fill out the form below and we'll get back to you as soon as
+              possible.
+            </p>
+            <br>
+
+            <form>
+              <div class="form-grid">
+                <div class="field">
+                  <label>Full Name</label>
+                  <input type="text" placeholder="John Doe" />
+                </div>
+
+                <div class="field">
+                  <label>Email Address</label>
+                  <input type="email" placeholder="john@example.com" />
+                </div>
+              </div>
+
+              <div class="field">
+                <label>Subject</label>
+                <input type="text" placeholder="How can we help?" />
+              </div>
+
+              <div class="field">
+                <label>Category</label>
+
+                <select>
+                  <option>General Question</option>
+                  <option>Technical Support</option>
+                  <option>Billing</option>
+                  <option>Bug Report</option>
+                  <option>Partnership</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label>Message</label>
+
+                <textarea placeholder="Tell us a little more..."></textarea>
+              </div>
+
+              <button class="btn btn-primary btn-lg">Send Message</button>
+            </form>
+          </div>
+
+          <div class="contact ">
+            <h3>Contact Information</h3>
+
+            <p>Reach us directly using the details below.</p>
+            <br>
+            <div class="info-list">
+              <div class="info-item">
+                <small>Email</small>
+                <h4>contact@my-port.space</h4>
+              </div>
+
+              <div class="info-item">
+                <small>Average Response</small>
+                <h4>&lt; 24 Hours</h4>
+              </div>
+
+              <div class="info-item">
+                <small>Office Hours</small>
+                <h4>Monday — Friday</h4>
+                <span class="section-desc">9:00 AM — 6:00 PM UTC</span>
+              </div>
+
+              <div class="info-item">
+                <small>Status</small>
+                <h4 style="color: var(--signal)">● Support Online</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <div class="section-label">FAQ</div>
+
+          <h2 class="section-title">
+            Frequently Asked <span id="hilighted">Questions</span>
+          </h2>
+
+          <p class="section-desc">
+            Quick answers before you send us a message.
+          </p>
+        </div>
+
+        <div class="faq-grid">
+          <div class="faq-item ">
+            <h4>How quickly do you reply?</h4>
+            <p>
+              Most emails receive a response within 24 hours during business
+              days.
+            </p>
+          </div>
+
+          <div class="faq-item ">
+            <h4>Can I request new features?</h4>
+            <p>
+              Absolutely. We love hearing ideas from creators and many of our
+              features come directly from community feedback.
+            </p>
+          </div>
+
+          <div class="faq-item ">
+            <h4>Do you offer technical support?</h4>
+            <p>
+              Yes. If you're experiencing an issue, include as much detail as
+              possible and we'll help you resolve it.
+            </p>
+          </div>
+        </div>
+
+        <div class="cta-box ">
+          <div class="eyebrow" style="margin: auto; display: inline-flex">
+            <span class="blip"></span>
+            READY TO START?
+          </div>
+
+          <h2>Let AI do the heavy lifting.</h2>
+
+          <p>
+            Discover trending content, schedule automatically, and publish
+            everywhere from one dashboard.
+          </p>
+
+          <a href="/login" class="btn btn-primary btn-lg"> Start Free </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Use your existing footer here -->
+  </body>
+</html>

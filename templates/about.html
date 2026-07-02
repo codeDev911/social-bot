@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us • Social Bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/static/styles/main.css">
+
+
+    <style>
+        .about-hero{
+            padding:100px 0 80px;
+            text-align:center;
+        }
+
+        .about-hero p{
+            max-width:760px;
+            margin:24px auto 0;
+        }
+
+        .story-grid{
+            display:grid;
+            grid-template-columns:1.3fr .7fr;
+            gap:40px;
+            margin-top:70px;
+        }
+
+        .panel{
+            background:var(--bg-raised);
+            border:1px solid var(--hairline-2);
+            border-radius:18px;
+            padding:36px;
+        }
+
+        .panel p{
+            margin-top:20px;
+            color:var(--dim);
+            line-height:1.9;
+        }
+
+        .stats{
+            display:grid;
+            gap:18px;
+        }
+
+        .stat{
+            border:1px solid var(--hairline);
+            border-radius:14px;
+            padding:22px;
+            background:rgba(255,255,255,.02);
+        }
+
+        .stat h2{
+            color:var(--signal);
+            font-size:34px;
+            margin-bottom:6px;
+        }
+
+        .principles{
+            display:grid;
+            grid-template-columns:repeat(2,1fr);
+            gap:24px;
+            margin-top:40px;
+        }
+
+        .principle{
+            padding:32px;
+            border-radius:18px;
+            background:var(--bg-raised);
+            border:1px solid var(--hairline-2);
+        }
+
+        .principle span{
+            color:var(--signal);
+            font-family:var(--font-mono);
+            font-size:.8rem;
+        }
+
+        .principle h3{
+            margin:12px 0;
+        }
+
+        .principle p{
+            color:var(--dim);
+        }
+
+        .timeline{
+            margin-top:50px;
+            display:grid;
+            gap:24px;
+        }
+
+        .step{
+            display:flex;
+            gap:24px;
+            align-items:flex-start;
+            padding:26px;
+            border-left:2px solid var(--signal);
+            background:var(--bg-raised);
+            border-radius:0 16px 16px 0;
+        }
+
+        .step-number{
+            width:54px;
+            height:54px;
+            border-radius:50%;
+            display:grid;
+            place-items:center;
+            background:rgba(63,255,141,.12);
+            color:var(--signal);
+            font-weight:700;
+            flex-shrink:0;
+        }
+
+        .audience{
+            display:grid;
+            grid-template-columns:repeat(3,1fr);
+            gap:24px;
+            margin-top:40px;
+        }
+
+        .audience-card{
+            padding:30px;
+            background:var(--bg-raised);
+            border:1px solid var(--hairline-2);
+            border-radius:18px;
+        }
+
+        .audience-card p{
+            color:var(--dim);
+        }
+
+        .cta{
+            margin:90px 0;
+            text-align:center;
+            padding:70px 40px;
+            border-radius:20px;
+            border:1px solid var(--hairline-2);
+            background:linear-gradient(180deg,rgba(63,255,141,.05),transparent);
+        }
+
+        .cta p{
+            max-width:620px;
+            margin:18px auto 34px;
+            color:var(--dim);
+        }
+
+        @media(max-width:960px){
+            .story-grid,
+            .principles,
+            .audience{
+                grid-template-columns:1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- Existing Navbar -->
+
+<section class="about-hero">
+
+<div class="wrap">
+
+<div class="eyebrow">
+<span class="blip"></span>
+ABOUT SOCIAL BOT
+</div>
+
+<h1 class="hero-title">
+We're building the future of
+<span id="hilighted">content automation.</span>
+</h1>
+
+<p class="hero-sub">
+Social Bot exists for one reason: creators should spend their time creating—not endlessly searching for trends, copying links, writing captions, and manually publishing content.
+Our platform automates the repetitive work so you can focus on what matters most.
+</p>
+
+</div>
+
+</section>
+
+<section>
+
+<div class="wrap">
+
+<div class="story-grid">
+
+<div class="panel">
+
+<h2>Why We Built Social Bot</h2>
+
+<p>
+Every creator eventually hits the same wall.
+Finding the next great video becomes a full-time job.
+Hours disappear scrolling through feeds, analyzing trends, saving links, writing captions, and scheduling uploads.
+</p>
+
+<p>
+We believed there had to be a better way.
+Instead of making creators work harder, we wanted software that worked for them.
+That's why Social Bot continuously discovers trending opportunities, organizes them intelligently, and prepares them for publishing automatically.
+</p>
+
+<p>
+Less searching.
+More creating.
+</p>
+
+</div>
+
+<div class="stats">
+
+<div class="stat">
+<h2>24/7</h2>
+<p>AI Discovery Engine</p>
+</div>
+
+<div class="stat">
+<h2>4</h2>
+<p>Major Social Platforms</p>
+</div>
+
+<div class="stat">
+<h2>∞</h2>
+<p>Ideas Waiting To Be Found</p>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<section>
+
+<div class="wrap">
+
+<div class="section-head">
+<div class="section-label">OUR PRINCIPLES</div>
+<h2 class="section-title">Built Around Creators</h2>
+</div>
+
+<div class="principles">
+
+<div class="principle">
+<span>01</span>
+<h3>Automation First</h3>
+<p>Software should eliminate repetitive work, not create more of it.</p>
+</div>
+
+<div class="principle">
+<span>02</span>
+<h3>Quality Over Noise</h3>
+<p>We focus on finding valuable opportunities rather than flooding users with unnecessary information.</p>
+</div>
+
+<div class="principle">
+<span>03</span>
+<h3>AI With Purpose</h3>
+<p>Artificial intelligence should make better decisions faster while remaining simple to use.</p>
+</div>
+
+<div class="principle">
+<span>04</span>
+<h3>Creators Come First</h3>
+<p>Every feature begins with one question: does this save creators time?</p>
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<section>
+
+<div class="wrap">
+
+<div class="section-head">
+<div class="section-label">HOW IT WORKS</div>
+<h2 class="section-title">Simple From Start To Finish</h2>
+</div>
+
+<div class="timeline">
+
+<div class="step">
+<div class="step-number">1</div>
+<div>
+<h3>Discover</h3>
+<p>Our AI continuously monitors content across supported platforms.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="step-number">2</div>
+<div>
+<h3>Analyze</h3>
+<p>Trending opportunities are filtered and ranked automatically.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="step-number">3</div>
+<div>
+<h3>Prepare</h3>
+<p>Captions, metadata and publishing workflows are organized for you.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="step-number">4</div>
+<div>
+<h3>Publish</h3>
+<p>Share content with confidence while spending your time creating the next idea.</p>
+</div>
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<section>
+
+<div class="wrap">
+
+<div class="section-head">
+<div class="section-label">WHO WE SERVE</div>
+<h2 class="section-title">Built For Every Creator</h2>
+</div>
+
+<div class="audience">
+
+<div class="audience-card">
+<h3>Content Creators</h3>
+<p>Spend less time searching and more time producing content.</p>
+</div>
+
+<div class="audience-card">
+<h3>Agencies</h3>
+<p>Manage multiple brands with one streamlined workflow.</p>
+</div>
+
+<div class="audience-card">
+<h3>Growing Businesses</h3>
+<p>Stay consistent across social platforms without increasing workload.</p>
+</div>
+
+</div>
+
+<div class="cta">
+
+<h2>Ready to stop searching?</h2>
+
+<p>
+Join creators who are replacing manual research with intelligent automation and spending more time doing what they love.
+</p>
+
+<a href="/signup" class="btn btn-primary">
+Get Started Free
+</a>
+
+</div>
+
+</div>
+
+</section>
+
+<!-- Existing Footer -->
+
+</body>
+</html>

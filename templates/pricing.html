@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing - Social Bot</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        main: '#0A0B0D',
+                        raised: '#111317',
+                        raised2: '#15171C',
+                        paper: '#F2F1ED',
+                        dim: '#8A8D92',
+                        dimmer: '#5A5D63',
+                        signal: '#3FFF8D',
+                        'signal-dim': '#1E7A4A',
+                        amber: '#FFB454',
+                        red: '#FF6B6B',
+                        hairline: '#1E2024',
+                        hairline2: '#26282D',
+                        yt: '#FF8A8A',
+                        tt: '#ABABFF',
+                        ig: '#FFB454',
+                        fb: '#8FBBFF'
+                    },
+                    fontFamily: {
+                        display: ['Space Grotesk', 'sans-serif'],
+                        body: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    screens: {
+                        'md-custom': '920px', // Custom 2-col to 1-col breakpoint
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0A0B0D;
+            color: #F2F1ED;
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            line-height: 1.65;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Space Grotesk', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        .font-mono-tag {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Scanline Overlay */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.4;
+        }
+
+        /* Mouse Reactive Glow Overlay */
+        #glow-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            background: radial-gradient(circle 600px at var(--mouse-x) var(--mouse-y), rgba(63, 255, 141, 0.03), transparent 80%);
+            z-index: 1;
+        }
+
+        /* Dot Grid Backgrounds */
+        .dot-grid {
+            background-image: radial-gradient(#26282D 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Button Patterns */
+        .btn-primary {
+            background-color: #3FFF8D;
+            color: #0A0B0D;
+            transition: all 0.2s ease;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 0 15px rgba(63, 255, 141, 0.4);
+            transform: translateY(-1px);
+        }
+        
+        .btn-ghost {
+            background-color: transparent;
+            border: 1px solid #26282D;
+            color: #F2F1ED;
+            transition: all 0.2s ease;
+        }
+        .btn-ghost:hover {
+            border-color: #3FFF8D;
+            color: #3FFF8D;
+        }
+
+        /* Scroll Reveal Utility */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Status Blinking Dot */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .animate-blink {
+            animation: blink 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-signal selection:text-main">
+    
+    <div class="scanlines"></div>
+    <div id="glow-overlay" style="--mouse-x: 50vw; --mouse-y: 50vh;"></div>
+
+    <nav class="fixed top-0 w-full h-[64px] bg-main/60 backdrop-blur-[12px] border-b border-hairline z-50 flex items-center px-5 md:px-8">
+        <div class="max-w-[1180px] mx-auto w-full flex justify-between items-center">
+            <a href="/" class="flex items-center gap-3">
+                <div class="w-3 h-3 rounded-full bg-signal animate-pulse" style="box-shadow: 0 0 8px rgba(63,255,141,0.5);"></div>
+                <span class="font-display font-semibold tracking-tight text-paper text-lg">Social Bot</span>
+            </a>
+            <div class="hidden sm:flex gap-6 font-mono-tag text-dim text-sm">
+                <a href="/#how" class="hover:text-signal transition">/ Features</a>
+                <a href="/pricing" class="text-paper">/ Pricing</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-[1180px] mx-auto px-[20px] md:px-[32px] pt-[120px] pb-[88px] relative z-10">
+        
+        <header class="text-center mb-[88px] reveal">
+            <div class="inline-flex items-center gap-2 border border-signal rounded-full px-3 py-1 mb-6 bg-signal/5">
+                <div class="w-1.5 h-1.5 rounded-full bg-signal animate-blink"></div>
+                <span class="font-mono-tag text-signal text-xs uppercase tracking-wider">01 — AI Discovery</span>
+            </div>
+            <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-paper">
+                Transparent Pricing,<br>
+                <span class="text-dim">Infinite Scale.</span>
+            </h1>
+            <p class="text-dim text-base md:text-lg max-w-xl mx-auto">
+                Scale your social media effortlessly. Choose the computational tier that aligns with your operational needs.
+            </p>
+            
+            <div class="flex justify-center mt-10">
+                <div class="bg-raised2 border border-hairline2 rounded-full p-1 inline-flex font-mono-tag">
+                    <button id="monthlyBtn" class="px-6 py-2 rounded-full text-sm transition-all bg-signal text-main" onclick="updateBillingCycle('month')">
+                        Monthly
+                    </button>
+                    <button id="yearlyBtn" class="px-6 py-2 rounded-full text-sm transition-all text-dim hover:text-paper flex items-center gap-2" onclick="updateBillingCycle('year')">
+                        Yearly <span class="bg-signal-dim text-signal px-2 py-0.5 rounded-full text-[10px]">SAVE 20%</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <hr class="border-hairline mb-[88px] reveal">
+
+        <section class="grid md-custom:grid-cols-2 gap-8 mb-[88px]">
+            
+            <div class="bg-raised rounded-[12px] border border-hairline2 p-8 relative overflow-hidden dot-grid reveal flex flex-col">
+                <div class="relative z-10 flex-grow">
+                    <div class="flex items-start justify-between mb-8">
+                        <div>
+                            <h3 class="text-2xl font-display font-bold text-paper mb-1">Starter</h3>
+                            <p class="text-dimmer font-mono-tag text-sm uppercase">Base Operations</p>
+                        </div>
+                        <div class="px-3 py-1 bg-raised2 border border-hairline rounded-full text-xs text-dim font-mono-tag">Lvl 1</div>
+                    </div>
+
+                    <div class="mb-8 border-b border-hairline pb-8">
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-5xl font-display font-bold text-paper" id="starter-price">$8</span>
+                            <span class="text-dim font-mono-tag text-sm">/ mo</span>
+                        </div>
+                    </div>
+
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-start gap-3">
+                            <span class="text-signal font-mono-tag mt-0.5">]</span>
+                            <span class="text-dim">2 platform uploads per day</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="text-signal font-mono-tag mt-0.5">]</span>
+                            <span class="text-dim">Standard Definition output</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="text-signal font-mono-tag mt-0.5">]</span>
+                            <span class="text-dim">2 active connected nodes</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="text-signal font-mono-tag mt-0.5">]</span>
+                            <span class="text-dim">Basic queue (8 slots)</span>
+                        </li>
+                    </ul>
+                </div>
+                <button onclick="openCheckout('starter')" class="w-full btn-ghost font-display font-semibold py-3 rounded-lg z-10 mt-auto">
+                    Initialize Starter
+                </button>
+            </div>
+
+            <div class="bg-raised rounded-[12px] border border-signal p-8 relative overflow-hidden dot-grid reveal flex flex-col shadow-[0_0_30px_rgba(63,255,141,0.05)]">
+                <div class="absolute top-6 right-6 bg-signal/10 border border-signal rounded-full px-3 py-1 flex items-center gap-2">
+                    <div class="w-1.5 h-1.5 rounded-full bg-signal"></div>
+                    <span class="text-signal font-mono-tag text-[10px] uppercase tracking-wide">Recommended</span>
+                </div>
+                
+                <div class="relative z-10 flex-grow">
+                    <div class="flex items-start justify-between mb-8">
+                        <div>
+                            <h3 class="text-2xl font-display font-bold text-paper mb-1">Pro</h3>
+                            <p class="text-dimmer font-mono-tag text-sm uppercase">Maximum Output</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-8 border-b border-hairline pb-8">
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-5xl font-display font-bold text-paper" id="pro-price">$16</span>
+                            <span class="text-dim font-mono-tag text-sm">/ mo</span>
+                        </div>
+                    </div>
+
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-start gap-3">
+                            <span class="text-signal font-mono-tag mt-0.5">]</span>
+                            <span class="text-paper">4 platform uploads per day</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="text-signal font-mono-tag mt-0.5">]</span>
+                            <span class="text-paper">High Definition output</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="text-signal font-mono-tag mt-0.5">]</span>
+                            <span class="text-paper">Pexels API integration</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="text-signal font-mono-tag mt-0.5">]</span>
+                            <span class="text-paper">4 active connected nodes</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="text-signal font-mono-tag mt-0.5">]</span>
+                            <span class="text-paper">Extended queue (20 slots)</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="text-signal font-mono-tag mt-0.5">]</span>
+                            <span class="text-paper">Advanced telemetry & analytics</span>
+                        </li>
+                    </ul>
+                </div>
+                <button onclick="openCheckout('pro')" class="w-full btn-primary font-display font-bold py-3 rounded-lg z-10 mt-auto">
+                    Initialize Pro
+                </button>
+            </div>
+
+        </section>
+
+        <hr class="border-hairline mb-[88px] reveal">
+
+        <section class="reveal mb-[88px]">
+            <div class="mb-12">
+                <span class="font-mono-tag text-signal text-xs uppercase tracking-wider mb-2 block">02 — Specs</span>
+                <h2 class="text-3xl font-display font-bold text-paper">Hardware Comparison</h2>
+            </div>
+            
+            <div class="bg-raised2 rounded-[12px] border border-hairline2 overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-hairline bg-raised">
+                            <th class="p-6 font-mono-tag text-dim text-sm font-normal">Metric</th>
+                            <th class="p-6 font-mono-tag text-paper text-sm font-normal border-l border-hairline">Starter</th>
+                            <th class="p-6 font-mono-tag text-signal text-sm font-normal border-l border-hairline">Pro</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm">
+                        <tr class="border-b border-hairline">
+                            <td class="p-6 text-paper">Daily Upload Limit</td>
+                            <td class="p-6 text-dim border-l border-hairline">2 sequences</td>
+                            <td class="p-6 text-paper border-l border-hairline">4 sequences</td>
+                        </tr>
+                        <tr class="border-b border-hairline">
+                            <td class="p-6 text-paper">Resolution</td>
+                            <td class="p-6 text-dim border-l border-hairline">SD (480p)</td>
+                            <td class="p-6 text-paper border-l border-hairline">HD (1080p/4K)</td>
+                        </tr>
+                        <tr class="border-b border-hairline">
+                            <td class="p-6 text-paper">AI Caption Generation</td>
+                            <td class="p-6 text-dim border-l border-hairline">Enabled</td>
+                            <td class="p-6 text-paper border-l border-hairline">Enabled + Context</td>
+                        </tr>
+                        <tr>
+                            <td class="p-6 text-paper">Telemetry Data</td>
+                            <td class="p-6 text-dimmer border-l border-hairline">—</td>
+                            <td class="p-6 text-paper border-l border-hairline">Full Access</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Interactions & Visuals ---
+        
+        // Mouse Glow Effect
+        document.addEventListener('mousemove', (e) => {
+            const overlay = document.getElementById('glow-overlay');
+            overlay.style.setProperty('--mouse-x', `${e.clientX}px`);
+            overlay.style.setProperty('--mouse-y', `${e.clientY}px`);
+        });
+
+        // Intersection Observer for Scroll Reveal
+        const revealElements = document.querySelectorAll('.reveal');
+        const revealOptions = {
+            threshold: 0.1,
+            rootMargin: "0px 0px -50px 0px"
+        };
+        const revealOnScroll = new IntersectionObserver(function(entries, observer) {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, revealOptions);
+        
+        revealElements.forEach(el => revealOnScroll.observe(el));
+
+        // --- Pricing Logic ---
+        
+        const CONFIG = {
+            clientToken: "test_62bfe5f703a364e3a348c34d658",
+            prices: {
+                starter: { month: "pri_01k4hf2pnvcs8bgyrqt2zt9z9s", year: "pri_01k4hf49851y4syfm50a6p4v6e" },
+                pro: { month: "pri_01k4hf9zrqpvb9404k6m9jp29m", year: "pri_01k4hfbkxcmg3pm4wpmc87eh76" }
+            },
+            displayPrices: {
+                starter: { month: "$8", year: "$76" },
+                pro: { month: "$16", year: "$153" }
+            }
+        };
+
+        const monthlyBtn = document.getElementById("monthlyBtn");
+        const yearlyBtn = document.getElementById("yearlyBtn");
+        const starterPrice = document.getElementById("starter-price");
+        const proPrice = document.getElementById("pro-price");
+
+        let currentBillingCycle = "month";
+        let paddleInitialized = false;
+
+        function initializePaddle() {
+            try {
+                Paddle.Environment.set("sandbox");
+                Paddle.Initialize({
+                    token: CONFIG.clientToken,
+                    eventCallback: function (event) { console.log("Paddle event:", event); }
+                });
+                paddleInitialized = true;
+            } catch (error) {
+                console.error("Initialization error:", error);
+            }
+        }
+
+        function updateBillingCycle(cycle) {
+            currentBillingCycle = cycle;
+            
+            // Toggle UI Buttons
+            if (cycle === "month") {
+                monthlyBtn.className = "px-6 py-2 rounded-full text-sm transition-all bg-signal text-main";
+                yearlyBtn.className = "px-6 py-2 rounded-full text-sm transition-all text-dim hover:text-paper flex items-center gap-2";
+            } else {
+                yearlyBtn.className = "px-6 py-2 rounded-full text-sm transition-all bg-signal text-main flex items-center gap-2";
+                monthlyBtn.className = "px-6 py-2 rounded-full text-sm transition-all text-dim hover:text-paper";
+            }
+            
+            // Update displayed prices
+            starterPrice.innerText = CONFIG.displayPrices.starter[cycle];
+            proPrice.innerText = CONFIG.displayPrices.pro[cycle];
+        }
+
+        function openCheckout(plan) {
+            if (!paddleInitialized) {
+                alert("Payment gateway initializing, please wait.");
+                return;
+            }
+            const priceId = CONFIG.prices[plan][currentBillingCycle];
+            Paddle.Checkout.open({ items: [{ priceId: priceId, quantity: 1 }] });
+        }
+
+        // Initialize on load
+        window.addEventListener('load', initializePaddle);
+
+    </script>
+</body>
+</html>
