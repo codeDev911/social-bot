@@ -163,6 +163,12 @@ class FromPlatform:
             'format': 'b[ext=mp4]', # 'b' forces a single pre-merged video+audio file (bypasses heavy merging)
             'ffmpeg_location': ffmpeg_binary_path,
             'quiet': True,
+              # Instruct yt-dlp to only use native mobile API endpoints
+             'extractor_args': {
+                'youtube': {
+                    'client': ['android', 'ios'],
+                }
+            },
             'proxy':self.proxy_url,
             "outtmpl": f"{sanitized_file_path}",
             'postprocessors': [],  

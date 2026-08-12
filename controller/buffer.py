@@ -37,7 +37,7 @@ def get_profiles_graphql(api_key=None):
         response.raise_for_status() 
         
         data = response.json()
-        
+      
         # Check if GraphQL returned internal errors
         if "errors" in data:
             print("❌ Buffer API returned internal errors:")
