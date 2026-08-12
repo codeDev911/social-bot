@@ -141,7 +141,7 @@ class FromPlatform:
     def get_proxy(self): 
 
         username = 'auexai_DCodx'
-        password = 'KxQ+1Hv~z7vtL7ml'
+        password = 'KmN_h62~h7+J1j='
         proxy = random.choice(proxies_list)
         countryCode = proxy["countryCode"]
         entryPoint = proxy["entryPoint"]
@@ -169,6 +169,8 @@ class FromPlatform:
                     'client': ['android', 'ios'],
                 }
             },
+            'username': 'oauth',
+    'password': '', # Leave empty
             'proxy':self.proxy_url,
             "outtmpl": f"{sanitized_file_path}",
             'postprocessors': [],  
