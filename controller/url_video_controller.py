@@ -141,7 +141,7 @@ class FromPlatform:
     def get_proxy(self): 
 
         username = 'auexai_DCodx'
-        password = 'KmN_h62~h7+J1j='
+        password = 'nhtWvFvh3_Gk'
         proxy = random.choice(proxies_list)
         countryCode = proxy["countryCode"]
         entryPoint = proxy["entryPoint"]
