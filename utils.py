@@ -15,6 +15,27 @@ GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 SCOPES = SCOPES = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/youtube"
 
+
+import base64
+import hashlib
+import secrets
+
+def generate_code_verifier() -> str:
+    """Generates a cryptographically random PKCE code verifier."""
+    # Generate 32 cryptographically random bytes
+    random_bytes = secrets.token_bytes(32)
+    # URL-safe base64 encode and strip the padding ('=')
+    return base64.urlsafe_b64encode(random_bytes).rstrip(b'=').decode('utf-8')
+
+def generate_code_challenge(verifier: str) -> str:
+    """Generates a SHA-256 PKCE code challenge from a verifier."""
+    # Create a SHA-256 hash of the verifier string
+    digest = hashlib.sha256(verifier.encode('utf-8')).digest()
+    # URL-safe base64 encode the hash and strip the padding ('=')
+    return base64.urlsafe_b64encode(digest).rstrip(b'=').decode('utf-8')
+
+
+
 def get_google_auth_url(state:any = None):
     """Generate the Google OAuth URL."""
     params = {
@@ -39,6 +60,20 @@ def get_tiktok_auth_url(state:any = None):
         "state": state,  
     }
     return f"https://www.tiktok.com/v2/auth/authorize/?{urlencode(params)}"
+
+def get_buffer_auth_url(state:any = None):
+    """Generate the Buffer OAuth URL."""
+    params = {
+        "client_id": os.getenv("BUFFER_CLIENT_ID"),
+        "redirect_uri": os.getenv("BUFFER_REDIRECT_URI"),
+        "response_type": "code",
+        "scope": "posts:write posts:read ideas:read ideas:write account:read account:write offline_access",
+        "state": state,  
+        "code_challenge":generate_code_challenge(generate_code_verifier()),
+        "code_challenge_method":"S256",
+        "prompt":"consent",
+    }
+    return f"https://auth.buffer.com/auth/?{urlencode(params)}"
 
 def exchange_code_for_tokens(code: str):
     """Exchange the authorization code for tokens."""

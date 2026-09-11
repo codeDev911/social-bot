@@ -7,8 +7,6 @@ from db import prisma
 from dotenv import load_dotenv
 from lib.depends import get_current_user
 from lib.socket import ConnectionManager
-from utils import  get_google_auth_url, get_tiktok_auth_url
-from controller.auth import authGoogle, authTiktok
 from routers.dashboard import router as dashboard_routes 
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response
@@ -18,6 +16,7 @@ from routers.checkout import router as checkout_routes
 from routers.api.schedule import router as schedule_routes
 from routers.api.user import router as user_routes
 from routers.ai_discovery import router as ai_discovery_routes
+from routers.auth import router as auth_routes
 load_dotenv() 
 app = FastAPI()
  
@@ -29,6 +28,7 @@ app.include_router(checkout_routes)
 app.include_router(schedule_routes)
 app.include_router(user_routes) 
 app.include_router(ai_discovery_routes) 
+app.include_router(auth_routes) 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -121,78 +121,6 @@ async def read_root(request: Request):
     # Render the "index.html" template 
     return templates.TemplateResponse("login.html", {"request": request})
 
-# Auth
-@app.get("/auth/login/google")
-async def google_login():
-    """Redirect to Google's OAuth login."""
-    auth_url = get_google_auth_url()
-    return RedirectResponse(auth_url)
-
-@app.get("/auth/login/tiktok")
-async def google_login():
-    """Redirect to Tiktok's OAuth login."""
-    auth_url = get_tiktok_auth_url()
-    return RedirectResponse(auth_url) 
-
-
-# Connect accounts
-@app.get("/auth/connect/youtube")
-async def tiktok_connect(current_user: dict = Depends(get_current_user)):
-    """Redirect to Tiktok's OAuth login."""
-    # Pass user id in state to identify the user
-    # who wants to connect his google/youtube account
-    auth_url = get_google_auth_url(current_user.id)
-    return RedirectResponse(auth_url)
-
-@app.get("/auth/connect/tiktok")
-async def tiktok_connect(current_user: dict = Depends(get_current_user)):
-    """Redirect to Tiktok's OAuth login."""
-    # Pass user id in state to identify the user
-    # who wants to connect his tiktok account
-    print("User want to connect tiktok account")
-    auth_url = get_tiktok_auth_url(current_user.id)
-    return RedirectResponse(auth_url)
-
-
-@app.post("/auth/disconnect/{platform}")
-async def remove_connected_account(platform:str,current_user:dict= Depends(get_current_user)):
-    user_credentials = current_user.credentials
-    #Remove the platform eg tiktok or google from the credentials 
-    filtered_credentials = {
-        key: value
-        for key, value in user_credentials.items()
-        if key != platform
-    }
-    
-   
-    # Now save the rest of the credentials in user credentials
-    try:
-        await prisma.user.update(
-            where={
-                "id":current_user.id
-            },
-            data={
-                "credentials":json.dumps(filtered_credentials)
-            }
-        )
-        return Response("Success",200)
-    except Exception as e:
-        print(e)
-        return Response("Error",400)
-
-# Callbacks
-@app.get("/auth/google/callback")
-async def google_callback(code: str, state: str = None):
-
-    # passing state to identify the user who wants to connect his google account
-    return await authGoogle(code,state)
-
-@app.get("/auth/tiktok/callback")
-async def tiktok_callback(code: str,state: str = None):
-    # passing state to identify the user who wants to connect his tiktok account
-
-    return await authTiktok(code,state)
-
 
 @app.get("/test/user")
 async def logout():
@@ -209,6 +137,7 @@ async def logout():
   
 @app.on_event("startup")
 async def start_scheduler():
+    pass
     await prisma.connect()
 
 @app.on_event("shutdown")

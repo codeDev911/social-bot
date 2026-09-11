@@ -1,11 +1,14 @@
 import json
 from fastapi.responses import RedirectResponse , Response
 import requests
-from utils import create_access_token, exchange_code_for_tokens
+from utils import create_access_token, exchange_code_for_tokens,generate_code_verifier
 from db import prisma
 import datetime
 from prisma import errors
-import os
+import os 
+from  dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
 
 
 def set_user_credentials(user, token_data,provider:str) -> any:
@@ -268,3 +271,36 @@ async def authTiktok (code:str,state:any = None):
     except errors.ClientNotConnectedError as e:
         print("Error in authTiktok:", e)
         return Response(f"Error : {e} ", 500)
+
+
+
+async def authBuffer (code:str,state:any = None):
+    """ For login and signUp users via Buffer """
+    buffer_token_url = "https://auth.buffer.com/token"
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Cache-Control": "no-cache",
+        'Accept'       :'application/json',
+    }
+    data = {
+        "client_id": os.getenv("BUFFER_CLIENT_ID"),
+        "client_secret": os.getenv("BUFFER_CLIENT_SECRET"),
+        "code": code,
+        "grant_type": "authorization_code",
+        "redirect_uri": os.getenv("BUFFER_REDIRECT_URI"),
+        "code_verifier": generate_code_verifier()
+    }
+
+    token_response = requests.post(buffer_token_url, headers=headers, data=data)
+
+    print(token_response.status_code, token_response.text)  # Log the status code and response text for debugging
+
+    if token_response.status_code != 200:
+        return RedirectResponse("/error", 400, {"message": "Failed to retrieve access token from Buffer"})
+
+    token_data = token_response.json()
+    access_token = token_data.get("access_token")
+    open_id = token_data.get("open_id") 
+
+    print("token_data",token_data)
+    return {token_data}

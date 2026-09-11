@@ -2,19 +2,35 @@ import requests
 
 url = "https://api.buffer.com"
 
-graphql_query = {
+graphql_query_get_org = {
     "query": """
-    query GetChannels {
-      account {
-        channels {
-          id
-          name
-          service
-        }
-      }
+   query GetOrganizations {
+  account {
+    organizations {
+      id
+      name
     }
+  }
+}
     """
 }
+
+def get_channels_payload(org_id: str) -> dict:
+    return {
+        "query": """
+            query GetChannels($orgId: OrganizationId!) {
+                channels(input: { organizationId: $orgId }) {
+                    id
+                    name
+                    service
+                }
+            }
+        """,
+        "variables": {
+            "orgId": org_id  # Injected dynamically here
+        }
+    }
+
 
 def get_profiles_graphql(api_key=None):
     try:
@@ -30,8 +46,15 @@ def get_profiles_graphql(api_key=None):
             "Content-Type": "application/json"
         }
         
-        # Note: GraphQL always requires a POST request
-        response = requests.post(url, json=graphql_query, headers=headers)
+        # FIrst we'll get the user's organization ID to use in the next query
+        response_org = requests.post(url, json=graphql_query_get_org, headers=headers)
+         # This will intercept 401 Unauthorized or 400 Bad Request before decoding
+        response_org.raise_for_status() 
+        
+        data_org = response.json()
+        org_id = data.get("data", {}).get("account", {}).get("organizations", [])[0].get("id")
+
+        response = requests.post(url, json=get_channels_payload(org_id), headers=headers)
         
         # This will intercept 401 Unauthorized or 400 Bad Request before decoding
         response.raise_for_status() 
@@ -44,7 +67,7 @@ def get_profiles_graphql(api_key=None):
             print(data["errors"])
             return None
 
-        channels = data.get("data", {}).get("account", {}).get("channels", [])
+        channels = data.get("data", {}).get("channels", [])
         
       
         
