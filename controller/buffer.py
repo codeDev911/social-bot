@@ -51,7 +51,7 @@ def get_profiles_graphql(api_key=None):
          # This will intercept 401 Unauthorized or 400 Bad Request before decoding
         response_org.raise_for_status() 
         
-        data_org = response.json()
+        data_org = response_orgah fuk.json()
         org_id = data_org.get("data", {}).get("account", {}).get("organizations", [])[0].get("id")
 
         response = requests.post(url, json=get_channels_payload(org_id), headers=headers)
