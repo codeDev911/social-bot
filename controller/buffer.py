@@ -52,7 +52,7 @@ def get_profiles_graphql(api_key=None):
         response_org.raise_for_status() 
         
         data_org = response.json()
-        org_id = data.get("data", {}).get("account", {}).get("organizations", [])[0].get("id")
+        org_id = data_org.get("data", {}).get("account", {}).get("organizations", [])[0].get("id")
 
         response = requests.post(url, json=get_channels_payload(org_id), headers=headers)
         
