@@ -194,7 +194,11 @@ class FromPlatform:
             return {"success": "Video uploaded to Cloudinary success"}
 
         except httpx.HTTPStatusError as e:
-            detail = e.response.text
+            # Prefer FastAPI's JSON {"detail": "..."} so yt-dlp errors are readable
+            try:
+                detail = e.response.json().get("detail", e.response.text)
+            except Exception:
+                detail = e.response.text
             print(f"Worker HTTP error: {e.response.status_code} {detail}")
             return {"Error": f"Worker error {e.response.status_code}: {detail}"}
         except Exception as e:
