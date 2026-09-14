@@ -3,3 +3,4 @@ env*
 skills*
 .env
 external_services*
+download-worker*
