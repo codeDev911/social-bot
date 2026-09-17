@@ -138,7 +138,7 @@ async def logout():
 @app.on_event("startup")
 async def start_scheduler():
     pass
-    await prisma.connect()
+    # await prisma.connect()
 
 @app.on_event("shutdown")
 async def shutdown_scheduler():

@@ -87,16 +87,27 @@ async def call_download_worker(video_url: str, platform: Optional[str] = None) -
         "X-Worker-Token": WORKER_TOKEN,
         "Content-Type": "application/json",
     }
-
-    async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0)) as client:
-        response = await client.post(
-            f"{WORKER_SERVICE_URL}/extract",
+    local_path = f"/tmp/{uuid.uuid4()}.mp4"
+    async with httpx.AsyncClient(timeout=None) as client:
+        async with client.stream(
+            "POST",
+           f"{WORKER_SERVICE_URL}/extract",
             json=payload,
             headers=headers,
-        )
-        response.raise_for_status()
-        return response.json()
+        ) as r:
+            r.raise_for_status()
+            metadata = {
+                "success":True,
+                "title": r.headers.get("X-Title"),
+                "duration": r.headers.get("X-Duration"),
+                "uploader": r.headers.get("X-Uploader"),
+                "webpage_url": r.headers.get("X-Webpage-Url"),
+            }
+            with open(local_path, "wb") as f:
+                async for chunk in r.aiter_bytes(1024 * 1024):
+                    f.write(chunk)
 
+    return {"url":local_path, "metadata":metadata}
 
 async def upload_to_cloudinary(filePath: str, userId: any, upload_targets: any, video_id=None, title=None):
     """This will upload the asset to cloudinary and create video in database will save the details needed"""
@@ -160,19 +171,19 @@ class FromPlatform:
         try:
             result = await call_download_worker(self.video_url, platform=platform)
 
-            if not result.get("success") or not result.get("url"):
+            if not result.get("metadata") or not result.get("url"):
                 err = result.get("error") or "Worker did not return a media URL"
                 print(f"Worker extract failed: {err}")
                 return {"Error": err}
 
-            self.title = result.get("title") or self.title
+            self.title = result.get("metadata")["title"] or self.title
             direct_url = result["url"]
 
             print("userid", self.user_id[0])
             print("upload_targets", self.upload_targets)
             print("Resolved direct URL via worker service")
 
-            # Cloudinary fetches the remote URL — no local /tmp binary on Vercel
+            # Cloudinary fetches  local /tmp binary on Vercel
             await upload_to_cloudinary(
                 direct_url,
                 self.user_id[0],
