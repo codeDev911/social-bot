@@ -34,13 +34,13 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from controller.url_video_controller import FromPlatform
 from prisma.models import User
+from controller.mail_controller import new_video_scheduled_mail
 
 # ── Direct prisma import — no per-request get_db dependency ────────────────────
 from lib.depends import get_current_user
 from db import prisma   # session-auth dependency
 from lib.cron_utils import compute_next_run               # see helper at bottom
     # see cron_utils.py
-
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 

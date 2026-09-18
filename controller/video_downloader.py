@@ -30,7 +30,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("download-worker")
 
- 
+PROXY_USERNAME=os.getenv("PROXY_USERNAME", "")
+PROXY_PASSWORD=os.getenv("PROXY_PASSWORD", "")
 # Opt-in only — binding source_address=0.0.0.0 breaks outbound networking in Docker.
 FORCE_IPV4 = os.getenv("FORCE_IPV4", "false").lower() in ("1", "true", "yes")
 
