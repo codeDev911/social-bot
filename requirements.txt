@@ -85,5 +85,5 @@ uritemplate==3.0.1
 urllib3==2.7.0
 uvicorn==0.15.0
 websockets==15.0.1
-yt-dlp==2026.6.9
+yt-dlp==2026.8.19
 yt-dlp-ejs==0.8.0
