@@ -11,7 +11,7 @@ import json
 load_dotenv()
 import asyncio
 import httpx
-
+from controller.video_downloader import download_video
 
 tempFiles = []
 
@@ -68,47 +68,7 @@ def deserialize_and_map_dynamic_edits(dynamic_edits_config):
         return None
 
 
-async def call_download_worker(video_url: str, platform: Optional[str] = None) -> dict:
-    """
-    Forward a video URL to the external download-worker service.
-    The worker runs yt-dlp (extract_info, download=False) off Vercel and
-    returns a direct streaming/download URL.
-    """
-    if not WORKER_SERVICE_URL:
-        raise RuntimeError("WORKER_SERVICE_URL is not configured")
-    if not WORKER_TOKEN:
-        raise RuntimeError("WORKER_TOKEN is not configured")
-
-    payload = {"url": video_url}
-    if platform:
-        payload["platform"] = platform
-
-    headers = {
-        "X-Worker-Token": WORKER_TOKEN,
-        "Content-Type": "application/json",
-    }
-    local_path = f"/tmp/{uuid.uuid4()}.mp4"
-    async with httpx.AsyncClient(timeout=None) as client:
-        async with client.stream(
-            "POST",
-           f"{WORKER_SERVICE_URL}/extract",
-            json=payload,
-            headers=headers,
-        ) as r:
-            r.raise_for_status()
-            metadata = {
-                "success":True,
-                "title": r.headers.get("X-Title"),
-                "duration": r.headers.get("X-Duration"),
-                "uploader": r.headers.get("X-Uploader"),
-                "webpage_url": r.headers.get("X-Webpage-Url"),
-            }
-            with open(local_path, "wb") as f:
-                async for chunk in r.aiter_bytes(1024 * 1024):
-                    f.write(chunk)
-
-    return {"url":local_path, "metadata":metadata}
-
+ 
 async def upload_to_cloudinary(filePath: str, userId: any, upload_targets: any, video_id=None, title=None):
     """This will upload the asset to cloudinary and create video in database will save the details needed"""
 
@@ -158,6 +118,10 @@ async def upload_to_cloudinary(filePath: str, userId: any, upload_targets: any, 
     )
 
 
+
+async def download_video_async(video_url: str) -> dict:
+    return await asyncio.to_thread(download_video, video_url)
+
 class FromPlatform:
     def __init__(self, video_url, user_id: int, upload_targets=["Youtube"], video_id=None):
         self.user_id = user_id,
@@ -166,31 +130,37 @@ class FromPlatform:
         self.upload_targets = upload_targets
         self.title = "Untitled video"
 
+
     async def _extract_and_upload(self, platform: Optional[str] = None):
         """Ask the worker for a direct media URL, then upload that URL to Cloudinary."""
         try:
-            result = await call_download_worker(self.video_url, platform=platform)
+            result = await download_video_async(self.video_url)
 
-            if not result.get("metadata") or not result.get("url"):
+            if not result["filepath"]:
                 err = result.get("error") or "Worker did not return a media URL"
                 print(f"Worker extract failed: {err}")
                 return {"Error": err}
 
-            self.title = result.get("metadata")["title"] or self.title
-            direct_url = result["url"]
+            self.title = result["title"] or self.title
+            direct_url = result["filepath"]
 
             print("userid", self.user_id[0])
             print("upload_targets", self.upload_targets)
             print("Resolved direct URL via worker service")
 
-            # Cloudinary fetches  local /tmp binary on Vercel
-            await upload_to_cloudinary(
-                direct_url,
-                self.user_id[0],
-                self.upload_targets,
-                self.video_id,
-                self.title,
-            )
+            try:
+                # Cloudinary fetches  local /tmp binary on Vercel
+                await upload_to_cloudinary(
+                    direct_url,
+                    self.user_id[0],
+                    self.upload_targets,
+                    self.video_id,
+                    self.title,
+                )
+    
+            finally:
+                if os.path.exists(local_path):
+                    os.remove(local_path)
 
             await prisma.usage.update(
                 where={

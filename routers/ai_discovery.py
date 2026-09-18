@@ -379,42 +379,157 @@ async def bot_report_run_status(
     )
     return {"success": True}
 
+async def _process_discovered_videos(
+    user_id: int,
+    videos_data: list,
+    upload_destinations: list,
+    background_tasks: BackgroundTasks
+):
+    """Background task: Download and upload discovered videos using FromPlatform"""
+    try:
+        user = await prisma.user.find_unique(
+            where={"id": user_id}, 
+        )
+        uploaded_successfully = 0
+        uploaded_videos=[]
+        for video_data in videos_data:
+            try:
+                video_url = video_data.get("videoUrl")
+                video_id = video_data.get("externalId")
+                platform = video_data.get("platform", "tiktok")
+
+                is_duplicated = await prisma.video.find_first(
+                    where={
+                        "externalId": video_id,
+                    }
+                )
+
+                if is_duplicated:
+                    logger.warning("Duplicated video found, skipping: " + video_url)
+                    continue
+
+                if not video_url:
+                    logger.warning("Skipping video without URL")
+                    continue
+
+                logger.info(f"🔄 Processing: {video_data.get('title')} from {platform}")
+
+                # Use FromPlatform just like upload-from-url does
+                down_and_upload_from = FromPlatform(
+                    video_url=video_url,
+                    user_id=user_id,
+                    upload_targets=upload_destinations,
+                    video_id=video_id   
+                )
+                 
+                # Queue the actual download + upload to background
+                background_tasks.add_task(await down_and_upload_from[platform])
+                uploaded_successfully += 1
+
+                uploaded_videos.append({
+                        "url": video_url,
+                        "title": video_data.get("title"),
+                        "score":video_data.get("score"),
+                        "platform": video_data.get("platform"),
+                        "externalId": video_data.get("externalId")
+                })
+
+            except Exception as e:
+                logger.error(f"Error processing video: {str(e)}")
+                continue
+
+            finally:
+                if uploaded_successfully >= 2:  # Limit to 2 videos per run to prevent overload
+                    print(f"Uploaded {uploaded_successfully} videos, stopping to prevent overload")
+                    new_video_scheduled_mail(
+                        recipient=user.email,
+                         videos=uploaded_videos,user_name=user.fullname, default_upload_dest=upload_destinations
+                        )
+                    break
+                else:
+                    continue
+
+        logger.info(f"✅ Queued {len(videos_data)} videos for user {user_id}")
+
+    except Exception as e:
+        logger.error(f"Fatal error in video processing: {str(e)}")
+
+
 
 @router.post("/dashboard/api/videos/ingest-discovered")
-async def ingest_discovered(
-    payload: IngestPayload,
-    user: User = Depends(get_user_from_bearer),
+async def ingest_discovered_videos(
+    payload: dict,
+    authorization: str = Header(None),
+    background_tasks: BackgroundTasks = BackgroundTasks()
 ):
     """
-    Called by main.py's send_batch_to_api(). Saves discovered videos
-    into your existing Video table, using the scrapedFrom/externalId/
-    keywords fields already on that model.
+    Receive discovered videos from external discovery service
+    Auth: Bearer <user-api-key>
+    Downloads & uploads using FromPlatform (same as upload-from-url)
     """
-    created = []
-    for v in payload.videos:
-        existing = None
-        if v.externalId:
-            existing = await prisma.video.find_first(
-                where={"userId": user.id, "externalId": v.externalId}
-            )
-        if existing:
-            continue
+    try:
+        # 1. AUTHORIZATION CHECK
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Missing or invalid authorization")
 
-        video = await prisma.video.create(
-            data={
-                "title":         v.title,
-                "captions":      v.description,
-                "userId":        user.id,
-                "scrapedFrom":   v.platform,
-                "externalId":    v.externalId or None,
-                "keywords":      [payload.keyword],
-                "upload_status": "Pending",
-                "cloudinary_id": "",          # not yet downloaded/uploaded
-            }
+        raw_token = authorization.replace("Bearer ", "").strip()
+        hashed_token = hashlib.sha256(raw_token.encode()).hexdigest()
+
+        api_key_record = await prisma.userapikey.find_unique(
+            where={"apiKey": hashed_token}
         )
-        created.append(video.id)
 
-    return {"success": True, "created": len(created), "video_ids": created}
+        if not api_key_record or not api_key_record.isActive:
+            logger.warning(f"Invalid API key attempt")
+            raise HTTPException(status_code=401, detail="Invalid or revoked API key")
+
+        user_id = api_key_record.userId
+
+        # 2. GET USER DETAILS
+        user = await prisma.user.find_unique(
+            where={"id": user_id},
+            include={ "userConfig": True}
+        )
+
+        if not user:
+            logger.error(f"User {user_id} not found")
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # 3. VALIDATE PAYLOAD
+        videos = payload.get("videos", [])
+        if not videos:
+            return {"success": False, "message": "No videos provided"}
+
+        if not isinstance(videos, list):
+            raise HTTPException(status_code=400, detail="Videos must be an array")
+
+        # Get upload destinations from user credentials
+        upload_destinations = user.userConfig.defaultUploadDests
+        print("Upload destinations from user config:", upload_destinations)
+        logger.info(f"📥 Ingest: {len(videos)} videos for user {user_id}")
+
+        # 4. QUEUE FOR PROCESSING
+        background_tasks.add_task(
+            _process_discovered_videos,
+            user_id=user_id,
+            videos_data=videos,
+            upload_destinations=upload_destinations if isinstance(upload_destinations, list) else [upload_destinations] if upload_destinations else ["tiktok"],
+            background_tasks=background_tasks
+        )
+
+        # Update API key last used
+        await prisma.userapikey.update(
+            where={"apiKey": hashed_token},
+            data={"lastUsedAt": datetime.now()}
+        )
+
+        return {"success": True, "message": f"Processing {len(videos)} videos"}
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Ingest error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
