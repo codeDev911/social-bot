@@ -159,8 +159,8 @@ class FromPlatform:
                 )
     
             finally:
-                if os.path.exists(local_path):
-                    os.remove(local_path)
+                if os.path.exists(direct_url):
+                    os.remove(direct_url)
 
             await prisma.usage.update(
                 where={
