@@ -45,6 +45,9 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 MASTER_API_KEY = os.getenv("MASTER_API_KEY", "")
+import logging
+
+logger = logging.getLogger("ai-discovery")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
