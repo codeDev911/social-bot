@@ -1,146 +1,217 @@
 <!-- Delete Video Confirmation Modal -->
-<div
-  id="deleteVideoModal"
-  class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
->
-  <div class="bg-gray-900 rounded-xl shadow-2xl border border-white/10 w-full max-w-md">
-    <!-- Modal Header -->
-    <div class="flex items-center justify-between p-6 border-b border-white/10">
-      <h2 class="text-xl font-bold text-white">Delete Video</h2>
-      <button
-        type="button"
-        onclick="closeDeleteVideoModal()"
-        class="p-2 hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-white"
-      >
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+<div id="deleteVideoModal" class="dvm-backdrop hidden">
+  <div class="dvm-modal" role="dialog" aria-modal="true" aria-labelledby="dvmTitleLabel">
+
+    <!-- Header -->
+    <div class="dvm-header">
+      <div>
+        <p class="dvm-eyebrow">Confirm</p>
+        <h2 class="dvm-title" id="dvmTitleLabel">Delete Video</h2>
+      </div>
+      <button type="button" onclick="closeDeleteVideoModal()" class="dvm-close-btn" aria-label="Close">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
       </button>
     </div>
 
-    <!-- Modal Content -->
-    <div class="p-6">
-      <!-- Warning Icon -->
-      <div class="flex justify-center mb-4">
-        <div class="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500/30">
-          <svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
+    <!-- Body -->
+    <div class="dvm-body">
+      <div class="dvm-warn-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
       </div>
 
-      <!-- Message -->
-      <div class="text-center mb-6">
-        <p class="text-slate-300 mb-2">
-          Are you sure you want to delete <span id="deleteVideoTitle" class="font-semibold text-white break-words"></span>?
-        </p>
-        <p class="text-sm text-slate-400">
-          This action cannot be undone. The video will be permanently deleted.
-        </p>
-      </div>
+      <p class="dvm-message">
+        Are you sure you want to delete
+        <strong id="deleteVideoTitle" class="dvm-video-title"></strong>?
+      </p>
+      <p class="dvm-sub">
+        The video is removed from Cloudinary and from your queue. Any pending schedule
+        for it is cancelled. This action cannot be undone.
+      </p>
 
-      <!-- Action Buttons -->
-      <div class="flex gap-3">
-        <button
-          type="button"
-          onclick="closeDeleteVideoModal()"
-          class="flex-1 px-4 py-2 border border-white/10 text-slate-300 rounded-lg hover:border-white/20 hover:text-white transition-colors font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          id="confirmDeleteBtn"
-          onclick="confirmDeleteVideo()"
-          class="flex-1 px-4 py-2 bg-red-500/20 text-red-300 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors font-medium"
-        >
-          Delete
-        </button>
-      </div>
+      <div class="dvm-error hidden" id="deleteVideoError"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="dvm-actions">
+      <button type="button" onclick="closeDeleteVideoModal()" class="dvm-btn dvm-btn-ghost">
+        Cancel
+      </button>
+      <button type="button" id="confirmDeleteBtn" onclick="confirmDeleteVideo()" class="dvm-btn dvm-btn-danger">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+        Delete Permanently
+      </button>
     </div>
   </div>
 </div>
 
+<style>
+  /* ── backdrop + modal shell ───────────────────────────────────────── */
+  .dvm-backdrop {
+    position: fixed; inset: 0; z-index: 70;
+    background: rgba(10,11,13,0.8); backdrop-filter: blur(6px);
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .dvm-backdrop.hidden { display: none; }
+  .dvm-backdrop:not(.hidden) { display: flex; }
+
+  .dvm-modal {
+    width: 100%; max-width: 440px;
+    border-radius: 16px; overflow: hidden;
+    background: var(--bg-raised); border: 1px solid var(--hairline-2);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  }
+
+  /* ── header ───────────────────────────────────────────────────────── */
+  .dvm-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 24px; border-bottom: 1px solid var(--hairline);
+  }
+  .dvm-eyebrow {
+    font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--dimmer); margin-bottom: 2px;
+  }
+  .dvm-title {
+    font-family: var(--font-display); font-weight: 600; font-size: 17px;
+    color: var(--paper); letter-spacing: -0.01em;
+  }
+  .dvm-close-btn {
+    width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--hairline-2); color: var(--dim); background: none; cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .dvm-close-btn:hover { border-color: var(--dim); color: var(--paper); }
+
+  /* ── body ─────────────────────────────────────────────────────────── */
+  .dvm-body { padding: 22px 24px; text-align: center; }
+
+  .dvm-warn-icon {
+    width: 46px; height: 46px; border-radius: 50%; margin: 0 auto 14px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.3);
+    color: var(--red);
+  }
+
+  .dvm-message { font-size: 14px; color: var(--paper); line-height: 1.55; }
+  .dvm-video-title {
+    font-weight: 600; color: var(--paper); word-break: break-word;
+  }
+  .dvm-sub {
+    font-size: 12.5px; color: var(--dim); line-height: 1.6; margin-top: 8px;
+  }
+
+  .dvm-error {
+    margin-top: 14px; font-size: 12.5px; line-height: 1.5; text-align: left;
+    color: var(--red); background: rgba(255,107,107,0.08);
+    border: 1px solid rgba(255,107,107,0.3); border-radius: 8px; padding: 10px 12px;
+  }
+
+  /* ── actions ──────────────────────────────────────────────────────── */
+  .dvm-actions {
+    display: flex; gap: 10px; padding: 0 24px 22px;
+  }
+  .dvm-btn {
+    flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 11px; border-radius: 8px; font-family: var(--font-body);
+    font-weight: 600; font-size: 13.5px; cursor: pointer;
+    transition: all 0.15s ease; border: 1px solid transparent;
+  }
+  .dvm-btn:disabled { opacity: 0.6; cursor: default; }
+  .dvm-btn-ghost { background: none; border-color: var(--hairline-2); color: var(--dim); }
+  .dvm-btn-ghost:hover:not(:disabled) { border-color: var(--dim); color: var(--paper); }
+  .dvm-btn-danger {
+    background: rgba(255,107,107,0.1); border-color: rgba(255,107,107,0.35); color: var(--red);
+  }
+  .dvm-btn-danger:hover:not(:disabled) { background: rgba(255,107,107,0.18); }
+
+  .dvm-backdrop .hidden { display: none !important; }
+</style>
+
 <script>
-  const deleteVideoModal = document.getElementById('deleteVideoModal');
-  const deleteVideoTitle = document.getElementById('deleteVideoTitle');
-  const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+(function () {
+  const modal      = document.getElementById('deleteVideoModal');
+  const titleEl    = document.getElementById('deleteVideoTitle');
+  const errorEl    = document.getElementById('deleteVideoError');
+  const confirmBtn = document.getElementById('confirmDeleteBtn');
 
   let videoToDelete = null;
 
-  function openDeleteVideoModal(videoId, videoTitle) {
+  function showError(message) {
+    errorEl.textContent = message;
+    errorEl.classList.remove('hidden');
+  }
+
+  function clearError() {
+    errorEl.textContent = '';
+    errorEl.classList.add('hidden');
+  }
+
+  function setBusy(busy) {
+    confirmBtn.disabled = busy;
+    confirmBtn.innerHTML = busy
+      ? 'Deleting…'
+      : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+        '<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>' +
+        'Delete Permanently';
+  }
+
+  // Exposed globally — video_list.html calls these from its action buttons.
+  window.openDeleteVideoModal = function (videoId, videoTitle) {
     videoToDelete = videoId;
-    deleteVideoTitle.textContent = videoTitle;
-    deleteVideoModal.classList.remove('hidden');
-  }
+    titleEl.textContent = videoTitle || 'this video';
+    clearError();
+    setBusy(false);
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  };
 
-  function closeDeleteVideoModal() {
-    deleteVideoModal.classList.add('hidden');
+  window.closeDeleteVideoModal = function () {
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
     videoToDelete = null;
-  }
+    clearError();
+  };
 
-  async function confirmDeleteVideo() {
+  window.confirmDeleteVideo = async function () {
     if (!videoToDelete) return;
 
-    try {
-      confirmDeleteBtn.disabled = true;
-      confirmDeleteBtn.classList.add('opacity-50');
-      confirmDeleteBtn.textContent = 'Deleting...';
+    clearError();
+    setBusy(true);
 
-      const response = await fetch(`/api/user/video/${videoToDelete}`, {
+    try {
+      const response = await fetch('/api/user/video/' + encodeURIComponent(videoToDelete), {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        }
+        headers: { 'Content-Type': 'application/json' }
       });
 
-      const data = await response.json();
+      let data = {};
+      try { data = await response.json(); } catch (err) { /* non-JSON error page */ }
 
-      if (response.ok) {
-        // Close modal
-        closeDeleteVideoModal();
-        
-        // Show success message
-        showSuccessToast('Video deleted successfully');
-        
-        // Reload the page after a short delay
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
-      } else {
-        showErrorToast(data.detail || 'Failed to delete video');
-        confirmDeleteBtn.disabled = false;
-        confirmDeleteBtn.classList.remove('opacity-50');
-        confirmDeleteBtn.textContent = 'Delete';
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to delete video (HTTP ' + response.status + ')');
       }
-    } catch (error) {
-      console.error('Error deleting video:', error);
-      showErrorToast('An error occurred while deleting the video');
-      confirmDeleteBtn.disabled = false;
-      confirmDeleteBtn.classList.remove('opacity-50');
-      confirmDeleteBtn.textContent = 'Delete';
-    }
-  }
 
-  // Close modal when clicking outside
-  deleteVideoModal.addEventListener('click', (e) => {
-    if (e.target === deleteVideoModal) {
       closeDeleteVideoModal();
+      window.location.reload();
+    } catch (err) {
+      showError(err.message || 'An error occurred while deleting the video');
+      setBusy(false);
     }
+  };
+
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeDeleteVideoModal();
   });
 
-  // Helper functions for toast notifications
-  function showSuccessToast(message) {
-    // You can use an existing toast system if available
-    // or create a simple notification
-    console.log('Success:', message);
-    // If you have a toast library, use it here
-  }
-
-  function showErrorToast(message) {
-    // You can use an existing toast system if available
-    // or create a simple notification
-    console.error('Error:', message);
-    // If you have a toast library, use it here
-  }
+  // Close on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeDeleteVideoModal();
+  });
+})();
 </script>

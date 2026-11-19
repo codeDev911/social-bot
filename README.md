@@ -121,6 +121,77 @@ broken job turns red instead of sitting in the queue forever. Placeholders never
 reach the publisher — `/dashboard/trigger-upload` skips rows that have no
 Cloudinary URL yet.
 
+# Playground: default transformations for every upload
+
+`/dashboard/playground` (sidebar: **Playground**) is not a per-video tool — it
+holds the **default anti-copyright settings** applied to every video on its way
+to Cloudinary. URL downloads, worker jobs and direct file uploads all read the
+same chain, in this order:
+
+    audio -> trim -> crop -> grain (vignette/noise) -> text overlay -> quality
+
+The page explains every technique (visual fingerprint, audio fingerprint, intro
+trim, watermark, re-encode), shows a **protection meter**, and renders a live
+Cloudinary preview over the newest video in the library. Saving writes a single
+JSON config:
+
+- `DynamicEdit.playgroundTransformations` — authoritative; read by
+  `user_transformations()` in `controller/url_video_controller.py`.
+- The legacy `audioControls` / `textOverlayControls` /
+  `pixelDistortionControls` columns are mirrored so the old
+  "Anti-Copyright Settings" modal in `/dashboard/settings` stays accurate — and
+  a save there folds back into `playgroundTransformations`, so the two editors
+  never fight.
+
+Accounts that never open the Playground keep the legacy anti-copyright
+behaviour; turning the master toggle off uploads videos untouched. Existing
+videos are never modified.
+
+# Smart Clipper: clips without uploading the source
+
+`/dashboard/clipper` (sidebar: **Smart Clipper**) turns a local video into 8–13
+vertical-ready clips. The source file is only ever read in the browser via
+`URL.createObjectURL` — a 30-minute source is never sent to Cloudinary or to the
+server, which matters on Vercel (4.5 MB body cap, `maxDuration: 60`).
+
+How it works:
+
+1. The browser samples 24–180 frames (one 160x90 thumbnail every few seconds),
+   scores activity as frame difference and picks the busiest non-overlapping
+   windows. Clip length and clip count start from `clamp(5s, 45s, duration/12)`
+   and `~8–13 clips`, but both are editable in **Clip settings** — changing them
+   re-plans instantly from the last scan (no re-scanning).
+2. Every detected window shows editable **from / to** seconds (bounded by the
+   plan's per-clip cap), a per-clip preview button, and an **Add clip at
+   playhead** action for manual picks.
+3. **Aspect ratio** (keep source, 9:16, 4:5, 1:1, 16:9) with *crop to fill* or
+   *fit with black bars* re-frames each clip onto a 720p-class canvas while it is
+   recorded; "keep source" records the element stream directly.
+4. Each selected window is re-recorded with `captureStream()` + `MediaRecorder`
+   (vp9/vp8 + opus, ~2.5 Mbps, canvas video track + source audio tracks when
+   re-framing).
+5. The blob goes **directly to Cloudinary** from the browser using a signature
+   from `POST /api/clipper/signature` (server never touches the media).
+6. `POST /api/clipper/complete` verifies the asset exists, enforces the
+   per-clip duration cap and the plan's queue slots, then writes the Pending row
+   with its `scheduled_at`.
+
+The publish section takes a title prefix, targets, a start time and a spacing
+(0 / 15 / 30 / 60 / 1440 minutes) so clips drip out one by one.
+
+Plan matrix (`lib/plans.py`) — the clipper is open to **all plans** for now; the
+scheduled-video quota is what separates them:
+
+| plan    | playground defaults | smart clipper | clips / run | source max | clip max |
+|---------|---------------------|---------------|-------------|------------|----------|
+| free    | yes                 | yes           | 13          | 30 min     | 45 s     |
+| starter | yes                 | yes           | 13          | 30 min     | 45 s     |
+| pro     | yes                 | yes           | 13          | 30 min     | 45 s     |
+
+The publisher only picks rows whose `scheduled_at` has arrived
+(`{"scheduled_at": {"lte": now}}`), so future clips wait in the queue instead of
+publishing early.
+
 # Deploying: Vercel for the app, one box for the worker
 
 The web app runs on Vercel. Everything that needs a process — yt-dlp, Cloudinary

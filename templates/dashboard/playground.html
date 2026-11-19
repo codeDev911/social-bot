@@ -2,29 +2,83 @@
 
 {% block content %}
 <style>
-  .pg-wrap { display: flex; flex-direction: column; gap: 28px; padding-bottom: 32px; }
+  .pg-wrap { display: flex; flex-direction: column; gap: 24px; padding-bottom: 32px; }
 
-  .pg-title { font-family: var(--font-display); font-weight: 600; font-size: 32px; letter-spacing: -0.02em; margin-bottom: 8px; }
-  .pg-sub { color: var(--dim); font-size: 15px; }
+  /* ── hero ──────────────────────────────────────────────────────────── */
+  .pg-hero {
+    display: grid; grid-template-columns: 1.7fr 1fr; gap: 24px; align-items: stretch;
+    background: linear-gradient(135deg, rgba(63,255,141,0.06), transparent 55%), var(--bg-raised);
+    border: 1px solid var(--hairline-2); border-radius: 16px; padding: 26px;
+  }
+  @media (max-width: 900px) { .pg-hero { grid-template-columns: 1fr; } }
+  .pg-title { font-family: var(--font-display); font-weight: 600; font-size: 30px; letter-spacing: -0.02em; margin: 10px 0 8px; }
+  .pg-sub { color: var(--dim); font-size: 14.5px; line-height: 1.6; max-width: 640px; }
+  .pg-sub strong { color: var(--paper); }
 
-  .pg-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start; }
+  .pg-master {
+    margin-top: 18px; display: flex; align-items: flex-start; gap: 12px;
+    background: var(--bg-raised-2); border: 1px solid var(--hairline-2);
+    border-radius: 12px; padding: 14px 16px; cursor: pointer;
+  }
+  .pg-master input { accent-color: var(--signal); width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
+  .pg-master b { font-size: 14px; display: block; margin-bottom: 3px; }
+  .pg-master span span { color: var(--dim); font-size: 12.5px; line-height: 1.5; display: block; }
+
+  .pg-meter-card {
+    background: var(--bg-raised-2); border: 1px solid var(--hairline-2);
+    border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 10px;
+    justify-content: center;
+  }
+  .pg-meter-label { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--dim); text-transform: uppercase; }
+  .pg-meter-track { height: 10px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; }
+  #meterFill { height: 100%; width: 0%; border-radius: 999px; background: var(--red); transition: width 0.25s ease, background 0.25s ease; }
+  #meterText { font-family: var(--font-display); font-weight: 600; font-size: 19px; }
+  #meterText.light { color: var(--red); }
+  #meterText.balanced { color: var(--amber); }
+  #meterText.strong { color: var(--signal); }
+  .pg-meter-count { font-size: 12.5px; color: var(--dim); }
+
+  /* ── layout ────────────────────────────────────────────────────────── */
+  .pg-grid { display: grid; grid-template-columns: 2fr 1.15fr; gap: 24px; align-items: start; }
   @media (max-width: 980px) { .pg-grid { grid-template-columns: 1fr; } }
 
-  /* ── preview panel ─────────────────────────────────────────────────── */
   .pg-panel {
     background: var(--bg-raised); border: 1px solid var(--hairline-2);
-    border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 16px;
+    border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 16px;
+    position: sticky; top: 16px;
   }
-  .pg-panel-title { font-family: var(--font-display); font-weight: 600; font-size: 17px; }
+  @media (max-width: 980px) { .pg-panel { position: static; } }
+  .pg-panel-title { font-family: var(--font-display); font-weight: 600; font-size: 16.5px; }
+  .pg-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+  .pg-status {
+    display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px;
+    border-radius: 999px; font-family: var(--font-mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    background: rgba(63,255,141,0.08); border: 1px solid rgba(63,255,141,0.25); color: var(--signal);
+  }
+  .pg-status.busy { background: rgba(255,180,84,0.08); border-color: rgba(255,180,84,0.3); color: var(--amber); }
+  .pg-status.err { background: rgba(255,107,107,0.08); border-color: rgba(255,107,107,0.3); color: var(--red); }
 
   .pg-video-wrap {
     position: relative; background: #000; border-radius: 10px; overflow: hidden;
     aspect-ratio: 16/9; border: 1px solid var(--hairline-2);
   }
-  .pg-video-wrap video { width: 100%; height: 100%; display: block; }
-  .pg-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none; }
+  .pg-video-wrap video { width: 100%; height: 100%; display: block; object-fit: contain; }
+  .pg-empty {
+    position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px;
+    align-items: center; justify-content: center; text-align: center; padding: 24px;
+    color: var(--dim); font-size: 14px;
+  }
+  .pg-empty a { color: var(--signal); text-decoration: none; font-weight: 600; }
+  .pg-source-tag {
+    position: absolute; left: 10px; bottom: 10px; z-index: 2;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.04em;
+    background: rgba(6,20,12,0.75); border: 1px solid var(--hairline-2);
+    color: var(--paper); border-radius: 6px; padding: 4px 8px; max-width: 80%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
 
-  /* status readout */
   .pg-readout {
     background: var(--bg-raised-2); border: 1px solid var(--hairline);
     border-radius: 10px; padding: 14px 16px;
@@ -33,9 +87,17 @@
   @media (max-width: 480px) { .pg-readout { grid-template-columns: 1fr; } }
   .pg-readout-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .pg-readout-key { font-family: var(--font-mono); font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; }
-  .pg-readout-val { font-family: var(--font-mono); font-size: 12px; color: var(--paper); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+  .pg-readout-val { font-family: var(--font-mono); font-size: 12px; color: var(--paper); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
 
-  .pg-btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pg-chain {
+    font-family: var(--font-mono); font-size: 11px; color: var(--dim);
+    background: var(--bg-raised-2); border: 1px solid var(--hairline);
+    border-radius: 10px; padding: 12px 14px; max-height: 150px; overflow: auto;
+    white-space: pre-wrap; word-break: break-all; margin: 0;
+  }
+
+  .pg-btn-row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 12px; }
+  @media (max-width: 640px) { .pg-btn-row { grid-template-columns: 1fr; } }
   .pg-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     padding: 11px; border-radius: 8px; font-family: var(--font-body); font-weight: 600;
@@ -43,44 +105,44 @@
   }
   .pg-btn-reset { background: rgba(255,107,107,0.08); border-color: rgba(255,107,107,0.25); color: var(--red); }
   .pg-btn-reset:hover { background: rgba(255,107,107,0.15); }
-  .pg-btn-save { background: rgba(63,255,141,0.1); border-color: rgba(63,255,141,0.3); color: var(--signal); }
-  .pg-btn-save:hover:not(:disabled) { background: rgba(63,255,141,0.18); }
-  .pg-btn-save:disabled { opacity: 0.6; cursor: default; }
+  .pg-btn-save { background: var(--signal); border-color: var(--signal); color: #06140C; }
+  .pg-btn-save:hover:not(:disabled) { background: #5FFFA5; }
+  .pg-btn:disabled { opacity: 0.55; cursor: default; }
 
-  /* ── controls column ──────────────────────────────────────────────── */
-  .pg-controls { display: flex; flex-direction: column; gap: 12px; }
+  /* ── controls ──────────────────────────────────────────────────────── */
+  .pg-controls { display: flex; flex-direction: column; gap: 14px; }
 
   .pg-section {
     background: var(--bg-raised); border: 1px solid var(--hairline-2);
     border-radius: 12px; padding: 16px;
   }
-  .pg-section-head {
-    display: flex; align-items: center; justify-content: space-between;
-    cursor: pointer; user-select: none;
-  }
-  .pg-section-title {
-    font-family: var(--font-display); font-weight: 600; font-size: 13.5px;
-    display: flex; align-items: center; gap: 9px;
-  }
+  .pg-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; user-select: none; }
+  .pg-section-title { font-family: var(--font-display); font-weight: 600; font-size: 13.5px; display: flex; align-items: center; gap: 9px; }
   .pg-section-icon {
     width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
     background: rgba(63,255,141,0.08); display: flex; align-items: center; justify-content: center;
   }
+  .pg-badge {
+    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 3px 7px; border-radius: 999px; color: var(--signal);
+    background: rgba(63,255,141,0.08); border: 1px solid rgba(63,255,141,0.22);
+  }
   .pg-chevron { color: var(--dimmer); transition: transform 0.2s ease; flex-shrink: 0; }
   .pg-section.collapsed .pg-chevron { transform: rotate(-90deg); }
-
-  .pg-section-content {
-    display: flex; flex-direction: column; gap: 12px; margin-top: 16px;
-    padding-top: 14px; border-top: 1px solid var(--hairline);
-  }
+  .pg-section-content { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--hairline); }
   .pg-section.collapsed .pg-section-content { display: none; }
+
+  .pg-why {
+    font-size: 12.5px; color: var(--dim); line-height: 1.6;
+    border-left: 2px solid var(--signal-dim); padding-left: 10px;
+  }
+  .pg-why b { color: var(--paper); font-weight: 600; }
 
   .pg-field-label {
     font-family: var(--font-mono); font-size: 10.5px; color: var(--dim);
     text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block;
   }
   .pg-field-label .val { color: var(--signal); }
-
   .pg-input, .pg-select {
     width: 100%; background: var(--bg-raised-2); border: 1px solid var(--hairline-2);
     border-radius: 7px; padding: 8px 11px; color: var(--paper); font-size: 13px;
@@ -88,226 +150,360 @@
   }
   .pg-input:focus, .pg-select:focus { outline: none; border-color: var(--signal-dim); }
   .pg-select { cursor: pointer; }
-
   .pg-range { width: 100%; accent-color: var(--signal); }
   .pg-color { width: 100%; height: 30px; border-radius: 7px; cursor: pointer; border: 1px solid var(--hairline-2); background: var(--bg-raised-2); }
-
   .pg-check-row { display: flex; align-items: center; gap: 9px; cursor: pointer; }
   .pg-check-row input { accent-color: var(--signal); width: 15px; height: 15px; }
   .pg-check-row span { font-size: 13px; color: var(--paper); }
-
   .pg-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pg-hint { font-size: 11.5px; color: var(--dimmer); margin-top: 6px; line-height: 1.5; }
+  .pg-hint.good { color: var(--signal); }
+
+  .pg-note {
+    font-size: 12.5px; color: var(--dim); line-height: 1.6;
+    background: var(--bg-raised-2); border: 1px solid var(--hairline); border-radius: 10px; padding: 12px 14px;
+  }
+  .pg-note a { color: var(--signal); text-decoration: none; }
+  .pg-note strong { color: var(--paper); }
+
+  .pg-tips { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 7px; font-size: 12.5px; color: var(--dim); line-height: 1.55; }
+  .pg-tips b { color: var(--paper); }
+
+  .pg-toast {
+    display: none; padding: 11px 14px; border-radius: 8px; font-size: 13px;
+    border: 1px solid var(--hairline-2); background: var(--bg-raised-2); color: var(--paper);
+  }
+  .pg-toast.ok { display: block; border-color: rgba(63,255,141,0.3); background: rgba(63,255,141,0.08); color: var(--signal); }
+  .pg-toast.err { display: block; border-color: rgba(255,107,107,0.3); background: rgba(255,107,107,0.08); color: var(--red); }
 </style>
 
 <div class="pg-wrap">
 
-  <!-- Header -->
-  <section>
-    <div class="eyebrow" style="margin-bottom:16px;"><span class="blip"></span>SANDBOX</div>
-    <h1 class="pg-title">Video Playground</h1>
-    <p class="pg-sub">Preview transformations in real-time before uploading</p>
+  <!-- ── Hero + protection meter ─────────────────────────────────────── -->
+  <section class="pg-hero">
+    <div>
+      <div class="eyebrow"><span class="blip"></span>ANTI-COPYRIGHT DEFAULTS</div>
+      <h1 class="pg-title">Upload Playground</h1>
+      <p class="pg-sub">
+        These are <strong>defaults, not per-video edits</strong>. Every video that reaches Cloudinary —
+        URL downloads, worker jobs and file uploads — is re-encoded through this chain first, so small
+        changes that break copyright fingerprints are applied automatically, on every upload.
+      </p>
+      <label class="pg-master">
+        <input type="checkbox" id="masterEnabled" onchange="renderMeter(); schedulePreview();">
+        <span>
+          <b>Apply my defaults to every upload</b>
+          <span>When off, videos upload untouched and keep their original fingerprints. Existing videos are never modified — only new uploads get these settings.</span>
+        </span>
+      </label>
+    </div>
+    <div class="pg-meter-card">
+      <span class="pg-meter-label">Copyright protection</span>
+      <div class="pg-meter-track"><div id="meterFill"></div></div>
+      <div id="meterText" class="light">Off</div>
+      <div class="pg-meter-count" id="meterCount">0 of 7 techniques enabled</div>
+      <div class="pg-hint">Aim for <b>Balanced</b> or better. The preview on the left updates live.</div>
+    </div>
   </section>
 
-  <!-- Main Grid -->
   <div class="pg-grid">
 
-    <!-- Video Preview -->
+    <!-- ── Preview ───────────────────────────────────────────────────── -->
     <div class="pg-panel">
-      <h2 class="pg-panel-title">Live Preview</h2>
-
-      <div id="videoWrapper" class="pg-video-wrap">
-        <video id="video" controls>
-          <source src="https://cdn.pixabay.com/video/2022/02/06/106883-674268697_large.mp4" type="video/mp4">
-        </video>
-        <canvas id="textCanvas" class="pg-canvas"></canvas>
+      <div class="pg-panel-head">
+        <div>
+          <h2 class="pg-panel-title">Preview on your latest upload</h2>
+          <p class="pg-hint">Queued slots: {{ pending_videos_count or 0 }}/{{ plan_slots or 0 }} on your {{ current_plan or 'Free' }} plan.</p>
+        </div>
+        <span id="pgStatus" class="pg-status">Ready</span>
       </div>
 
-      <!-- Info Display -->
+      <div class="pg-video-wrap">
+        <video id="preview" controls playsinline preload="metadata" {% if preview_url %}src="{{ preview_url }}"{% endif %}></video>
+        {% if has_preview %}
+          <span class="pg-source-tag" id="sourceTag">{{ preview_title }}</span>
+        {% else %}
+          <div class="pg-empty">
+            <span>No Cloudinary video yet — the preview renders on your newest upload.</span>
+            <a href="/dashboard/videos">Upload a video, then come back →</a>
+          </div>
+        {% endif %}
+      </div>
+
       <div class="pg-readout">
         <div class="pg-readout-item">
-          <span class="pg-readout-key">Text</span>
-          <span class="pg-readout-val" id="infoText">Disabled</span>
+          <span class="pg-readout-key">Visual hash</span>
+          <span class="pg-readout-val" id="infoVisual">—</span>
         </div>
         <div class="pg-readout-item">
-          <span class="pg-readout-key">Audio</span>
-          <span class="pg-readout-val" id="infoAudio">Normal (0%)</span>
+          <span class="pg-readout-key">Audio hash</span>
+          <span class="pg-readout-val" id="infoAudio">—</span>
         </div>
         <div class="pg-readout-item">
-          <span class="pg-readout-key">Crop</span>
-          <span class="pg-readout-val" id="infoCrop">None</span>
+          <span class="pg-readout-key">Watermark</span>
+          <span class="pg-readout-val" id="infoText">—</span>
         </div>
         <div class="pg-readout-item">
-          <span class="pg-readout-key">Position</span>
-          <span class="pg-readout-val" id="infoGravity">Auto</span>
+          <span class="pg-readout-key">Intro trim</span>
+          <span class="pg-readout-val" id="infoTrim">—</span>
         </div>
       </div>
 
-      <!-- Buttons -->
+      <pre class="pg-chain" id="chainOut">The transformation chain appears here.</pre>
+
       <div class="pg-btn-row">
-        <button onclick="resetAll()" class="pg-btn pg-btn-reset">
+        <button type="button" onclick="resetRecommended()" class="pg-btn pg-btn-reset">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          Reset
+          Reset to recommended
         </button>
-        <button onclick="saveSettings()" id="saveBtn" class="pg-btn pg-btn-save">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
-          Save
+        <button type="button" onclick="saveDefaults()" id="saveBtn" class="pg-btn pg-btn-save">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+          Save defaults for all uploads
         </button>
+      </div>
+
+      <div id="pgToast" class="pg-toast"></div>
+
+      <div class="pg-note">
+        <strong>How this works:</strong> the preview is a Cloudinary delivery URL — nothing is re-uploaded
+        while you tweak. The moment you save, every <em>new</em> upload is permanently re-encoded through
+        the same chain before it enters your queue.
       </div>
     </div>
 
-    <!-- Controls -->
+    <!-- ── Controls ──────────────────────────────────────────────────── -->
     <div class="pg-controls">
 
-      <!-- Text -->
-      <div class="pg-section">
-        <div class="pg-section-head" onclick="toggleSection(this.parentElement)">
-          <span class="pg-section-title">
-            <span class="pg-section-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h6m-6 4h10"/></svg></span>
-            Text Overlay
-          </span>
-          <svg class="pg-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-        </div>
-        <div class="pg-section-content">
-          <label class="pg-check-row">
-            <input type="checkbox" id="textEnable" onchange="applyEffects()">
-            <span>Enable</span>
-          </label>
-          <div>
-            <label class="pg-field-label">Text</label>
-            <input type="text" id="textValue" value="@brand" onchange="applyEffects()" class="pg-input">
-          </div>
-          <div>
-            <label class="pg-field-label">Size: <span class="val" id="sizeVal">48</span>px</label>
-            <input type="range" id="textSize" min="8" max="120" value="48" onchange="document.getElementById('sizeVal').textContent = this.value; applyEffects()" class="pg-range">
-          </div>
-          <div>
-            <label class="pg-field-label">Color</label>
-            <input type="color" id="textColor" value="#3FFF8D" onchange="applyEffects()" class="pg-color">
-          </div>
-          <div>
-            <label class="pg-field-label">Position</label>
-            <select id="textPos" onchange="applyEffects()" class="pg-select">
-              <option value="center">Center</option>
-              <option value="top">Top</option>
-              <option value="bottom">Bottom</option>
-              <option value="top-left">Top-Left</option>
-              <option value="top-right">Top-Right</option>
-              <option value="bottom-left">Bottom-Left</option>
-              <option value="bottom-right">Bottom-Right</option>
-            </select>
-          </div>
-          <div>
-            <label class="pg-field-label">Opacity: <span class="val" id="opacVal">100</span>%</label>
-            <input type="range" id="textOpacity" min="0" max="100" value="100" onchange="document.getElementById('opacVal').textContent = this.value; applyEffects()" class="pg-range">
-          </div>
-        </div>
-      </div>
-
-      <!-- Audio -->
-      <div class="pg-section">
-        <div class="pg-section-head" onclick="toggleSection(this.parentElement)">
-          <span class="pg-section-title">
-            <span class="pg-section-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M9 9v6h4l5 5V4l-5 5H9z"/></svg></span>
-            Audio
-          </span>
-          <svg class="pg-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-        </div>
-        <div class="pg-section-content">
-          <div>
-            <label class="pg-field-label">Volume: <span class="val" id="volVal">0</span>%</label>
-            <input type="range" id="audioVol" min="-100" max="200" value="0" onchange="document.getElementById('volVal').textContent = this.value; applyEffects()" class="pg-range">
-          </div>
-          <label class="pg-check-row">
-            <input type="checkbox" id="audioMute" onchange="applyEffects()">
-            <span>Mute</span>
-          </label>
-          <div>
-            <label class="pg-field-label">Frequency</label>
-            <select id="audioFreq" onchange="applyEffects()" class="pg-select">
-              <option value="">Default</option>
-              <option value="22050">22.05 kHz</option>
-              <option value="44100">44.1 kHz</option>
-              <option value="48000">48 kHz</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Crop -->
+      <!-- 1. Visual fingerprint -->
       <div class="pg-section">
         <div class="pg-section-head" onclick="toggleSection(this.parentElement)">
           <span class="pg-section-title">
             <span class="pg-section-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg></span>
-            Crop
+            Visual fingerprint
+            <span class="pg-badge">Key</span>
           </span>
           <svg class="pg-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </div>
         <div class="pg-section-content">
-          <div>
-            <label class="pg-field-label">Mode</label>
-            <select id="cropMode" onchange="applyEffects()" class="pg-select">
-              <option value="none">None</option>
-              <option value="scale">Scale</option>
-              <option value="crop">Crop</option>
-              <option value="thumb">Thumbnail</option>
-            </select>
+          <p class="pg-why">
+            <b>Why it helps:</b> platforms compare sampled frames against a visual fingerprint. Re-cropping to a
+            new frame shape and adding light grain changes the pixels that matcher looks at.
+          </p>
+          <div class="pg-grid-2">
+            <div>
+              <label class="pg-field-label">Resize / crop</label>
+              <select id="cropMode" onchange="schedulePreview()" class="pg-select">
+                <option value="none">None (keep original)</option>
+                <option value="scale">Scale to width</option>
+                <option value="crop">Vertical 9:16 fill</option>
+                <option value="thumb">Square 1:1 fill</option>
+              </select>
+            </div>
+            <div>
+              <label class="pg-field-label">Gravity</label>
+              <select id="gravity" onchange="schedulePreview()" class="pg-select">
+                <option value="center">Center</option>
+                <option value="north">Top</option>
+                <option value="south">Bottom</option>
+                <option value="east">Right</option>
+                <option value="west">Left</option>
+                <option value="northeast">Top-right</option>
+                <option value="northwest">Top-left</option>
+                <option value="southeast">Bottom-right</option>
+                <option value="southwest">Bottom-left</option>
+                <option value="auto">Auto (smart)</option>
+              </select>
+            </div>
+          </div>
+          <div class="pg-grid-2">
+            <div>
+              <label class="pg-field-label">Width (px)</label>
+              <input type="number" id="resizeWidth" min="240" max="1920" step="10" oninput="schedulePreview()" class="pg-input">
+            </div>
+            <div>
+              <label class="pg-field-label">Height (px)</label>
+              <input type="number" id="resizeHeight" min="240" max="1920" step="10" oninput="schedulePreview()" class="pg-input">
+            </div>
           </div>
           <div>
-            <label class="pg-field-label">Gravity</label>
-            <select id="gravity" onchange="applyEffects()" class="pg-select">
-              <option value="center">Center</option>
-              <option value="north">Top</option>
-              <option value="south">Bottom</option>
-              <option value="east">Right</option>
-              <option value="west">Left</option>
-              <option value="northeast">Top-Right</option>
-              <option value="northwest">Top-Left</option>
-              <option value="southeast">Bottom-Right</option>
-              <option value="southwest">Bottom-Left</option>
-            </select>
+            <label class="pg-field-label">Grain — vignette: <span class="val" id="vignetteVal">10</span></label>
+            <input type="range" id="vignette" min="0" max="100" value="10" oninput="document.getElementById('vignetteVal').textContent = this.value; schedulePreview()" class="pg-range">
           </div>
+          <div>
+            <label class="pg-field-label">Grain — noise: <span class="val" id="noiseVal">3</span></label>
+            <input type="range" id="noise" min="0" max="100" value="3" oninput="document.getElementById('noiseVal').textContent = this.value; schedulePreview()" class="pg-range">
+          </div>
+          <p class="pg-hint good">Recommended: 9:16 fill · vignette 10 · noise 3 — subtle enough to keep quality, enough to change the hash.</p>
         </div>
       </div>
 
-      <!-- Trim -->
+      <!-- 2. Audio fingerprint -->
+      <div class="pg-section">
+        <div class="pg-section-head" onclick="toggleSection(this.parentElement)">
+          <span class="pg-section-title">
+            <span class="pg-section-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M9 9v6h4l5 5V4l-5 5H9z"/></svg></span>
+            Audio fingerprint
+            <span class="pg-badge">Key</span>
+          </span>
+          <svg class="pg-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="pg-section-content">
+          <p class="pg-why">
+            <b>Why it helps:</b> audio is matched by its spectral peaks. A small volume nudge plus a lower
+            sample rate reshapes that map while the sound still feels normal. <b>Muting</b> is the strongest
+            option — use it when your own voiceover or music replaces the original.
+          </p>
+          <div>
+            <label class="pg-field-label">Volume: <span class="val" id="volVal">+3</span>%</label>
+            <input type="range" id="audioVol" min="-100" max="200" value="3" oninput="document.getElementById('volVal').textContent = (this.value > 0 ? '+' : '') + this.value; schedulePreview()" class="pg-range">
+            <p class="pg-hint good">+3 to +5% is the sweet spot: inaudible, but shifts the waveform.</p>
+          </div>
+          <div>
+            <label class="pg-field-label">Sample rate</label>
+            <select id="audioFreq" onchange="schedulePreview()" class="pg-select">
+              <option value="">Keep original</option>
+              <option value="22050">22.05 kHz (recommended)</option>
+              <option value="32000">32 kHz</option>
+              <option value="44100">44.1 kHz</option>
+              <option value="16000">16 kHz (aggressive)</option>
+            </select>
+          </div>
+          <label class="pg-check-row">
+            <input type="checkbox" id="audioMute" onchange="schedulePreview()">
+            <span>Remove audio entirely (strongest)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 3. Intro trim -->
       <div class="pg-section">
         <div class="pg-section-head" onclick="toggleSection(this.parentElement)">
           <span class="pg-section-title">
             <span class="pg-section-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6m0-6l-6 6m15-6a3 3 0 11-6 0 3 3 0 016 0zM9 18a3 3 0 11-6 0 3 3 0 016 0z"/></svg></span>
-            Trim
+            Skip the intro
           </span>
           <svg class="pg-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </div>
         <div class="pg-section-content">
+          <p class="pg-why">
+            <b>Why it helps:</b> most claims anchor on the opening seconds — title stings and intros are the
+            most recognizable part of a video. Dropping the first 1–3 seconds also desynchronizes both visual
+            and audio fingerprints.
+          </p>
           <div class="pg-grid-2">
             <div>
-              <label class="pg-field-label">Start (sec)</label>
-              <input type="number" id="trimStart" min="0" value="0" onchange="applyEffects()" class="pg-input">
+              <label class="pg-field-label">Start offset (sec)</label>
+              <input type="number" id="trimStart" min="0" max="15" step="0.5" oninput="schedulePreview()" class="pg-input">
             </div>
             <div>
-              <label class="pg-field-label">Duration (sec)</label>
-              <input type="number" id="trimDur" min="1" value="30" onchange="applyEffects()" class="pg-input">
+              <label class="pg-field-label">Max duration (0 = full)</label>
+              <input type="number" id="trimDur" min="0" max="60" step="0.5" oninput="schedulePreview()" class="pg-input">
+            </div>
+          </div>
+          <p class="pg-hint">1–3 seconds is usually safe. Only trim if the intro isn't essential to the video.</p>
+        </div>
+      </div>
+
+      <!-- 4. Watermark -->
+      <div class="pg-section">
+        <div class="pg-section-head" onclick="toggleSection(this.parentElement)">
+          <span class="pg-section-title">
+            <span class="pg-section-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h6m-6 4h10"/></svg></span>
+            Brand watermark
+            <span class="pg-badge">Key</span>
+          </span>
+          <svg class="pg-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="pg-section-content">
+          <p class="pg-why">
+            <b>Why it helps:</b> a text overlay changes the frame hash on every frame it covers, and turns the
+            clip into branded content. Use your own handle — if the clip is ever re-posted, the credit
+            travels with it.
+          </p>
+          <label class="pg-check-row">
+            <input type="checkbox" id="textEnable" onchange="schedulePreview()">
+            <span>Add watermark to every upload</span>
+          </label>
+          <div>
+            <label class="pg-field-label">Text</label>
+            <input type="text" id="textValue" maxlength="60" placeholder="@yourhandle" oninput="schedulePreview()" class="pg-input">
+          </div>
+          <div class="pg-grid-2">
+            <div>
+              <label class="pg-field-label">Size: <span class="val" id="sizeVal">36</span>px</label>
+              <input type="range" id="textSize" min="12" max="120" value="36" oninput="document.getElementById('sizeVal').textContent = this.value; schedulePreview()" class="pg-range">
+            </div>
+            <div>
+              <label class="pg-field-label">Opacity: <span class="val" id="opacVal">60</span>%</label>
+              <input type="range" id="textOpacity" min="1" max="100" value="60" oninput="document.getElementById('opacVal').textContent = this.value; schedulePreview()" class="pg-range">
+            </div>
+          </div>
+          <div class="pg-grid-2">
+            <div>
+              <label class="pg-field-label">Color</label>
+              <input type="color" id="textColor" value="#FFFFFF" oninput="schedulePreview()" class="pg-color">
+            </div>
+            <div>
+              <label class="pg-field-label">Position</label>
+              <select id="textPos" onchange="schedulePreview()" class="pg-select">
+                <option value="bottom">Bottom</option>
+                <option value="top">Top</option>
+                <option value="center">Center</option>
+                <option value="top-left">Top-left</option>
+                <option value="top-right">Top-right</option>
+                <option value="bottom-left">Bottom-left</option>
+                <option value="bottom-right">Bottom-right</option>
+              </select>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Quality -->
+      <!-- 5. Re-encode -->
       <div class="pg-section">
         <div class="pg-section-head" onclick="toggleSection(this.parentElement)">
           <span class="pg-section-title">
             <span class="pg-section-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></span>
-            Quality
+            Re-encode
           </span>
           <svg class="pg-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </div>
         <div class="pg-section-content">
-          <select id="quality" onchange="applyEffects()" class="pg-select">
-            <option value="auto">Auto</option>
-            <option value="90">90 (High)</option>
-            <option value="75">75 (Medium)</option>
-            <option value="60">60 (Low)</option>
+          <p class="pg-why">
+            <b>Why it helps:</b> platforms dedupe identical files by their byte hash. Every upload is
+            re-encoded anyway, which changes that hash without visible quality loss.
+          </p>
+          <select id="quality" onchange="schedulePreview()" class="pg-select">
+            <option value="auto">Auto — recommended</option>
+            <option value="90">90 — high</option>
+            <option value="75">75 — medium</option>
+            <option value="60">60 — low (smallest file)</option>
           </select>
+        </div>
+      </div>
+
+      <!-- Playbook -->
+      <div class="pg-section">
+        <div class="pg-section-head" onclick="toggleSection(this.parentElement)">
+          <span class="pg-section-title">
+            <span class="pg-section-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--signal)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></span>
+            Claim-avoidance playbook
+          </span>
+          <svg class="pg-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </div>
+        <div class="pg-section-content">
+          <ul class="pg-tips">
+            <li><b>Never re-upload untouched.</b> The exact file with the exact intro is the fastest way to get claimed.</li>
+            <li><b>Say something of your own.</b> Commentary, reactions or a voiceover make the clip transformative — that matters more than any filter.</li>
+            <li><b>Break both fingerprints.</b> Visual (crop + grain + watermark) and audio (volume shift or mute) together.</li>
+            <li><b>Skip recognizable openings.</b> Titles, intros and theme songs are what matchers find first.</li>
+            <li><b>Credit helps, permission wins.</b> Watermarking your handle doesn't grant rights — when in doubt, get permission or use licensed content.</li>
+            <li><b>Long source?</b> The <a href="/dashboard/clipper">Smart Clipper</a> cuts it into 8–13 short clips that are each independently transformed.</li>
+          </ul>
+          <div class="pg-note">
+            No setting guarantees zero claims — platforms score <em>how much</em> of the original you use.
+            These defaults reliably reduce fingerprint matches; fair use still depends on what your video adds.
+          </div>
         </div>
       </div>
 
@@ -316,209 +512,253 @@
 </div>
 
 <script>
-  const video = document.getElementById('video');
-  const canvas = document.getElementById('textCanvas');
-  const ctx = canvas.getContext('2d');
-  let animFrameId;
+  const DEFAULTS = {{ playground_defaults | tojson }};
+  const RECOMMENDED = {{ recommended_defaults | tojson }};
+  const HAS_PREVIEW = {{ 'true' if has_preview else 'false' }};
 
-  // Toggle section visibility (now toggles the whole .pg-section for chevron rotation)
+  let previewTimer = null;
+  let previewSeq = 0;
+
   function toggleSection(sectionEl) {
     sectionEl.classList.toggle('collapsed');
   }
 
-  // Get current settings
-  function getSettings() {
+  function setStatus(kind, text) {
+    const pill = document.getElementById('pgStatus');
+    pill.className = 'pg-status' + (kind === 'busy' ? ' busy' : kind === 'err' ? ' err' : '');
+    pill.textContent = text;
+  }
+
+  function showToast(kind, text) {
+    const box = document.getElementById('pgToast');
+    box.className = 'pg-toast ' + kind;
+    box.textContent = text;
+    if (kind === 'ok') {
+      setTimeout(() => { box.className = 'pg-toast'; }, 9000);
+    }
+  }
+
+  function applyConfig(cfg) {
+    document.getElementById('masterEnabled').checked = !!cfg.enabled;
+
+    const audio = cfg.audioControls || {};
+    document.getElementById('audioVol').value = audio.volume || 0;
+    document.getElementById('audioFreq').value = audio.frequency || '';
+    document.getElementById('audioMute').checked = !!audio.removeAudio;
+    document.getElementById('volVal').textContent = (audio.volume > 0 ? '+' : '') + (audio.volume || 0);
+
+    const trim = cfg.trim || {};
+    document.getElementById('trimStart').value = trim.startOffset || 0;
+    document.getElementById('trimDur').value = trim.duration || 0;
+
+    const resize = cfg.resize || {};
+    document.getElementById('cropMode').value = resize.cropMode || 'crop';
+    document.getElementById('resizeWidth').value = resize.width || 720;
+    document.getElementById('resizeHeight').value = resize.height || 1280;
+
+    document.getElementById('gravity').value = (cfg.gravity || {}).gravity || 'center';
+
+    const pixel = cfg.pixel || {};
+    document.getElementById('vignette').value = pixel.vignette || 0;
+    document.getElementById('vignetteVal').textContent = pixel.vignette || 0;
+    document.getElementById('noise').value = pixel.noise || 0;
+    document.getElementById('noiseVal').textContent = pixel.noise || 0;
+
+    const text = cfg.textOverlay || {};
+    document.getElementById('textEnable').checked = !!text.enabled;
+    document.getElementById('textValue').value = text.text || '';
+    document.getElementById('textSize').value = text.fontSize || 36;
+    document.getElementById('sizeVal').textContent = text.fontSize || 36;
+    document.getElementById('textOpacity').value = text.opacity || 60;
+    document.getElementById('opacVal').textContent = text.opacity || 60;
+    document.getElementById('textColor').value = text.color || '#FFFFFF';
+    document.getElementById('textPos').value = text.position || 'bottom';
+
+    document.getElementById('quality').value = (cfg.quality || {}).quality || 'auto';
+  }
+
+  function collectConfig() {
     return {
-      text: {
-        enabled: document.getElementById('textEnable').checked,
-        value: document.getElementById('textValue').value,
-        size: parseInt(document.getElementById('textSize').value),
-        color: document.getElementById('textColor').value,
-        opacity: parseInt(document.getElementById('textOpacity').value),
-        pos: document.getElementById('textPos').value
-      },
-      audio: {
-        volume: parseInt(document.getElementById('audioVol').value),
-        mute: document.getElementById('audioMute').checked,
-        freq: document.getElementById('audioFreq').value
-      },
-      crop: {
-        mode: document.getElementById('cropMode').value,
-        gravity: document.getElementById('gravity').value
+      enabled: document.getElementById('masterEnabled').checked,
+      audioControls: {
+        volume: parseInt(document.getElementById('audioVol').value, 10) || 0,
+        frequency: document.getElementById('audioFreq').value,
+        removeAudio: document.getElementById('audioMute').checked
       },
       trim: {
-        start: parseFloat(document.getElementById('trimStart').value) || 0,
-        duration: parseFloat(document.getElementById('trimDur').value) || 30
+        startOffset: parseFloat(document.getElementById('trimStart').value) || 0,
+        duration: parseFloat(document.getElementById('trimDur').value) || 0
       },
-      quality: document.getElementById('quality').value
+      resize: {
+        cropMode: document.getElementById('cropMode').value,
+        width: parseInt(document.getElementById('resizeWidth').value, 10) || 720,
+        height: parseInt(document.getElementById('resizeHeight').value, 10) || 1280
+      },
+      gravity: { gravity: document.getElementById('gravity').value },
+      pixel: {
+        vignette: parseInt(document.getElementById('vignette').value, 10) || 0,
+        noise: parseInt(document.getElementById('noise').value, 10) || 0
+      },
+      textOverlay: {
+        enabled: document.getElementById('textEnable').checked,
+        text: document.getElementById('textValue').value,
+        fontSize: parseInt(document.getElementById('textSize').value, 10) || 36,
+        color: document.getElementById('textColor').value,
+        opacity: parseInt(document.getElementById('textOpacity').value, 10) || 60,
+        position: document.getElementById('textPos').value
+      },
+      quality: { quality: document.getElementById('quality').value }
     };
   }
 
-  // Apply all effects
-  function applyEffects() {
-    const settings = getSettings();
-
-    // TEXT OVERLAY
-    canvas.style.display = settings.text.enabled ? 'block' : 'none';
-
-    // AUDIO
-    if (settings.audio.mute) {
-      video.muted = true;
-    } else {
-      video.muted = false;
-      const vol = (100 + settings.audio.volume) / 100;
-      video.volume = Math.max(0, Math.min(1, vol));
-    }
-
-    // CROP & GRAVITY
-    const wrapper = document.getElementById('videoWrapper');
-    wrapper.style.overflow = 'hidden';
-
-    if (settings.crop.mode === 'none' || settings.crop.mode === 'scale') {
-      wrapper.style.aspectRatio = '16/9';
-      video.style.objectFit = 'contain';
-    } else if (settings.crop.mode === 'crop') {
-      wrapper.style.aspectRatio = '16/9';
-      video.style.objectFit = 'cover';
-    } else if (settings.crop.mode === 'thumb') {
-      wrapper.style.aspectRatio = '1/1';
-      video.style.objectFit = 'cover';
-    }
-
-    const gravityMap = {
-      'center': '50% 50%', 'north': '50% 0%', 'south': '50% 100%',
-      'east': '100% 50%', 'west': '0% 50%', 'northeast': '100% 0%',
-      'northwest': '0% 0%', 'southeast': '100% 100%', 'southwest': '0% 100%'
-    };
-    video.style.objectPosition = gravityMap[settings.crop.gravity] || '50% 50%';
-
-    // Update info display
-    document.getElementById('infoText').textContent = settings.text.enabled ? `"${settings.text.value}"` : 'Disabled';
-    document.getElementById('infoAudio').textContent = settings.audio.mute ? 'Muted' : `${settings.audio.volume}%`;
-    document.getElementById('infoCrop').textContent = settings.crop.mode;
-    document.getElementById('infoGravity').textContent = settings.crop.gravity;
+  /* ── protection meter ─────────────────────────────────────────────── */
+  function protectionScore() {
+    const cfg = collectConfig();
+    if (!cfg.enabled) return 0;
+    let score = 1; // every upload is re-encoded -> new byte hash
+    const audio = cfg.audioControls;
+    if (audio.removeAudio || audio.volume !== 0 || audio.frequency) score++;
+    if (cfg.resize.cropMode !== 'none') score++;
+    if (cfg.pixel.vignette > 0) score++;
+    if (cfg.pixel.noise > 0) score++;
+    if (cfg.textOverlay.enabled && cfg.textOverlay.text.trim()) score++;
+    if ((cfg.trim.startOffset || 0) > 0 || (cfg.trim.duration || 0) > 0) score++;
+    return score;
   }
 
-  // Draw text on canvas continuously
-  function drawText() {
-    const settings = getSettings();
+  function renderMeter() {
+    const score = protectionScore();
+    const enabled = document.getElementById('masterEnabled').checked;
+    const fill = document.getElementById('meterFill');
+    const label = document.getElementById('meterText');
+    const count = document.getElementById('meterCount');
 
-    if (!settings.text.enabled) {
-      animFrameId = requestAnimationFrame(drawText);
-      return;
-    }
+    fill.style.width = Math.round((score / 7) * 100) + '%';
+    count.textContent = score + ' of 7 techniques enabled';
 
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let text, cls, color;
+    if (!enabled) { text = 'Off'; cls = 'light'; color = 'var(--red)'; }
+    else if (score <= 2) { text = 'Light'; cls = 'light'; color = 'var(--red)'; }
+    else if (score <= 4) { text = 'Balanced'; cls = 'balanced'; color = 'var(--amber)'; }
+    else if (score <= 6) { text = 'Strong'; cls = 'strong'; color = 'var(--signal)'; }
+    else { text = 'Maximum'; cls = 'strong'; color = 'var(--signal)'; }
 
-    const fontSize = (settings.text.size / 100) * canvas.height;
-    ctx.font = `bold ${fontSize}px Arial`;
-    ctx.fillStyle = settings.text.color;
-    ctx.globalAlpha = settings.text.opacity / 100;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    ctx.shadowColor = 'rgba(0,0,0,0.8)';
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
-
-    let x = canvas.width / 2;
-    let y = canvas.height / 2;
-
-    switch (settings.text.pos) {
-      case 'top': y = canvas.height * 0.15; break;
-      case 'bottom': y = canvas.height * 0.85; break;
-      case 'top-left': x = canvas.width * 0.1; y = canvas.height * 0.15; break;
-      case 'top-right': x = canvas.width * 0.9; y = canvas.height * 0.15; break;
-      case 'bottom-left': x = canvas.width * 0.1; y = canvas.height * 0.85; break;
-      case 'bottom-right': x = canvas.width * 0.9; y = canvas.height * 0.85; break;
-    }
-
-    ctx.fillText(settings.text.value, x, y);
-    animFrameId = requestAnimationFrame(drawText);
+    label.textContent = text;
+    label.className = cls;
+    fill.style.background = color;
   }
 
-  // Save settings
-  async function saveSettings() {
-    const btn = document.getElementById('saveBtn');
-    const originalHTML = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = 'Saving...';
+  function updateReadout() {
+    const cfg = collectConfig();
+    const visualBits = [];
+    if (cfg.resize.cropMode !== 'none') visualBits.push(cfg.resize.cropMode + ' ' + cfg.resize.width + '×' + cfg.resize.height);
+    if (cfg.pixel.vignette > 0) visualBits.push('vignette ' + cfg.pixel.vignette);
+    if (cfg.pixel.noise > 0) visualBits.push('noise ' + cfg.pixel.noise);
+    document.getElementById('infoVisual').textContent = cfg.enabled && visualBits.length ? visualBits.join(' · ') : (cfg.enabled ? 'Original frames' : 'Defaults off');
 
+    const audio = cfg.audioControls;
+    document.getElementById('infoAudio').textContent = !cfg.enabled ? 'Defaults off'
+      : audio.removeAudio ? 'Removed'
+      : (audio.volume || audio.frequency)
+        ? (audio.volume ? (audio.volume > 0 ? '+' : '') + audio.volume + '%' : '') + (audio.frequency ? (audio.volume ? ' · ' : '') + (audio.frequency / 1000) + ' kHz' : '')
+        : 'Original';
+
+    document.getElementById('infoText').textContent =
+      cfg.textOverlay.enabled && cfg.textOverlay.text.trim() ? '"' + cfg.textOverlay.text + '"' : 'None';
+
+    const start = cfg.trim.startOffset || 0;
+    const dur = cfg.trim.duration || 0;
+    document.getElementById('infoTrim').textContent = (start || dur)
+      ? 'from ' + start + 's' + (dur ? ' · ' + dur + 's' : '')
+      : 'Full length';
+  }
+
+  function schedulePreview() {
+    updateReadout();
+    renderMeter();
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(refreshPreview, 700);
+  }
+
+  async function refreshPreview() {
+    if (!HAS_PREVIEW) return;
+    const seq = ++previewSeq;
+    setStatus('busy', 'Rendering');
     try {
-      const response = await fetch('/dashboard/api/playground/save', {
+      const res = await fetch('/dashboard/api/playground/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          textOverlay: {
-            enabled: document.getElementById('textEnable').checked,
-            text: document.getElementById('textValue').value,
-            fontSize: parseInt(document.getElementById('textSize').value),
-            color: document.getElementById('textColor').value,
-            opacity: parseInt(document.getElementById('textOpacity').value),
-            position: document.getElementById('textPos').value
-          },
-          audioControls: {
-            volume: parseInt(document.getElementById('audioVol').value),
-            frequency: document.getElementById('audioFreq').value,
-            audioCodec: 'aac',
-            removeAudio: document.getElementById('audioMute').checked
-          },
-          resize: { cropMode: document.getElementById('cropMode').value },
-          trim: {
-            startOffset: parseFloat(document.getElementById('trimStart').value) || 0,
-            duration: parseFloat(document.getElementById('trimDur').value) || 30
-          },
-          gravity: { gravity: document.getElementById('gravity').value },
-          quality: { quality: document.getElementById('quality').value }
-        })
+        body: JSON.stringify({ config: collectConfig() })
       });
-
-      if (response.ok) {
-        btn.innerHTML = 'Saved';
-        setTimeout(() => { btn.innerHTML = originalHTML; btn.disabled = false; }, 2000);
-      } else {
-        throw new Error('Save failed');
+      const data = await res.json().catch(() => ({}));
+      if (seq !== previewSeq) return;
+      if (!res.ok) {
+        setStatus('err', 'Error');
+        document.getElementById('chainOut').textContent = data.detail || 'Preview failed';
+        return;
       }
-    } catch (e) {
-      btn.innerHTML = 'Error';
-      setTimeout(() => { btn.innerHTML = originalHTML; btn.disabled = false; }, 2000);
+
+      const video = document.getElementById('preview');
+      const resumeAt = video.currentTime || 0;
+      const wasPlaying = !video.paused && !video.ended;
+      video.src = data.url;
+      video.load();
+      video.addEventListener('loadedmetadata', () => {
+        const cap = (video.duration && isFinite(video.duration)) ? video.duration : resumeAt;
+        video.currentTime = Math.min(resumeAt, cap);
+        if (wasPlaying) video.play().catch(() => {});
+      }, { once: true });
+
+      document.getElementById('chainOut').textContent = data.enabled
+        ? JSON.stringify(data.transformations, null, 2)
+        : 'Defaults are off — uploads will keep their original fingerprint.';
+      setStatus('ready', data.enabled ? 'Ready' : 'Off');
+    } catch (err) {
+      if (seq !== previewSeq) return;
+      setStatus('err', 'Network');
+      document.getElementById('chainOut').textContent = String(err);
     }
   }
 
-  // Reset all
-  function resetAll() {
-    document.getElementById('textEnable').checked = false;
-    document.getElementById('textValue').value = '@brand';
-    document.getElementById('textSize').value = 48;
-    document.getElementById('textColor').value = '#3FFF8D';
-    document.getElementById('textOpacity').value = 100;
-    document.getElementById('textPos').value = 'center';
-    document.getElementById('audioVol').value = 0;
-    document.getElementById('audioMute').checked = false;
-    document.getElementById('audioFreq').value = '';
-    document.getElementById('cropMode').value = 'none';
-    document.getElementById('gravity').value = 'center';
-    document.getElementById('trimStart').value = 0;
-    document.getElementById('trimDur').value = 30;
-    document.getElementById('quality').value = 'auto';
+  async function saveDefaults() {
+    const btn = document.getElementById('saveBtn');
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = 'Saving…';
+    try {
+      const res = await fetch('/dashboard/api/playground/defaults', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(collectConfig())
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast('err', data.detail || 'Could not save the defaults.');
+        return;
+      }
+      document.getElementById('chainOut').textContent = data.steps
+        ? JSON.stringify(data.transformations, null, 2)
+        : 'Defaults saved as off. New uploads will be untouched.';
+      showToast('ok', 'Saved. Every new upload from now on is re-encoded through this chain before it enters your queue.');
+      renderMeter();
+    } catch (err) {
+      showToast('err', 'Network error: ' + err);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  }
 
-    document.getElementById('sizeVal').textContent = '48';
-    document.getElementById('opacVal').textContent = '100';
-    document.getElementById('volVal').textContent = '0';
-
-    applyEffects();
+  function resetRecommended() {
+    applyConfig(RECOMMENDED);
+    showToast('ok', 'Recommended preset loaded — review the preview, then save.');
+    schedulePreview();
   }
 
   window.addEventListener('load', () => {
-    applyEffects();
-    drawText();
-  });
-
-  window.addEventListener('beforeunload', () => {
-    cancelAnimationFrame(animFrameId);
+    applyConfig(DEFAULTS);
+    updateReadout();
+    renderMeter();
   });
 </script>
 {% endblock %}

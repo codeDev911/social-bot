@@ -7,6 +7,7 @@ from models.video import create_video, create_queued_video, assert_can_schedule,
 from wroker import generate_caption_htags
 from db import prisma
 from controller.copyright_transformer import build_transformations_array
+from controller.cloudinary_transformer import build_playground_transformation_chain
 import json
 load_dotenv()
 import asyncio
@@ -68,21 +69,41 @@ def deserialize_and_map_dynamic_edits(dynamic_edits_config):
 
  
 async def user_transformations(userId) -> list:
-    """Cloudinary transformation chain built from the user's playground settings."""
+    """Cloudinary transformation chain applied to EVERY upload.
+
+    The Playground is now a page of default settings, not a per-video tool:
+    whatever the user saved there is baked into each video right before it is
+    uploaded (worker or in-process alike). Accounts that never opened the
+    Playground keep the legacy Anti-Copyright Settings behaviour.
+    """
     user = await prisma.user.find_unique(
         where={"id": userId},
         include={"dynamicEdits": True}
     )
 
+    raw_playground = None
     dynamic_edits_config = None
     if user and user.dynamicEdits:
-        raw_config = {
-            "audioControls": user.dynamicEdits.audioControls,
-            "textOverlayControls": user.dynamicEdits.textOverlayControls,
-            "pixelDistortionControls": user.dynamicEdits.pixelDistortionControls,
-        }
-        # Deserialize and map frontend field names to transformer field names
-        dynamic_edits_config = deserialize_and_map_dynamic_edits(raw_config)
+        stored = user.dynamicEdits.playgroundTransformations
+        if isinstance(stored, str):
+            try:
+                stored = json.loads(stored or "{}")
+            except (TypeError, ValueError):
+                stored = {}
+        if isinstance(stored, dict) and stored:
+            raw_playground = stored
+        else:
+            dynamic_edits_config = deserialize_and_map_dynamic_edits({
+                "audioControls": user.dynamicEdits.audioControls,
+                "textOverlayControls": user.dynamicEdits.textOverlayControls,
+                "pixelDistortionControls": user.dynamicEdits.pixelDistortionControls,
+            })
+
+    if raw_playground is not None:
+        if not raw_playground.get("enabled", True):
+            # The user deliberately turned every tweak off: upload untouched.
+            return []
+        return build_playground_transformation_chain(raw_playground)
 
     return build_transformations_array(userId, dynamic_edits_config)
 
@@ -100,7 +121,9 @@ async def upload_to_cloudinary(
     # Fail fast: never spend a Cloudinary upload when the queue is already full.
     await assert_can_schedule(userId)
 
-    transformations_list = await user_transformations(userId)
+    # None (not []) when the user turned every tweak off: an empty list is not
+    # a valid Cloudinary transformation payload.
+    transformations_list = await user_transformations(userId) or None
 
     upload_response = await asyncio.to_thread(
         cloudinary.uploader.upload,

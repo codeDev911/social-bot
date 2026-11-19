@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, Request, Response, UploadFile,Header
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, Request, Response, UploadFile,Header
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from controller.pexels import UploadPexelVideo
@@ -14,7 +14,16 @@ from controller.worker_client import (
     worker_status,
 )
 from controller.video_uploader import  UploadVideo
-from controller.cloudinary_transformer import CloudinaryVideoTransformer, build_playground_transformation
+from controller.cloudinary_transformer import (
+    CloudinaryVideoTransformer,
+    CROP_GRAVITY,
+    DEFAULT_PLAYGROUND_CONFIG,
+    TEXT_GRAVITY,
+    build_playground_transformation,
+    build_playground_transformation_chain,
+    build_playground_preview_url,
+)
+from controller.copyright_transformer import normalize_color
 from models.video import (
     QUEUED_PREFIX,
     QuotaExceededError,
@@ -28,9 +37,12 @@ from models.video import (
 )
 from db import prisma
 from lib.depends import get_current_user
+from lib.plans import clipper_config, plan_limits
 from fastapi.exceptions import HTTPException
 import cloudinary
+import cloudinary.api
 import cloudinary.uploader
+import cloudinary.utils
 from utils import validate_video_url,verify_upload_target, queued_title
 from controller.delete_uploaded_files import delete_uploaded_files
 from controller.buffer import get_profiles_graphql
@@ -45,8 +57,9 @@ import json
 import secrets
 import hashlib
 import hmac
+import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 load_dotenv()
@@ -202,6 +215,254 @@ def _build_dashboard_context(request: Request, current_user, *, videos=None, tot
     }
 
 
+# ==========================================
+# PLAN / ASSET HELPERS (playground + clipper)
+# ==========================================
+
+PUBLISH_TARGETS = ("Youtube", "Tiktok", "Facebook", "Instagram")
+
+# Clips are uploaded straight from the browser to this folder. The prefix is
+# checked when the upload is registered so nobody can claim someone else's file.
+CLIP_FOLDER = "social-bot-clips"
+
+
+def _plan_key_of(user) -> str:
+    plan = getattr(user, "plan", None)
+    plan_type = getattr(plan, "type", None)
+    key = getattr(plan_type, "value", plan_type)
+    return str(key or "free").lower()
+
+
+async def _load_plan_key(user) -> str:
+    """get_current_user() does not include the plan, so fetch it when missing."""
+    if getattr(user, "plan", None) is None:
+        fresh = await prisma.user.find_unique(
+            where={"id": user.id}, include={"plan": True}
+        )
+        if fresh is None:
+            return "free"
+        return _plan_key_of(fresh)
+    return _plan_key_of(user)
+
+
+def _parse_scheduled_at(value: Optional[str]) -> Optional[datetime]:
+    """ISO-8601 (browser sends UTC) -> aware UTC. Empty/past means 'now'.
+
+    Prisma stores DateTime as UTC; keeping the tzinfo on the value makes the
+    round-trip unambiguous regardless of the server's local timezone.
+    """
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    parsed = parsed.astimezone(timezone.utc)
+    return parsed if parsed > datetime.now(timezone.utc) else None
+
+
+def _clean_targets(values) -> list:
+    """Accept a CSV string, a list, or garbage, and always return a valid list."""
+    if isinstance(values, str):
+        values = values.split(",")
+    cleaned = []
+    for value in values or []:
+        name = str(value).strip()
+        if name in PUBLISH_TARGETS and name not in cleaned:
+            cleaned.append(name)
+    return cleaned or ["Youtube"]
+
+
+async def _latest_user_video(user_id: int):
+    """Most recent Cloudinary-backed video â€” the sample the preview renders on."""
+    rows = await prisma.video.find_many(
+        where={"userId": user_id},
+        order={"id": "desc"},
+        take=12,
+    )
+    for row in rows:
+        if getattr(row, "cloudinary_id", "") and getattr(row, "cloudinary_url", ""):
+            return row
+    return None
+
+
+# Gravity values the stored config may take (keys of the transformer maps).
+TEXT_POSITIONS = tuple(TEXT_GRAVITY.keys())
+CROP_GRAVITIES = tuple(CROP_GRAVITY.keys())
+
+# The settings modal still speaks the legacy anti-copyright vocabulary.
+LEGACY_GRAVITY = {
+    "center": "center", "top": "north", "bottom": "south",
+    "top-left": "north_west", "top-right": "north_east",
+    "bottom-left": "south_west", "bottom-right": "south_east",
+}
+LEGACY_POSITION = {v: k for k, v in LEGACY_GRAVITY.items()}
+
+
+def _clamp_int(value, low: int, high: int, fallback: int) -> int:
+    try:
+        number = int(float(value))
+    except (TypeError, ValueError):
+        return fallback
+    return max(low, min(high, number))
+
+
+def _clamp_float(value, low: float, high: float, fallback: float) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    return round(max(low, min(high, number)), 1)
+
+
+def _json_dict(value) -> dict:
+    """Prisma Json columns come back as dicts, or strings when stored via json.dumps."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value or "{}")
+        except (TypeError, ValueError):
+            return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _merged_playground_config(stored) -> dict:
+    """Stored defaults layered over DEFAULT_PLAYGROUND_CONFIG (section by section)."""
+    merged = {
+        key: dict(value) if isinstance(value, dict) else value
+        for key, value in DEFAULT_PLAYGROUND_CONFIG.items()
+    }
+    for section, value in _json_dict(stored).items():
+        if isinstance(value, dict) and isinstance(merged.get(section), dict):
+            merged[section].update(value)
+        else:
+            merged[section] = value
+    return merged
+
+
+def _normalize_playground_config(payload: dict) -> dict:
+    """Clamp whatever the browser sent into a config the transformer can trust."""
+    audio = payload.get("audioControls") or {}
+    trim = payload.get("trim") or {}
+    resize = payload.get("resize") or {}
+    gravity = payload.get("gravity") or {}
+    text = payload.get("textOverlay") or {}
+    pixel = payload.get("pixel") or {}
+    quality = str((payload.get("quality") or {}).get("quality") or "auto")
+
+    frequency = str(audio.get("frequency") or "").strip()
+    if frequency not in ("", "44100", "32000", "22050", "16000"):
+        frequency = "22050"
+    if quality not in ("auto", "90", "75", "60"):
+        quality = "auto"
+    crop_mode = str(resize.get("cropMode") or "crop").lower()
+    if crop_mode not in ("none", "scale", "crop", "thumb"):
+        crop_mode = "crop"
+    position = str(text.get("position") or "bottom").lower()
+    if position not in TEXT_POSITIONS:
+        position = "bottom"
+    gravity_key = str(gravity.get("gravity") or "center").lower()
+    if gravity_key not in CROP_GRAVITIES:
+        gravity_key = "center"
+
+    return {
+        "enabled": bool(payload.get("enabled", True)),
+        "audioControls": {
+            "volume": _clamp_int(audio.get("volume"), -100, 200, 3),
+            "frequency": frequency,
+            "removeAudio": bool(audio.get("removeAudio")),
+        },
+        "trim": {
+            "startOffset": _clamp_float(trim.get("startOffset"), 0, 15, 0),
+            "duration": _clamp_float(trim.get("duration"), 0, 60, 0),
+        },
+        "resize": {
+            "cropMode": crop_mode,
+            "width": _clamp_int(resize.get("width"), 240, 1920, 720),
+            "height": _clamp_int(resize.get("height"), 240, 1920, 1280),
+        },
+        "gravity": {"gravity": gravity_key},
+        "textOverlay": {
+            "enabled": bool(text.get("enabled", True)),
+            "text": str(text.get("text") or "").strip()[:60],
+            "fontSize": _clamp_int(text.get("fontSize"), 12, 160, 36),
+            "color": normalize_color(text.get("color")),
+            "opacity": _clamp_int(text.get("opacity"), 1, 100, 60),
+            "position": position,
+        },
+        "pixel": {
+            "vignette": _clamp_int(pixel.get("vignette"), 0, 100, 10),
+            "noise": _clamp_int(pixel.get("noise"), 0, 100, 3),
+        },
+        "quality": {"quality": quality},
+    }
+
+
+def _legacy_blocks_from_playground(config: dict) -> dict:
+    """Mirror the playground defaults into the legacy anti-copyright columns.
+
+    The upload pipeline prefers playgroundTransformations, but the settings
+    modal still reads these columns â€” keeping them in sync avoids drift.
+    """
+    audio = config.get("audioControls") or {}
+    text = config.get("textOverlay") or {}
+    pixel = config.get("pixel") or {}
+    return {
+        "audioControls": json.dumps({
+            "speed": 100 + int(audio.get("volume") or 0),
+            "frequency": audio.get("frequency") or "",
+            "mute": bool(audio.get("removeAudio")),
+        }),
+        "textOverlayControls": json.dumps({
+            "text": text.get("text") or "",
+            "color": text.get("color") or "#FFFFFF",
+            "opacity": text.get("opacity") or 60,
+            "position": LEGACY_GRAVITY.get(str(text.get("position") or "bottom"), "south"),
+            "yGap": 120,
+        }),
+        "pixelDistortionControls": json.dumps({
+            "vignette": pixel.get("vignette") or 0,
+            "noise": pixel.get("noise") or 0,
+        }),
+    }
+
+
+def _apply_legacy_to_playground(existing, request: "DynamicEditRequest") -> Optional[str]:
+    """If playground defaults exist, fold a settings-modal save into them."""
+    stored = _json_dict(existing)
+    if not stored:
+        return None
+
+    config = _merged_playground_config(stored)
+    audio = request.audioControls or {}
+    text = request.textOverlayControls or {}
+    pixel = request.pixelDistortionControls or {}
+
+    if audio:
+        speed = _clamp_int(audio.get("speed"), 0, 300, 103)
+        config["audioControls"].update({
+            "volume": max(-100, min(200, speed - 100)),
+            "frequency": str(audio.get("frequency") or "").strip(),
+            "removeAudio": bool(audio.get("mute")),
+        })
+    if text:
+        config["textOverlay"].update({
+            "enabled": bool(str(text.get("text") or "").strip()),
+            "text": str(text.get("text") or "")[:60],
+            "color": normalize_color(text.get("color")),
+            "opacity": _clamp_int(text.get("opacity"), 1, 100, 60),
+            "position": LEGACY_POSITION.get(str(text.get("position") or "south"), "bottom"),
+        })
+    if pixel:
+        config["pixel"].update({
+            "vignette": _clamp_int(pixel.get("vignette"), 0, 100, 0),
+            "noise": _clamp_int(pixel.get("noise"), 0, 100, 0),
+        })
+    return json.dumps(config)
+
+
 @router.get("/", response_class=HTMLResponse)
 async def dashboard_home(request:Request,current_user: dict = Depends(get_current_user)):
     if isinstance(current_user, RedirectResponse):
@@ -322,17 +583,64 @@ async def dashboard_home(request:Request,current_user: dict = Depends(get_curren
 
 @router.get("/playground", response_class=HTMLResponse)
 async def video_playground(request:Request, current_user: dict = Depends(get_current_user)):
-    """Interactive video transformation playground using Cloudinary API"""
+    """Default transformations applied to every video uploaded to Cloudinary."""
     if isinstance(current_user, RedirectResponse):
         return current_user 
     user_info = await prisma.user.find_unique(
         where={"id": current_user.id},
         include={"plan": True, "usage": True},
     )
-    return templates.TemplateResponse(
-        "dashboard/playground.html",
-        _build_dashboard_context(request, user_info),
+    if user_info is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    plan_key = _plan_key_of(user_info)
+
+    dynamic_edits = await prisma.dynamicedit.find_unique(
+        where={"userId": current_user.id}
     )
+    stored = getattr(dynamic_edits, "playgroundTransformations", None)
+    config = _merged_playground_config(stored)
+
+    # Prefill the watermark with something personal instead of a placeholder.
+    recommended = _merged_playground_config({})
+    handle = (
+        getattr(user_info, "fullname", "")
+        or (user_info.email or "").split("@")[0]
+    ).strip()
+    handle = "".join(ch for ch in handle if ch.isalnum() or ch in "._")[:20]
+    if handle:
+        recommended["textOverlay"]["text"] = f"@{handle}"
+    if not _json_dict(stored):
+        config = _merged_playground_config(recommended)
+
+    # The preview renders on the newest video in the library; brand-new
+    # accounts see the form with a hint until their first upload lands.
+    latest = await _latest_user_video(current_user.id)
+    preview_url = ""
+    if latest:
+        preview_url = (
+            build_playground_preview_url(latest.cloudinary_id, config)
+            if config.get("enabled", True)
+            else latest.cloudinary_url
+        )
+
+    pending = await prisma.video.count(
+        where={"userId": current_user.id, "upload_status": "Pending"}
+    )
+    context = _build_dashboard_context(
+        request, user_info, pending_videos_count=pending
+    )
+    context.update({
+        "title": "Upload Playground",
+        "playground_defaults": config,
+        "recommended_defaults": recommended,
+        "has_preview": bool(latest),
+        "preview_title": (latest.title or f"Video #{latest.id}") if latest else "",
+        "preview_url": preview_url,
+        "pending_videos_count": pending,
+        "plan_slots": plan_limits(plan_key)["max_scheduled_videos"],
+        "plan_key": plan_key,
+    })
+    return templates.TemplateResponse("dashboard/playground.html", context)
 
 
 @router.post("/upload")    
@@ -354,12 +662,16 @@ async def upload_video(
         raise HTTPException(status_code=402, detail=str(e))
 
     try:
+        # Defaults saved in the Playground are baked into every upload, so the
+        # file dropped here gets the same anti-copyright treatment as URL jobs.
+        transformations = await user_transformations(current_user.id) or None
         # Upload to Cloudinary off the event loop
         result = await asyncio.to_thread(
             cloudinary.uploader.upload,
             file.file,
             resource_type="video",
             folder="social-bot-videos",
+            transformation=transformations,
         )
         # public_id (not asset_id) is what Cloudinary requires to delete the asset later
         await create_video(current_user.id,result["secure_url"],result.get("public_id") or result["asset_id"],file.filename,upload_destinations)
@@ -538,12 +850,15 @@ async def trigger_upload(background_tasks: BackgroundTasks,user_id:int,secret:st
 
     uploaded_users=[] # add uploaded video user id
 
+    # Only publish rows whose scheduled slot has arrived: the clipper and the
+    # playground can park videos hours or days ahead of the cron run.
     pending_videos = await prisma.video.find_many(
         where={
             "upload_status":"Pending",
             "AND":[
                 {"upload_status":"Pending"},
-                {"userId":user_id}
+                {"userId":user_id},
+                {"scheduled_at":{"lte":datetime.now(timezone.utc)}},
             ]
         },
         order={
@@ -765,7 +1080,7 @@ async def save_upload_defaults(
                 }
             )
 
-        logger.info(f"✅ Upload defaults saved for user {current_user.id}: {destinations}")
+        logger.info(f"âœ… Upload defaults saved for user {current_user.id}: {destinations}")
         return {
             "success": True,
             "message": "Upload defaults saved",
@@ -1157,14 +1472,22 @@ async def save_dynamic_edits(request: DynamicEditRequest, current_user: dict = D
         ) 
         
         if existing:
+            data = {
+                "audioControls": json.dumps(request.audioControls),
+                "textOverlayControls": json.dumps(request.textOverlayControls),
+                "pixelDistortionControls": json.dumps(request.pixelDistortionControls),
+            }
+            # The Playground prefers playgroundTransformations at upload time;
+            # fold this legacy save into it so both editors stay coherent.
+            synced = _apply_legacy_to_playground(
+                getattr(existing, "playgroundTransformations", None), request
+            )
+            if synced is not None:
+                data["playgroundTransformations"] = synced
             # Update existing record
             dynamic_edits = await prisma.dynamicedit.update(
                 where={"userId": current_user.id},
-                data={
-                    "audioControls": json.dumps(request.audioControls),
-                    "textOverlayControls": json.dumps(request.textOverlayControls),
-                    "pixelDistortionControls": json.dumps(request.pixelDistortionControls),
-                }
+                data=data
             )
         else:
             # Create new record
@@ -1385,10 +1708,10 @@ async def load_playground_transformations(current_user: dict = Depends(get_curre
         raise HTTPException(status_code=500, detail=f"Failed to load: {str(e)}")
 
 
-# ── Download worker ingest ────────────────────────────────────────────────────
+# â”€â”€ Download worker ingest â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # The download worker runs outside Vercel (yt-dlp + ffmpeg + Deno + cookies) and
 # reports finished uploads here. Requests are authenticated with an HMAC over the
-# raw body using INTERNAL_SECRET — no session cookie and no secret in the URL.
+# raw body using INTERNAL_SECRET â€” no session cookie and no secret in the URL.
 
 class WorkerIngestPayload(BaseModel):
     jobId: Optional[str] = None
@@ -1482,3 +1805,309 @@ async def worker_ingest(
 
     logger.info("Worker ingest stored video %s for user %s", video.id, payload.userId)
     return {"success": True, "videoId": video.id}
+
+
+# ==========================================
+# PLAYGROUND: DEFAULT UPLOAD TRANSFORMATIONS
+# ==========================================
+# The Playground no longer bakes a copy of one video: its settings are the
+# defaults every future upload goes through (worker, in-process download and
+# direct file upload all read the same chain). The preview renders those
+# defaults over the newest video in the library.
+
+class PlaygroundDefaultsRequest(BaseModel):
+    enabled: bool = True
+    audioControls: dict = {}
+    trim: dict = {}
+    resize: dict = {}
+    gravity: dict = {}
+    textOverlay: dict = {}
+    pixel: dict = {}
+    quality: dict = {}
+
+
+class PlaygroundPreviewRequest(BaseModel):
+    """Optional unsaved config; the stored defaults are used when omitted."""
+    config: Optional[dict] = None
+
+
+@router.post("/api/playground/preview")
+async def playground_preview(
+    payload: PlaygroundPreviewRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Cloudinary preview of the upload defaults on the newest owned video."""
+    if isinstance(current_user, RedirectResponse):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    source = await _latest_user_video(current_user.id)
+    if source is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Upload a video first â€” the preview renders on your latest upload",
+        )
+
+    config = payload.config
+    if isinstance(config, dict) and config:
+        config = _normalize_playground_config(config)
+    else:
+        dynamic_edits = await prisma.dynamicedit.find_unique(
+            where={"userId": current_user.id}
+        )
+        config = _merged_playground_config(
+            getattr(dynamic_edits, "playgroundTransformations", None)
+        )
+
+    enabled = bool(config.get("enabled", True))
+    chain = build_playground_transformation_chain(config) if enabled else []
+    url = (
+        build_playground_preview_url(source.cloudinary_id, config)
+        if enabled
+        else source.cloudinary_url
+    )
+    return {
+        "success": True,
+        "url": url,
+        "transformations": chain,
+        "enabled": enabled,
+        "previewTitle": source.title or f"Video #{source.id}",
+    }
+
+
+@router.post("/api/playground/defaults")
+async def save_playground_defaults(
+    payload: PlaygroundDefaultsRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Persist the defaults applied to every future Cloudinary upload."""
+    if isinstance(current_user, RedirectResponse):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    config = _normalize_playground_config(payload.dict())
+    data = {
+        "playgroundTransformations": json.dumps(config),
+        # Keep the legacy anti-copyright columns in sync for the settings modal.
+        **_legacy_blocks_from_playground(config),
+    }
+
+    existing = await prisma.dynamicedit.find_unique(
+        where={"userId": current_user.id}
+    )
+    if existing:
+        await prisma.dynamicedit.update(where={"userId": current_user.id}, data=data)
+    else:
+        await prisma.dynamicedit.create(
+            data={"userId": current_user.id, **data}
+        )
+
+    chain = build_playground_transformation_chain(config) if config["enabled"] else []
+    return {
+        "success": True,
+        "config": config,
+        "transformations": chain,
+        "steps": len(chain),
+    }
+
+
+# ==========================================
+# SMART CLIPPER
+# ==========================================
+# The source video never leaves the browser: clips are cut client-side, then
+# uploaded directly to Cloudinary with a server signature (Vercel caps request
+# bodies, so the file must not pass through the API function).
+
+class ClipCompleteRequest(BaseModel):
+    public_id: str
+    title: str = ""
+    upload_targets: list = ["Youtube"]
+    scheduled_at: Optional[str] = None
+    source_name: str = ""
+    clip_index: int = 0
+    clip_total: int = 0
+
+
+@router.get("/clipper", response_class=HTMLResponse)
+async def smart_clipper_page(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """Device-served video clipper with plan-based limits."""
+    if isinstance(current_user, RedirectResponse):
+        return current_user
+    user_info = await prisma.user.find_unique(
+        where={"id": current_user.id},
+        include={"plan": True, "usage": True},
+    )
+    plan_key = _plan_key_of(user_info) if user_info else "free"
+    config = clipper_config(plan_key)
+    pending = await prisma.video.count(
+        where={"userId": current_user.id, "upload_status": "Pending"}
+    )
+
+    context = _build_dashboard_context(
+        request, user_info, pending_videos_count=pending
+    )
+    context.update({
+        "title": "Smart Clipper",
+        "clipper": config,
+        "pending_videos_count": pending,
+        "plan_slots": plan_limits(plan_key)["max_scheduled_videos"],
+        "remaining_slots": max(
+            0, plan_limits(plan_key)["max_scheduled_videos"] - pending
+        ),
+        "upload_targets": list(PUBLISH_TARGETS),
+    })
+    return templates.TemplateResponse("dashboard/clipper.html", context)
+
+
+@router.post("/api/clipper/signature")
+async def clipper_upload_signature(current_user: dict = Depends(get_current_user)):
+    """Signed direct-upload parameters so the browser can post a clip."""
+    if isinstance(current_user, RedirectResponse):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    plan_key = await _load_plan_key(current_user)
+    config = clipper_config(plan_key)
+    if not config["enabled"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Smart Clipper is not enabled for your plan",
+        )
+
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
+    api_key = os.getenv("CLOUDINARY_API_KEY")
+    api_secret = os.getenv("CLOUDINARY_API_SECRET")
+    if not (cloud_name and api_key and api_secret):
+        raise HTTPException(status_code=500, detail="Cloudinary is not configured")
+
+    max_slots = plan_limits(plan_key)["max_scheduled_videos"]
+    pending = await prisma.video.count(
+        where={"userId": current_user.id, "upload_status": "Pending"}
+    )
+    remaining = max(0, max_slots - pending)
+    if remaining == 0:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Your {plan_key} plan already has {pending}/{max_slots} scheduled slots in use",
+        )
+
+    timestamp = int(time.time())
+    public_id = f"{CLIP_FOLDER}/{current_user.id}-{uuid.uuid4().hex[:16]}"
+    signature = cloudinary.utils.api_sign_request(
+        {"public_id": public_id, "timestamp": timestamp}, api_secret
+    )
+
+    return {
+        "cloudName": cloud_name,
+        "apiKey": api_key,
+        "timestamp": timestamp,
+        "publicId": public_id,
+        "signature": signature,
+        "uploadUrl": f"https://api.cloudinary.com/v1_1/{cloud_name}/video/upload",
+        "maxClipSeconds": config["maxClipSeconds"],
+        "maxClips": config["maxClips"],
+        "remainingSlots": remaining,
+    }
+
+
+@router.post("/api/clipper/complete")
+async def clipper_complete_clip(
+    payload: ClipCompleteRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Register a finished browser upload as a schedulable video row."""
+    if isinstance(current_user, RedirectResponse):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    plan_key = await _load_plan_key(current_user)
+    config = clipper_config(plan_key)
+    if not config["enabled"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Smart Clipper is not enabled for your plan",
+        )
+
+    # Only assets handed out by /signature (same user, same folder) may be claimed.
+    if not payload.public_id.startswith(f"{CLIP_FOLDER}/{current_user.id}-"):
+        raise HTTPException(status_code=400, detail="Clip does not belong to this account")
+    if payload.clip_total > config["maxClips"] or payload.clip_index > config["maxClips"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Your plan allows up to {config['maxClips']} clips per run",
+        )
+
+    try:
+        resource = await asyncio.to_thread(
+            cloudinary.api.resource, payload.public_id, resource_type="video"
+        )
+    except Exception as exc:
+        logger.warning("Clip %s not found on Cloudinary: %s", payload.public_id, exc)
+        raise HTTPException(status_code=404, detail="Clip upload not found on Cloudinary")
+
+    duration = float(resource.get("duration") or 0)
+
+    async def _discard_asset() -> None:
+        try:
+            await asyncio.to_thread(
+                cloudinary.uploader.destroy,
+                payload.public_id,
+                resource_type="video",
+                invalidate=True,
+            )
+        except Exception:
+            logger.exception("Could not discard rejected clip %s", payload.public_id)
+
+    if duration and duration > config["maxClipSeconds"] + 2:
+        await _discard_asset()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Clips must be {config['maxClipSeconds']}s or shorter",
+        )
+
+    try:
+        await assert_can_schedule(current_user.id)
+    except QuotaExceededError as exc:
+        await _discard_asset()
+        raise HTTPException(status_code=402, detail=str(exc))
+
+    # Store an mp4 delivery URL: browsers upload webm, but the publisher hands
+    # these URLs to YouTube/Buffer which expect mp4.
+    url = cloudinary.utils.cloudinary_url(
+        payload.public_id, resource_type="video", format="mp4", secure=True
+    )[0]
+    when = _parse_scheduled_at(payload.scheduled_at)
+
+    title = (payload.title or "").strip()
+    if not title:
+        base = (payload.source_name or "Clip").strip() or "Clip"
+        if payload.clip_index and payload.clip_total:
+            title = f"{base} - clip {payload.clip_index}/{payload.clip_total}"
+        else:
+            title = base
+
+    try:
+        video = await create_video(
+            current_user.id,
+            url,
+            payload.public_id,
+            title[:200],
+            _clean_targets(payload.upload_targets),
+            scraped_from="clipper",
+            scheduled_at=when,
+        )
+    except QuotaExceededError as exc:
+        await _discard_asset()
+        raise HTTPException(status_code=402, detail=str(exc))
+    except Exception as exc:
+        await _discard_asset()
+        logger.exception("Could not register clip %s", payload.public_id)
+        raise HTTPException(status_code=500, detail=f"Could not save the clip: {exc}")
+
+    return {
+        "success": True,
+        "videoId": video.id,
+        "title": video.title,
+        "url": url,
+        "duration": duration,
+        "scheduledAt": when.isoformat() if when else None,
+    }

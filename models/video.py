@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from db import prisma
 from lib.plans import PLANS
 
@@ -74,26 +76,33 @@ async def create_video(
     upload_destinations: any = ["Youtube"],
     video_id=None,
     scraped_from: str | None = None,
+    scheduled_at: datetime | None = None,
 ):
     # Enforced before the row exists, so a full queue can never be exceeded.
     await assert_can_schedule(user_id)
 
-    video = await prisma.video.create(
-        data={
-            "user": {
-                "connect": {
-                    "id": user_id
-                }
-            },
-            "cloudinary_url": secure_url,
-            "cloudinary_id": asset_id,
-            "title": title,
-            "upload_destinations": upload_destinations,
-            "upload_id": "",
-            "upload_status": "Pending",
-            "externalId": video_id,
-            "scrapedFrom": scraped_from or "unkown",
+    data = {
+        "user": {
+            "connect": {
+                "id": user_id
+            }
         },
+        "cloudinary_url": secure_url,
+        "cloudinary_id": asset_id,
+        "title": title,
+        "upload_destinations": upload_destinations,
+        "upload_id": "",
+        "upload_status": "Pending",
+        "externalId": video_id,
+        "scrapedFrom": scraped_from or "unkown",
+    }
+    # The publisher only picks rows whose scheduled_at has arrived, so a row
+    # without a date should publish immediately.
+    if scheduled_at is not None:
+        data["scheduled_at"] = scheduled_at
+
+    video = await prisma.video.create(
+        data=data,
         include={
             "user": {
                "include": {

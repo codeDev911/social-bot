@@ -11,12 +11,41 @@ from urllib.parse import quote
 import os
 from dotenv import load_dotenv
 
+from controller.copyright_transformer import normalize_color
+
 load_dotenv()
+
+# Playground "position" values -> Cloudinary gravity + vertical offset. The
+# offsets keep edge-aligned text away from the safe-area crop of short videos.
+TEXT_GRAVITY = {
+    "center": ("center", 0),
+    "top": ("north", 90),
+    "bottom": ("south", 120),
+    "top-left": ("north_west", 90),
+    "top-right": ("north_east", 90),
+    "bottom-left": ("south_west", 120),
+    "bottom-right": ("south_east", 120),
+}
+
+CROP_GRAVITY = {
+    "center": "center",
+    "north": "north",
+    "south": "south",
+    "east": "east",
+    "west": "west",
+    "northeast": "north_east",
+    "northwest": "north_west",
+    "southeast": "south_east",
+    "southwest": "south_west",
+    "auto": "auto",
+}
 
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
     api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET")
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    # Preview URLs are embedded in an HTTPS page: http would be blocked.
+    secure=True,
 )
 
 
@@ -44,6 +73,7 @@ class CloudinaryVideoTransformer:
         font_size: int = 36,
         text_color: str = "#FFFFFF",
         text_opacity: int = 100,
+        text_gravity: str = "center",
         overlay_duration: Optional[float] = None,
         overlay_start_offset: Optional[float] = None
     ) -> "CloudinaryVideoTransformer":
@@ -55,8 +85,9 @@ class CloudinaryVideoTransformer:
             overlay_text: Text content for text overlay
             overlay_url: URL for image/audio overlay
             font_size: Text font size in pixels
-            text_color: Hex color code (e.g., #F97316)
+            text_color: Hex color code (e.g., #F97316) - CSS names are normalized
             text_opacity: Text opacity 0-100
+            text_gravity: 'center', 'top', 'bottom', or a corner
             overlay_duration: Duration in seconds
             overlay_start_offset: Start time in seconds
         
@@ -66,11 +97,20 @@ class CloudinaryVideoTransformer:
         if overlay_type == "text" and overlay_text:
             # Encode text for URL safety
             encoded_text = quote(overlay_text, safe='')
-            
+            try:
+                size = max(12, min(160, int(font_size or 36)))
+            except (TypeError, ValueError):
+                size = 36
+            try:
+                opacity = max(1, min(100, int(text_opacity or 100)))
+            except (TypeError, ValueError):
+                opacity = 100
+
             transformation = {
-                "overlay": f"text:Arial_{font_size}_bold:{encoded_text}",
-                "color": text_color.lstrip("#"),
-                "opacity": text_opacity
+                "overlay": f"text:Arial_{size}_bold:{encoded_text}",
+                # Cloudinary rejects bare names ("Invalid color name white")
+                "color": normalize_color(text_color),
+                "opacity": opacity,
             }
             
             if overlay_duration:
@@ -79,7 +119,13 @@ class CloudinaryVideoTransformer:
                 transformation["start_offset"] = str(overlay_start_offset)
             
             self.transformations.append(transformation)
-            self.transformations.append({"flags": "layer_apply"})
+
+            # Positioning must be a separate step that applies the layer.
+            gravity, y_gap = TEXT_GRAVITY.get(text_gravity or "center", ("center", 0))
+            apply = {"flags": "layer_apply", "gravity": gravity}
+            if y_gap:
+                apply["y"] = y_gap
+            self.transformations.append(apply)
 
         elif overlay_type == "image" and overlay_url:
             transformation = {
@@ -374,9 +420,8 @@ class CloudinaryVideoTransformer:
             # Cloudinary public ID
             base = self.base_video_url
         
-        # Use Cloudinary URL builder
-        from cloudinary.uploader import build_upload_params
-        from cloudinary import url as cloudinary_url
+        # Use Cloudinary URL builder (cloudinary>=1.40 has no cloudinary.url)
+        from cloudinary.utils import cloudinary_url
         
         url = cloudinary_url(
             base,
@@ -460,3 +505,142 @@ def build_playground_transformation(config: Dict[str, Any]) -> str:
     )
     
     return transformer.build_url()
+
+
+def _as_float(value: Any) -> Optional[float]:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number
+
+
+def _as_int(value: Any, fallback: int) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return fallback
+
+
+# Defaults every new upload gets unless the user turns them off in the
+# Playground. They mirror what the old "Anti-Copyright Settings" applied
+# automatically, so existing accounts keep the same protection.
+DEFAULT_PLAYGROUND_CONFIG: Dict[str, Any] = {
+    "enabled": True,
+    "audioControls": {"volume": 3, "frequency": "22050", "removeAudio": False},
+    "trim": {"startOffset": 0, "duration": 0},
+    "resize": {"cropMode": "crop", "width": 720, "height": 1280},
+    "gravity": {"gravity": "center"},
+    "textOverlay": {
+        "enabled": True,
+        "text": "@your_social_handle",
+        "fontSize": 36,
+        "color": "#FFFFFF",
+        "opacity": 60,
+        "position": "bottom",
+    },
+    "pixel": {"vignette": 10, "noise": 3},
+    "quality": {"quality": "auto"},
+}
+
+
+def build_playground_transformation_chain(config: Dict[str, Any] | None) -> List[Dict[str, Any]]:
+    """
+    Turn the playground settings into a Cloudinary transformation chain.
+
+    The same function powers the live preview AND the chain stored with every
+    upload (in-process, worker, direct file upload), so what the user sees is
+    exactly what gets baked. Order matters:
+
+    audio -> trim -> crop -> visual grain -> text overlay -> quality
+    """
+    config = config or {}
+    transformer = CloudinaryVideoTransformer("")
+
+    # ---- audio -------------------------------------------------------------
+    audio = config.get("audioControls") or {}
+    if audio.get("removeAudio"):
+        transformer.add_effects(audio_codec="none")
+    else:
+        # UI slider is an adjustment: 0 = original, -100 = silent, +100 = x2.
+        volume = max(-100, min(200, _as_int(audio.get("volume"), 0)))
+        if volume:
+            transformer.transformations.append({"effect": f"volume:{max(0, 100 + volume)}"})
+        frequency = str(audio.get("frequency") or "").strip()
+        if frequency.isdigit():
+            transformer.transformations.append({"audio_frequency": frequency})
+
+    # ---- trim --------------------------------------------------------------
+    trim = config.get("trim") or {}
+    start = _as_float(trim.get("startOffset"))
+    duration = _as_float(trim.get("duration"))
+    if (start and start > 0) or (duration and duration > 0):
+        transformer.add_trimming(
+            start_offset=start if start and start > 0 else None,
+            duration=duration if duration and duration > 0 else None,
+        )
+
+    # ---- crop / resize -----------------------------------------------------
+    resize = config.get("resize") or {}
+    mode = str(resize.get("cropMode") or "none").lower()
+    gravity_key = str((config.get("gravity") or {}).get("gravity") or "center").lower()
+    gravity = CROP_GRAVITY.get(gravity_key, "center")
+    if mode == "scale":
+        transformer.transformations.append(
+            {"crop": "scale", "width": _as_int(resize.get("width"), 720)}
+        )
+    elif mode == "crop":
+        # Vertical 9:16 frame, the shape short-form platforms expect.
+        transformer.transformations.append({
+            "crop": "fill",
+            "width": _as_int(resize.get("width"), 720),
+            "height": _as_int(resize.get("height"), 1280),
+            "gravity": gravity,
+        })
+    elif mode == "thumb":
+        height = _as_int(resize.get("height"), 720)
+        transformer.transformations.append({
+            "crop": "fill",
+            "width": _as_int(resize.get("width"), height),
+            "height": height,
+            "gravity": gravity,
+        })
+
+    # ---- visual grain (breaks pixel-level fingerprints) --------------------
+    pixel = config.get("pixel") or {}
+    for effect in ("vignette", "noise"):
+        value = max(0, min(100, _as_int(pixel.get(effect), 0)))
+        if value:
+            transformer.transformations.append({"effect": f"{effect}:{value}"})
+
+    # ---- text overlay ------------------------------------------------------
+    text = config.get("textOverlay") or {}
+    text_value = str(text.get("text") or "").strip()
+    if text.get("enabled") and text_value:
+        transformer.add_video_layers(
+            overlay_type="text",
+            overlay_text=text_value,
+            font_size=_as_int(text.get("fontSize"), 48),
+            text_color=text.get("color") or "#FFFFFF",
+            text_opacity=_as_int(text.get("opacity"), 100),
+            text_gravity=str(text.get("position") or "center"),
+        )
+
+    # ---- quality (always last: it changes the file hash) -------------------
+    quality = str((config.get("quality") or {}).get("quality") or "auto")
+    transformer.transformations.append(
+        {"quality": "auto:good" if quality in ("", "auto") else quality}
+    )
+
+    return transformer.get_transformation_chain()
+
+
+def build_playground_preview_url(public_id: str, config: Dict[str, Any] | None) -> str:
+    """Delivery URL that shows the configured transformation without uploading."""
+    from cloudinary.utils import cloudinary_url
+
+    return cloudinary_url(
+        public_id,
+        transformation=build_playground_transformation_chain(config),
+        resource_type="video",
+    )[0]
