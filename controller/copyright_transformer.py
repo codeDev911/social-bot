@@ -1,5 +1,41 @@
+import re
 from urllib.parse import quote
 from typing import List, Dict, Any, Optional
+
+_HEX_COLOR = re.compile(r"[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8}")
+
+# Cloudinary rejects bare names ("Invalid color name white"), and the frontend
+# happily stores CSS names, so map the common ones to hex.
+_CSS_COLOR_HEX = {
+    "black": "#000000", "white": "#FFFFFF", "red": "#FF0000", "lime": "#00FF00",
+    "blue": "#0000FF", "yellow": "#FFFF00", "cyan": "#00FFFF", "aqua": "#00FFFF",
+    "magenta": "#FF00FF", "fuchsia": "#FF00FF", "silver": "#C0C0C0",
+    "gray": "#808080", "grey": "#808080", "maroon": "#800000",
+    "olive": "#808000", "green": "#008000", "purple": "#800080",
+    "teal": "#008080", "navy": "#000080", "orange": "#FFA500",
+    "pink": "#FFC0CB", "brown": "#A52A2A", "gold": "#FFD700",
+}
+
+
+def normalize_color(value: Any, fallback: str = "#FFFFFF") -> str:
+    """Return a Cloudinary-safe color: #RGB/#RRGGBB/#AARRGGBB, rgb(), or fallback."""
+    raw = str(value or "").strip()
+    if not raw:
+        return fallback
+    if raw.startswith("#"):
+        candidate = raw[1:]
+        if _HEX_COLOR.fullmatch(candidate):
+            return f"#{candidate}"
+        raw = candidate  # tolerate a name that was prefixed with '#'
+    if _HEX_COLOR.fullmatch(raw):
+        return f"#{raw}"
+    mapped = _CSS_COLOR_HEX.get(raw.lower())
+    if mapped:
+        return mapped
+    if raw.lower().startswith(("rgb(", "rgba(")):
+        return raw
+    return fallback
+
 
 def build_transformations_array(user_id: int, dynamic_edits: Optional[Dict] = None) -> List[Dict[str, Any]]:
     """
@@ -30,7 +66,7 @@ def build_transformations_array(user_id: int, dynamic_edits: Optional[Dict] = No
             },
             "textOverlayControls": {
                 "text_content": "@your_social_handle",
-                "text_color": "white",
+                "text_color": "#FFFFFF",
                 "text_opacity": 60,
                 "text_gravity": "south",
                 "text_y_gap": 120
@@ -81,21 +117,28 @@ def build_transformations_array(user_id: int, dynamic_edits: Optional[Dict] = No
         # Safe URL encoding: encode all special chars
         encoded_text = quote(text_content, safe='')
         
-        # Get text styling
-        text_color = text_controls.get("text_color", "#FFFFFF").lstrip("#")
-        text_opacity = text_controls.get("text_opacity", 100)
+        # Get text styling (normalized: "white" / "#fff" / "F97316" all valid)
+        text_color = normalize_color(text_controls.get("text_color"))
+        try:
+            text_opacity = int(text_controls.get("text_opacity") or 100)
+        except (TypeError, ValueError):
+            text_opacity = 100
+        text_opacity = max(1, min(100, text_opacity))
         
         # Build text overlay with color and opacity
         transformations.append({
             "overlay": f"text:Arial_36_bold:{encoded_text}",
-            "color": f"#{text_color}",
+            "color": text_color,
             "opacity": text_opacity
         })
         
         # ============= PHASE 4: POSITION APPLY BLOCK =============
         # This MUST come after text styling and be applied to position the layer
-        gravity = text_controls.get("text_gravity", "south")
-        y_gap = text_controls.get("text_y_gap", 120)
+        gravity = text_controls.get("text_gravity") or "south"
+        try:
+            y_gap = int(text_controls.get("text_y_gap") or 120)
+        except (TypeError, ValueError):
+            y_gap = 120
         
         transformations.append({
             "flags": "layer_apply",

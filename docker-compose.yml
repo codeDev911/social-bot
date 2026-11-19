@@ -1,0 +1,40 @@
+# Local development / single-VPS stack: one image, two containers.
+#
+#   docker compose up --build
+#   open http://localhost:8000
+#
+# On a public VPS put Caddy or nginx in front of the app container for TLS and
+# point the dashboard domain at it. The worker should stay private there — drop
+# its published port and let the app call it on the compose network.
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Override the host-loopback values from .env: inside compose the services
+      # talk to each other by service name.
+      WORKER_SERVICE_URL: http://worker:8080
+      WORKER_TOKEN: ${WORKER_TOKEN:-change-me}
+    command: >
+      sh -c "prisma db push &&
+             uvicorn main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - worker
+
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # The worker must call the app over the compose network, not localhost.
+      APP_API_URL: http://app:8000
+      WORKER_TOKEN: ${WORKER_TOKEN:-change-me}
+    command: uvicorn worker_service:app --host 0.0.0.0 --port 8080
+    ports:
+      - "8080:8080"

@@ -1,8 +1,12 @@
 # app/services/caption_gen.py
+import os
+from dotenv import load_dotenv
 from openai import OpenAI
 
+load_dotenv()
+
 gemini_client = OpenAI(
-    api_key="AIzaSyAs8ijk-UEW3F9TcO1A4uBRbtgL44Dxr80",
+    api_key=os.getenv("GEMINI_API_KEY", ""),
     base_url="https://generativelanguage.googleapis.com/v1beta/"
 )
 

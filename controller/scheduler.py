@@ -10,7 +10,8 @@ INTERNAL_SECRET = os.getenv("INTERNAL_SECRET") # A secret key to verify incoming
 
 # 1. CREATE A JOB
 def create_user_job(user_id: str, hour: int, minute: int, timezone: str = "Asia/Karachi"):
-    webhook_url = f"{os.getenv("APP_API_URL")}dashboard/trigger-upload?user_id={user_id}&secret={INTERNAL_SECRET}"
+    app_api_url = (os.getenv("APP_API_URL") or "").rstrip("/")
+    webhook_url = f"{app_api_url}/dashboard/trigger-upload?user_id={user_id}&secret={INTERNAL_SECRET}"
     
     payload = {
         "job": {

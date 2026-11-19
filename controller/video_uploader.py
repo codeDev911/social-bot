@@ -1,5 +1,6 @@
 from datetime import datetime
 from io import BytesIO
+import asyncio
 from googleapiclient.http import MediaIoBaseUpload
 import requests
 from dotenv import load_dotenv
@@ -16,14 +17,17 @@ from controller.buffer import publish_instantly
 
 
 
-def send_mail(recipient, file_name, title, video_status):
-    trigger_uploaded(
+async def send_mail(recipient, file_name, title, video_status):
+    # SMTP is blocking; run it in a worker thread so the event loop keeps moving.
+    await asyncio.to_thread(
+        trigger_uploaded,
         file_name=file_name,
         title=title,
         size="N/A",
         triggered_at=datetime.utcnow().strftime("%d-%m-%Y %I-%M %p"),
         video_status=video_status,
-        recipient=recipient)
+        recipient=recipient,
+    )
 
 
 class UploadVideo:
@@ -53,6 +57,19 @@ class UploadVideo:
                 print(f"Error uploading to {upload_to}: {str(e)}")
                 continue
 
+def _download_to_memory(video_url):
+    """Fetch the whole video into memory. Runs in a worker thread."""
+    response = requests.get(video_url, stream=True, timeout=120)
+    if response.status_code != 200:
+        return None
+
+    buffer = BytesIO()
+    for chunk in response.iter_content(chunk_size=8192):
+        buffer.write(chunk)
+    buffer.seek(0)
+    return buffer
+
+
 async def upload_to_youtube(user,video):
 
 
@@ -62,22 +79,14 @@ async def upload_to_youtube(user,video):
     youtube = await get_youtube_client(user.credentials) 
 
     video_url= video.cloudinary_url
-    response = requests.get(video_url, stream=True)
-
     user_config = user.userConfig
 
-    if response.status_code != 200:
+    print("Streaming video data...")
+    # Download off the event loop; requests is fully blocking.
+    video_stream = await asyncio.to_thread(_download_to_memory, video_url)
+    if video_stream is None:
         return {"messge":"No video found"}
 
-    print("Streaming video data...")
-   # Prepare a file-like object for streaming
-    video_stream = BytesIO()
-    for chunk in response.iter_content(chunk_size=8192):  # Fetch 8KB chunks
-        video_stream.write(chunk)
-    
-    # Reset stream pointer to the beginning
-    video_stream.seek(0)
-    
     # Create a media upload object
     media = MediaIoBaseUpload(video_stream, mimetype="video/mp4", chunksize=-1, resumable=True)
 
@@ -98,7 +107,7 @@ async def upload_to_youtube(user,video):
             },
             media_body=media
         )
-        response = request.execute()
+        response = await asyncio.to_thread(request.execute)
 
         await prisma.video.update(
             where={
@@ -120,7 +129,7 @@ async def upload_to_youtube(user,video):
             }
         )
     
-        send_mail(user.email, video.cloudinary_url, video.title, "Uploaded")
+        await send_mail(user.email, video.cloudinary_url, video.title, "Uploaded")
         print(f"Video uploaded to YouTube: {response['id']}")
     except Exception as e:
         print(f"Error uploading to YouTube: {str(e)}")
@@ -133,7 +142,7 @@ async def upload_to_youtube(user,video):
             }
         )
 
-        send_mail(user.email, video.cloudinary_url, video.title, "Failed")
+        await send_mail(user.email, video.cloudinary_url, video.title, "Failed")
 
 
 
@@ -160,7 +169,12 @@ async def upload_using_buffer(user,video,client_credentials,post_type=None):
                 where={"id": video.id},
                 data={"upload_status": "Uploaded"}
             )
-            send_mail(user.email, video.cloudinary_url, video.title, "Uploaded")
+            # Only successful uploads consume the daily allowance.
+            await prisma.usage.update(
+                where={"userId": user.id},
+                data={"uploadsToday": {"increment": 1}}
+            )
+            await send_mail(user.email, video.cloudinary_url, video.title, "Uploaded")
 
             print("Video uploaded to TikTok.")
         else:
@@ -168,7 +182,7 @@ async def upload_using_buffer(user,video,client_credentials,post_type=None):
                 where={"id": video.id},
                 data={"upload_status": "Failed"}
             )
-            send_mail(user.email, video.cloudinary_url, video.title, "Failed")
+            await send_mail(user.email, video.cloudinary_url, video.title, "Failed")
             print(f"Buffer upload failed: {response.get('error')}")
         return response
     except Exception as e:
@@ -177,20 +191,9 @@ async def upload_using_buffer(user,video,client_credentials,post_type=None):
             where={"id": video.id},
             data={"upload_status": "Failed"}
         )
-        send_mail(user.email, video.cloudinary_url, video.title, "Failed")
+        await send_mail(user.email, video.cloudinary_url, video.title, "Failed")
         print(f"Error uploading: {str(e)}")
         return error_response
-    finally:
-         await prisma.usage.update(
-            where={
-                "userId":user.id
-            },
-            data={
-                "uploadsToday":{
-                    "increment":1
-                }, 
-            }
-        )
 
 # Upload to tiktok
 async def upload_to_tiktok(user, video):

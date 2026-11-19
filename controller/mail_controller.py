@@ -1,12 +1,16 @@
+import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from dotenv import load_dotenv
 
-# Configuration for the email sender
-SMTP_SERVER = 'smtp.gmail.com'
-SMTP_PORT = 587
-EMAIL_ADDRESS = 'afnanahhad@gmail.com'
-EMAIL_PASSWORD = 'qqyp akpi jein zrlj'
+load_dotenv()
+
+# Configuration for the email sender (credentials come from the environment)
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS", "")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
 
 def html_content(video_name, title, size, triggered_at, video_status):
     return  f"""
@@ -107,6 +111,9 @@ def html_content(video_name, title, size, triggered_at, video_status):
 
 
 def send_email(subject, body, recipient):
+    if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
+        print("SMTP credentials not configured; skipping email")
+        return "SMTP credentials not configured"
     try:
         # Create the email
         msg = MIMEMultipart()

@@ -1,3 +1,4 @@
+import asyncio
 import requests
 
 url = "https://api.buffer.com"
@@ -47,14 +48,14 @@ def get_profiles_graphql(api_key=None):
         }
         
         # FIrst we'll get the user's organization ID to use in the next query
-        response_org = requests.post(url, json=graphql_query_get_org, headers=headers)
+        response_org = requests.post(url, json=graphql_query_get_org, headers=headers, timeout=30)
          # This will intercept 401 Unauthorized or 400 Bad Request before decoding
         response_org.raise_for_status() 
         
         data_org = response_org.json()
         org_id = data_org.get("data", {}).get("account", {}).get("organizations", [])[0].get("id")
 
-        response = requests.post(url, json=get_channels_payload(org_id), headers=headers)
+        response = requests.post(url, json=get_channels_payload(org_id), headers=headers, timeout=30)
         
         # This will intercept 401 Unauthorized or 400 Bad Request before decoding
         response.raise_for_status() 
@@ -75,7 +76,8 @@ def get_profiles_graphql(api_key=None):
 
     except requests.exceptions.HTTPError as http_err:
         print(f"❌ HTTP Error Occurred: {http_err}")
-        print(f"Raw Server Message: {response.text}")
+        body = http_err.response.text if http_err.response is not None else ""
+        print(f"Raw Server Message: {body}")
         return None
     except Exception as e:
         print(f"❌ Python Script Error: {e}")
@@ -142,8 +144,10 @@ async def publish_instantly(profile_id, caption, video_url,api_key=None,post_typ
     }
 
     try:
-        # Send the GraphQL POST request
-        response = requests.post(url, json=graphql_mutation, headers=headers)
+        # Send the GraphQL POST request without blocking the event loop
+        response = await asyncio.to_thread(
+            requests.post, url, json=graphql_mutation, headers=headers, timeout=60
+        )
         response.raise_for_status()
         
         result = response.json()
@@ -166,10 +170,10 @@ async def publish_instantly(profile_id, caption, video_url,api_key=None,post_typ
 
     except requests.exceptions.HTTPError as http_err:
         print(f"❌ HTTP Exception Occurred: {http_err}")
-        return {"status_code":500, "error":response.text}
-        print(f"Raw Server Traceback: {response.text}")
+        body = http_err.response.text if http_err.response is not None else str(http_err)
+        print(f"Raw Server Traceback: {body}")
+        return {"status_code":500, "error":body}
     except Exception as e:
         print(f"❌ Script Runtime Error: {e}")
         return {"status_code":500, "error":str(e)}
-    return False
 

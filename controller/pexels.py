@@ -1,11 +1,14 @@
 import json
 import os
+from dotenv import load_dotenv
 from fastapi import Response
 import httpx
 import random
 from controller.video_uploader import UploadVideo
 from db import prisma
-from models.video import create_video
+from models.video import create_video, QuotaExceededError
+
+load_dotenv()
 
 PEXEL_API_KEY = os.getenv("PEXEL_API_KEY")
 PEXELS_VIDEO_SEARCH_URL = "https://api.pexels.com/videos/search"
@@ -42,27 +45,23 @@ async def UploadPexelVideo(background_tasks,per_page : int = 10):
             continue
         secure_url = random_video.get("link")
         asset_id = random_video.get("id")
-        userId = user.id 
-        # Save video details in Database
-        video = await prisma.video.create(
-            data={
-                "cloudinary_id":str(asset_id),
-                "cloudinary_url":str(secure_url),
-                "user":{
-                    "connect":{
-                        "id":int(userId)
-                    }
-                },
-                "title":f"PEX_VID{random.randint(0, 999999)}",
-                "upload_status":"Pending",
-                "upload_destinations":["Youtube"],
-                "upload_id":""
-                
-            },
 
-        )
-        # Added background task to upload video
-        background_tasks.add_task(await UploadVideo(user,video).upload())
+        # Save video details in Database (create_video enforces the plan quota)
+        try:
+            video = await create_video(
+                user.id,
+                str(secure_url),
+                str(asset_id),
+                f"PEX_VID{random.randint(0, 999999)}",
+                ["Youtube"],
+                scraped_from="pexels",
+            )
+        except QuotaExceededError as e:
+            print(f"Skipping user {user.id}: {e}")
+            continue
+
+        # Schedule the coroutine function, not an awaited result
+        background_tasks.add_task(UploadVideo(user,video).upload)
         return Response(content=json.dumps({"Success":"Video has been uploaded."}),status_code=201)
 
 

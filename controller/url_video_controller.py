@@ -3,20 +3,17 @@ import cloudinary.uploader
 from dotenv import load_dotenv
 import os
 from typing import Optional
-from models.video import create_video
+from models.video import create_video, assert_can_schedule, QuotaExceededError
 from wroker import generate_caption_htags
 from db import prisma
 from controller.copyright_transformer import build_transformations_array
 import json
 load_dotenv()
 import asyncio
-import httpx
 from controller.video_downloader import download_video
+from controller.worker_client import dispatch_download, worker_enabled
 
 tempFiles = []
-
-WORKER_SERVICE_URL = os.getenv("WORKER_SERVICE_URL", "").rstrip("/")
-WORKER_TOKEN = os.getenv("WORKER_TOKEN", "")
 
 
 def deserialize_and_map_dynamic_edits(dynamic_edits_config):
@@ -69,16 +66,13 @@ def deserialize_and_map_dynamic_edits(dynamic_edits_config):
 
 
  
-async def upload_to_cloudinary(filePath: str, userId: any, upload_targets: any, video_id=None, title=None):
-    """This will upload the asset to cloudinary and create video in database will save the details needed"""
-
-    # Fetch user's dynamic edit configuration
+async def user_transformations(userId) -> list:
+    """Cloudinary transformation chain built from the user's playground settings."""
     user = await prisma.user.find_unique(
         where={"id": userId},
         include={"dynamicEdits": True}
     )
 
-    # Get dynamic edits config if exists
     dynamic_edits_config = None
     if user and user.dynamicEdits:
         raw_config = {
@@ -86,13 +80,29 @@ async def upload_to_cloudinary(filePath: str, userId: any, upload_targets: any, 
             "textOverlayControls": user.dynamicEdits.textOverlayControls,
             "pixelDistortionControls": user.dynamicEdits.pixelDistortionControls,
         }
-        # Deserialize and map field names
+        # Deserialize and map frontend field names to transformer field names
         dynamic_edits_config = deserialize_and_map_dynamic_edits(raw_config)
 
-    # Build transformations from user config or use defaults
-    transformations_list = build_transformations_array(userId, dynamic_edits_config)
+    return build_transformations_array(userId, dynamic_edits_config)
 
-    upload_response = cloudinary.uploader.upload(
+
+async def upload_to_cloudinary(
+    filePath: str,
+    userId: any,
+    upload_targets: any,
+    video_id=None,
+    title=None,
+    scraped_from: str | None = None,
+):
+    """This will upload the asset to cloudinary and create video in database will save the details needed"""
+
+    # Fail fast: never spend a Cloudinary upload when the queue is already full.
+    await assert_can_schedule(userId)
+
+    transformations_list = await user_transformations(userId)
+
+    upload_response = await asyncio.to_thread(
+        cloudinary.uploader.upload,
         filePath,
         resource_type="video",
         eager_async=True,
@@ -102,7 +112,16 @@ async def upload_to_cloudinary(filePath: str, userId: any, upload_targets: any, 
     )
 
     print("Uploaded video to Cloudinary:", upload_response['secure_url'])
-    video = await create_video(userId, upload_response["secure_url"], upload_response["asset_id"], title, upload_targets, video_id)
+    video = await create_video(
+        userId,
+        upload_response["secure_url"],
+        # public_id (not asset_id) is what Cloudinary requires to delete the asset later
+        upload_response.get("public_id") or upload_response["asset_id"],
+        title,
+        upload_targets,
+        video_id,
+        scraped_from=scraped_from,
+    )
     userPlan = video.user.plan.type
 
     # Add a worker that generate Caption and #tags for video.
@@ -124,64 +143,73 @@ async def download_video_async(video_url: str) -> dict:
 
 class FromPlatform:
     def __init__(self, video_url, user_id: int, upload_targets=["Youtube"], video_id=None):
-        self.user_id = user_id,
+        self.user_id = user_id
         self.video_url = video_url
         self.video_id = video_id
         self.upload_targets = upload_targets
         self.title = "Untitled video"
 
-
     async def _extract_and_upload(self, platform: Optional[str] = None):
-        """Ask the worker for a direct media URL, then upload that URL to Cloudinary."""
+        """Download the source media locally, then upload it to Cloudinary."""
+
+        # Check quota before downloading: rejecting after a full video download
+        # wastes bandwidth and blocks the request for nothing.
+        try:
+            await assert_can_schedule(self.user_id)
+        except QuotaExceededError as e:
+            print(f"Quota check failed: {e}")
+            return {"Error": str(e)}
+
+        # Hand the job to the worker fleet when one is configured. The web host
+        # may lack Deno/ffmpeg and have a timeout shorter than the download.
+        if worker_enabled():
+            dispatched = await dispatch_download(
+                user_id=self.user_id,
+                video_url=self.video_url,
+                platform=platform or "",
+                title=None,  # let the worker keep the real extracted title
+                external_id=self.video_id,
+                upload_destinations=self.upload_targets,
+                transformation=await user_transformations(self.user_id),
+            )
+            if dispatched:
+                return {"success": "Download queued on worker", "queued": True}
+
         try:
             result = await download_video_async(self.video_url)
 
             if not result["filepath"]:
-                err = result.get("error") or "Worker did not return a media URL"
-                print(f"Worker extract failed: {err}")
+                err = result.get("error") or "Downloader did not return a file path"
+                print(f"Download failed: {err}")
                 return {"Error": err}
 
             self.title = result["title"] or self.title
             direct_url = result["filepath"]
 
-            print("userid", self.user_id[0])
+            print("userid", self.user_id)
             print("upload_targets", self.upload_targets)
-            print("Resolved direct URL via worker service")
+            print("Downloaded source media")
 
             try:
-                # Cloudinary fetches  local /tmp binary on Vercel
                 await upload_to_cloudinary(
                     direct_url,
-                    self.user_id[0],
+                    self.user_id,
                     self.upload_targets,
                     self.video_id,
                     self.title,
+                    scraped_from=platform,
                 )
-    
             finally:
+                # Always clean up the temp file, even when the upload fails.
                 if os.path.exists(direct_url):
                     os.remove(direct_url)
 
-            await prisma.usage.update(
-                where={
-                    "userId": self.user_id[0]
-                },
-                data={
-                    "scheduledToday": {
-                        "increment": 1
-                    },
-                }
-            )
+            # scheduledToday is incremented once, inside create_video.
             return {"success": "Video uploaded to Cloudinary success"}
 
-        except httpx.HTTPStatusError as e:
-            # Prefer FastAPI's JSON {"detail": "..."} so yt-dlp errors are readable
-            try:
-                detail = e.response.json().get("detail", e.response.text)
-            except Exception:
-                detail = e.response.text
-            print(f"Worker HTTP error: {e.response.status_code} {detail}")
-            return {"Error": f"Worker error {e.response.status_code}: {detail}"}
+        except QuotaExceededError as e:
+            print(f"Quota check failed: {e}")
+            return {"Error": str(e)}
         except Exception as e:
             print(f"Error : {e}")
             return {"Error": f"{e}"}
@@ -200,7 +228,16 @@ class FromPlatform:
 
     async def pexels(self):
         print("Pexels video loaded")
-        await upload_to_cloudinary(self.video_url, self.user_id[0], self.upload_targets)
+        try:
+            await upload_to_cloudinary(
+                self.video_url,
+                self.user_id,
+                self.upload_targets,
+                scraped_from="pexels",
+            )
+        except QuotaExceededError as e:
+            print(f"Quota check failed: {e}")
+            return {"Error": str(e)}
         return {"success": "Video uploaded to Cloudinary success"}
 
     def __getitem__(self, platform):
@@ -214,3 +251,7 @@ class FromPlatform:
         if platform not in methods:
             raise KeyError(f"Platform '{platform}' is not supported.")
         return methods[platform]()
+
+    async def run(self, platform):
+        """Awaitable entry point usable as a BackgroundTasks callable."""
+        return await self[platform]

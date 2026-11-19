@@ -1,0 +1,21 @@
+# Worker-only stack: the web app stays on Vercel, this box does downloads.
+#
+#   docker compose -f docker-compose.worker.yml up -d --build
+#
+# Requires .env next to this file with WORKER_TOKEN, INTERNAL_SECRET,
+# APP_API_URL=https://<vercel-app>, CLOUDINARY_* and the COOKIES_* you use.
+# The worker never touches the database; results return through the signed webhook.
+services:
+  worker:
+    build: .
+    command: ["sh", "-c", "uvicorn worker_service:app --host 0.0.0.0 --port 8080"]
+    env_file: .env
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

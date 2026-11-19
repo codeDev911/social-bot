@@ -2,10 +2,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, Request, R
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from controller.pexels import UploadPexelVideo
-from controller.url_video_controller import FromPlatform
+from controller.url_video_controller import FromPlatform, user_transformations
+from controller.worker_client import dispatch_download, worker_enabled
 from controller.video_uploader import  UploadVideo
 from controller.cloudinary_transformer import CloudinaryVideoTransformer, build_playground_transformation
-from models.video import create_video
+from models.video import create_video, assert_can_schedule, QuotaExceededError
 from db import prisma
 from lib.depends import get_current_user
 from fastapi.exceptions import HTTPException
@@ -19,10 +20,12 @@ from typing import Optional
 from dotenv import load_dotenv
 from controller.auth import set_user_credentials
 from controller.mail_controller import new_video_scheduled_mail
+import asyncio
 import os
 import json
 import secrets
 import hashlib
+import hmac
 import uuid
 from datetime import datetime
 import logging
@@ -322,12 +325,25 @@ async def upload_video(
     if isinstance(current_user, RedirectResponse):
         return current_user   
     
-    if not file.content_type.startswith("video/"):
+    if not file.content_type or not file.content_type.startswith("video/"):
         raise HTTPException(status_code=400, detail="File must be a video")
+
+    # Reject before the expensive Cloudinary upload when the user is already at their limit
     try:
-        # Upload to Cloudinary
-        result = cloudinary.uploader.upload(file.file, resource_type="video" ,folder="social-bot-videos")
-        await create_video(current_user.id,result["secure_url"],result["asset_id"],file.filename,upload_destinations)
+        await assert_can_schedule(current_user.id)
+    except QuotaExceededError as e:
+        raise HTTPException(status_code=402, detail=str(e))
+
+    try:
+        # Upload to Cloudinary off the event loop
+        result = await asyncio.to_thread(
+            cloudinary.uploader.upload,
+            file.file,
+            resource_type="video",
+            folder="social-bot-videos",
+        )
+        # public_id (not asset_id) is what Cloudinary requires to delete the asset later
+        await create_video(current_user.id,result["secure_url"],result.get("public_id") or result["asset_id"],file.filename,upload_destinations)
 
         return Response(content={"message":"Video uploaded success!"},status_code=201)
         
@@ -340,20 +356,40 @@ async def upload_video(
 # Upload video file from Url across Tiktok,youtube and facebook 
 @router.post("/upload-from-url")
 async def upload_url_video(
+    background_tasks: BackgroundTasks,
     platform: str = Depends(validate_video_url),
     url: str = Query(...),
     upload_destinations: list = Depends(verify_upload_target),
-    background_tasks: BackgroundTasks = BackgroundTasks()
-    ,current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
     ):
-  
+
     if isinstance(current_user,RedirectResponse):
         return current_user
-    print("this hits")
+
+    # Serverless hosts kill background work once the response is sent, so hand the
+    # job to the worker inside the request and only fall back to the local
+    # pipeline when no worker is configured.
+    if worker_enabled():
+        try:
+            await assert_can_schedule(current_user.id)
+        except QuotaExceededError as e:
+            raise HTTPException(status_code=402, detail=str(e))
+
+        dispatched = await dispatch_download(
+            user_id=current_user.id,
+            video_url=url,
+            platform=platform,
+            upload_destinations=upload_destinations,
+            transformation=await user_transformations(current_user.id),
+        )
+        if dispatched:
+            return {"message": "Download queued on worker"}
+
     # Calling a class that has many Facebook, Tiktok, Youtube and Instagram video download and uploader to Cloudinary
     down_and_upload_from = FromPlatform(video_url=url,user_id=current_user.id,upload_targets=upload_destinations)
-    print("included")
-    background_tasks.add_task(await down_and_upload_from[platform])
+    # Schedule the coroutine *function*; awaiting it here would run the work inline
+    # and then hand a non-callable result to add_task().
+    background_tasks.add_task(down_and_upload_from.run, platform)
     return {"message":"Process started"}
 
 
@@ -398,7 +434,7 @@ async def trigger_upload(background_tasks: BackgroundTasks,user_id:int,secret:st
     for video in pending_videos:
         if not video.user.id in  uploaded_users: # check if the user videos is already uploaded or not
             # Added this to background task to upload without waiting for the response
-            background_tasks.add_task(await UploadVideo(video.user,video).upload())
+            background_tasks.add_task(UploadVideo(video.user,video).upload)
             videos_of_a_users +=1
             # Upload 2 videos of each user daily to avoid cloudinary upload limit and also to avoid uploading all videos of a user if he has many pending videos
             if(videos_of_a_users >= 2):
@@ -412,7 +448,7 @@ async def trigger_upload(background_tasks: BackgroundTasks,user_id:int,secret:st
 # This is be trigger by schedule on DBOS
 @router.post("/trigger-deleted-uploaded-files")
 async def trigger_delete_uploaded_files(background_tasks: BackgroundTasks):
-    background_tasks.add_task(await delete_uploaded_files())
+    background_tasks.add_task(delete_uploaded_files)
     print("Delete uploaded files triggered")
     return {"message":"Delete uploaded files triggered"}
 
@@ -748,7 +784,7 @@ async def buffer_connect(body: BufferConnectRequest, current_user = Depends(get_
             )
         
         # Call the get_profiles_graphql function with the provided API key
-        channels = get_profiles_graphql(api_key=buffer_api_key)
+        channels = await asyncio.to_thread(get_profiles_graphql, buffer_api_key)
         user = await prisma.user.find_unique(where={"id": current_user.id})
 
         # print(channels)
@@ -1215,3 +1251,69 @@ async def load_playground_transformations(current_user: dict = Depends(get_curre
     except Exception as e:
         print(f"Error loading playground transformations: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to load: {str(e)}")
+
+
+# ── Download worker ingest ────────────────────────────────────────────────────
+# The download worker runs outside Vercel (yt-dlp + ffmpeg + Deno + cookies) and
+# reports finished uploads here. Requests are authenticated with an HMAC over the
+# raw body using INTERNAL_SECRET — no session cookie and no secret in the URL.
+
+class WorkerIngestPayload(BaseModel):
+    userId: int
+    cloudinaryUrl: str
+    cloudinaryId: str
+    title: str = "Untitled"
+    platform: str = ""
+    externalId: Optional[str] = None
+    uploadDestinations: list[str] = ["Youtube"]
+
+
+def _verify_worker_signature(raw_body: bytes, signature: Optional[str]) -> bool:
+    if not INTERNAL_SECRET or not signature:
+        return False
+    expected = hmac.new(INTERNAL_SECRET.encode(), raw_body, hashlib.sha256).hexdigest()
+    provided = signature.split("=", 1)[-1].strip()
+    return hmac.compare_digest(expected, provided)
+
+
+@router.post("/api/worker/ingest")
+async def worker_ingest(
+    request: Request,
+    x_worker_signature: Optional[str] = Header(default=None),
+):
+    """Accept a finished download/upload from a worker as a Pending video."""
+    raw_body = await request.body()
+    if not _verify_worker_signature(raw_body, x_worker_signature):
+        raise HTTPException(status_code=401, detail="Invalid worker signature")
+
+    try:
+        payload = WorkerIngestPayload(**json.loads(raw_body))
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid payload: {exc}")
+
+    try:
+        video = await create_video(
+            user_id=payload.userId,
+            secure_url=payload.cloudinaryUrl,
+            asset_id=payload.cloudinaryId,
+            title=payload.title,
+            upload_destinations=payload.uploadDestinations,
+            video_id=payload.externalId,
+            scraped_from=payload.platform or "unkown",
+        )
+    except QuotaExceededError as exc:
+        logger.warning("Worker ingest rejected for user %s: %s", payload.userId, exc)
+        # The worker already uploaded the asset; drop it so storage is not wasted.
+        try:
+            await asyncio.to_thread(
+                cloudinary.uploader.destroy,
+                payload.cloudinaryId,
+                resource_type="video",
+                invalidate=True,
+            )
+        except Exception:
+            logger.exception("Could not delete rejected asset %s", payload.cloudinaryId)
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    logger.info("Worker ingest stored video %s for user %s", video.id, payload.userId)
+    return {"success": True, "videoId": video.id}

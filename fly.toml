@@ -1,0 +1,45 @@
+# Fly.io deployment: one image, two process groups.
+#
+#   fly deploy                            # builds the Dockerfile once, runs both
+#   fly logs -a <app> --process worker    # worker output
+#   fly ssh console -C "prisma db push"   # after a schema change
+#
+# The worker listens on 8080 but is exposed only over Fly private networking, so
+# the web app reaches it at http://<app>.internal:8080 and nobody else can.
+# Secrets (DATABASE_URL, CLOUDINARY_*, INTERNAL_SECRET, WORKER_TOKEN,
+# COOKIES_*_B64, PROXY_*) are set with `fly secrets set`, never baked into the image.
+
+app = "social-bot"      # must be globally unique — change it
+primary_region = "iad"  # pick the region closest to your users and database
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  WORKER_SERVICE_URL = "http://social-bot.internal:8080"
+
+[processes]
+  app = "uvicorn main:app --host 0.0.0.0 --port 8080"
+  worker = "uvicorn worker_service:app --host 0.0.0.0 --port 8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/"
+
+# ffmpeg muxing plus a video download needs more than the default 256 MB.
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 2
+  memory = "2gb"

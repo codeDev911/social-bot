@@ -1,0 +1,20 @@
+# Keep secrets and local junk out of the image: containers get configuration from
+# the host (fly secrets / docker compose env_file / platform env vars).
+.git
+.gitignore
+.github
+.venv
+.venv*
+env
+env/
+__pycache__
+**/__pycache__
+*.pyc
+.env
+.env.*
+cookies
+cookies*
+*.cookies.txt
+external_services
+download-worker.zip
+*.md

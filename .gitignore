@@ -1,6 +1,14 @@
 ./env
-env*
+# Root-level virtualenv only: an unscoped "env*" also hides files like
+# scripts/env_keys.py from git.
+/env*
 skills*
 .env
+.venv*
 external_services*
 download-worker*
+# Never commit yt-dlp session cookies
+cookies*
+*.cookies.txt
+__pycache__/
+*.pyc

@@ -24,10 +24,12 @@ Adjust `get_current_user` and `compute_next_run` imports to match your app.
 
 import os
 import json
+import asyncio
 import hashlib
 from datetime import datetime, timezone
 from typing import Optional
 
+import requests
 from fastapi import APIRouter, Depends, HTTPException, Request, Header,BackgroundTasks
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -48,6 +50,15 @@ MASTER_API_KEY = os.getenv("MASTER_API_KEY", "")
 import logging
 
 logger = logging.getLogger("ai-discovery")
+
+# Max discovered videos actually downloaded + stored per ingest call. The bot may
+# send a full batch; anything beyond this is skipped to protect Cloudinary quota.
+MAX_DISCOVERED_PER_RUN = int(os.getenv("MAX_DISCOVERED_PER_RUN", "2"))
+
+# Optional: lets "Run now" trigger the GitHub Actions workflow immediately via
+# repository_dispatch. Without it, runs wait for the hourly dispatcher poll.
+GITHUB_DISPATCH_REPO  = os.getenv("GITHUB_DISPATCH_REPO", "")    # "owner/repo"
+GITHUB_DISPATCH_TOKEN = os.getenv("GITHUB_DISPATCH_TOKEN", "")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -97,6 +108,17 @@ def require_master_key(authorization: str = Header(...)):
     token = authorization.removeprefix("Bearer ").strip()
     if not MASTER_API_KEY or token != MASTER_API_KEY:
         raise HTTPException(status_code=403, detail="Invalid master key")
+
+
+def _as_utc(value):
+    """Normalise a DB datetime to timezone-aware UTC.
+
+    Prisma returns naive datetimes for `DateTime`, so comparing them directly
+    with `datetime.now(timezone.utc)` raises TypeError.
+    """
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -297,9 +319,11 @@ async def update_config(
 @router.post("/dashboard/api/ai-discovery/run-now")
 async def run_now(user: User = Depends(get_current_user)):
     """
-    Manually trigger an immediate run by setting nextRunAt to now.
-    The 15-min dispatcher picks it up on its next poll (or fire a
-    repository_dispatch directly here for instant execution).
+    Trigger an immediate run.
+
+    When GITHUB_DISPATCH_REPO / GITHUB_DISPATCH_TOKEN are configured this fires
+    a repository_dispatch so the workflow starts right away. Otherwise the run
+    is queued by setting nextRunAt to now and the hourly dispatcher picks it up.
     """
     config = await get_or_create_config(user.id)
 
@@ -309,7 +333,7 @@ async def run_now(user: User = Depends(get_current_user)):
     key_row = await prisma.userapikey.find_first(
         where={"userId": user.id, "isActive": True}
     )
-    if not key_row:
+    if not key_row or not key_row.raw_token:
         raise HTTPException(400, "No active API key found for this user")
 
     await prisma.aidiscoveryconfig.update(
@@ -317,7 +341,31 @@ async def run_now(user: User = Depends(get_current_user)):
         data={"nextRunAt": datetime.now(timezone.utc), "lastRunStatus": "queued"},
     )
 
-    return {"success": True, "message": "Run queued — will start within 15 minutes"}
+    if GITHUB_DISPATCH_REPO and GITHUB_DISPATCH_TOKEN:
+        try:
+            await asyncio.to_thread(_dispatch_discovery_run, key_row.raw_token)
+            return {"success": True, "message": "Run dispatched — starting now"}
+        except Exception as e:
+            logger.warning(f"repository_dispatch failed, falling back to scheduler: {e}")
+
+    return {"success": True, "message": "Run queued — the hourly dispatcher will pick it up"}
+
+
+def _dispatch_discovery_run(raw_token: str) -> None:
+    """Fire the discovery workflow immediately for a single user."""
+    resp = requests.post(
+        f"https://api.github.com/repos/{GITHUB_DISPATCH_REPO}/dispatches",
+        json={
+            "event_type": "discover-videos",
+            "client_payload": {"user_api_key": raw_token},
+        },
+        headers={
+            "Authorization": f"Bearer {GITHUB_DISPATCH_TOKEN}",
+            "Accept": "application/vnd.github+json",
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -386,96 +434,113 @@ async def _process_discovered_videos(
     user_id: int,
     videos_data: list,
     upload_destinations: list,
-    background_tasks: BackgroundTasks
 ):
-    """Background task: Download and upload discovered videos using FromPlatform"""
+    """
+    Download and upload discovered videos, one at a time.
+
+    Runs as a FastAPI background task (after the ingest response is sent).
+    Each video goes through FromPlatform just like /upload-from-url, so it lands
+    in Cloudinary as a Pending video ready for the publish schedule.
+    """
+    user = await prisma.user.find_unique(where={"id": user_id})
+    if not user:
+        logger.error(f"Ingest: user {user_id} not found")
+        return
+
+    uploaded_videos = []
     try:
-        user = await prisma.user.find_unique(
-            where={"id": user_id}, 
-        )
-        uploaded_successfully = 0
-        uploaded_videos=[]
         for video_data in videos_data:
-            try:
-                video_url = video_data.get("videoUrl")
-                video_id = video_data.get("externalId")
-                platform = video_data.get("platform", "tiktok")
-
-                is_duplicated = await prisma.video.find_first(
-                    where={
-                        "externalId": video_id,
-                    }
+            if len(uploaded_videos) >= MAX_DISCOVERED_PER_RUN:
+                logger.info(
+                    f"Reached per-run limit ({MAX_DISCOVERED_PER_RUN}), "
+                    f"skipping the remaining {len(videos_data) - len(uploaded_videos)} videos"
                 )
+                break
 
+            video_url = video_data.get("videoUrl")
+            video_id = video_data.get("externalId")
+            platform = (video_data.get("platform") or "").lower()
+
+            if not video_url:
+                logger.warning("Skipping discovered video without a URL")
+                continue
+
+            if platform not in ("tiktok", "facebook", "youtube", "instagram"):
+                logger.warning(f"Unsupported platform '{platform}', skipping {video_url}")
+                continue
+
+            # Dedupe per user: the same clip may legitimately be discovered by
+            # several users, so a global externalId check would drop good videos.
+            if video_id:
+                is_duplicated = await prisma.video.find_first(
+                    where={"userId": user_id, "externalId": video_id}
+                )
                 if is_duplicated:
-                    logger.warning("Duplicated video found, skipping: " + video_url)
+                    logger.info(f"Duplicate video for user {user_id}, skipping: {video_url}")
                     continue
 
-                if not video_url:
-                    logger.warning("Skipping video without URL")
-                    continue
+            logger.info(f"🔄 Processing: {video_data.get('title')} from {platform}")
 
-                logger.info(f"🔄 Processing: {video_data.get('title')} from {platform}")
-
-                # Use FromPlatform just like upload-from-url does
-                down_and_upload_from = FromPlatform(
+            try:
+                source = FromPlatform(
                     video_url=video_url,
                     user_id=user_id,
                     upload_targets=upload_destinations,
-                    video_id=video_id   
+                    video_id=video_id,
                 )
-                 
-                # Queue the actual download + upload to background
-                background_tasks.add_task(await down_and_upload_from[platform])
-                uploaded_successfully += 1
-
-                uploaded_videos.append({
-                        "url": video_url,
-                        "title": video_data.get("title"),
-                        "score":video_data.get("score"),
-                        "platform": video_data.get("platform"),
-                        "externalId": video_data.get("externalId")
-                })
-
+                result = await source[platform]
             except Exception as e:
-                logger.error(f"Error processing video: {str(e)}")
+                logger.error(f"Error processing {video_url}: {e}")
                 continue
 
-            finally:
-                if uploaded_successfully >= 2:  # Limit to 2 videos per run to prevent overload
-                    print(f"Uploaded {uploaded_successfully} videos, stopping to prevent overload")
-                    new_video_scheduled_mail(
-                        recipient=user.email,
-                         videos=uploaded_videos,user_name=user.fullname, default_upload_dest=upload_destinations
-                        )
-                    break
-                else:
-                    continue
+            if "success" not in result:
+                logger.error(f"Failed to ingest {video_url}: {result.get('Error')}")
+                continue
 
-        logger.info(f"✅ Queued {len(videos_data)} videos for user {user_id}")
+            uploaded_videos.append({
+                "url": video_url,
+                "title": video_data.get("title"),
+                "score": video_data.get("score"),
+                "platform": video_data.get("platform"),
+                "externalId": video_data.get("externalId"),
+            })
 
     except Exception as e:
-        logger.error(f"Fatal error in video processing: {str(e)}")
+        logger.error(f"Fatal error in video processing: {e}")
+
+    if uploaded_videos:
+        # SMTP is blocking; keep it off the event loop.
+        await asyncio.to_thread(
+            new_video_scheduled_mail,
+            recipient=user.email,
+            videos=uploaded_videos,
+            user_name=user.fullname,
+            default_upload_dest=upload_destinations,
+        )
+        logger.info(f"✅ Queued {len(uploaded_videos)} of {len(videos_data)} videos for user {user_id}")
+    else:
+        logger.info(f"ℹ️  No videos queued for user {user_id}")
 
 
 
 @router.post("/dashboard/api/videos/ingest-discovered")
 async def ingest_discovered_videos(
-    payload: dict,
+    payload: IngestPayload,
+    background_tasks: BackgroundTasks,
     authorization: str = Header(None),
-    background_tasks: BackgroundTasks = BackgroundTasks()
 ):
     """
-    Receive discovered videos from external discovery service
+    Receive discovered videos from the external discovery service.
+
     Auth: Bearer <user-api-key>
-    Downloads & uploads using FromPlatform (same as upload-from-url)
+    Downloads & uploads using FromPlatform (same as upload-from-url).
     """
     try:
         # 1. AUTHORIZATION CHECK
         if not authorization or not authorization.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Missing or invalid authorization")
 
-        raw_token = authorization.replace("Bearer ", "").strip()
+        raw_token = authorization.removeprefix("Bearer ").strip()
         hashed_token = hashlib.sha256(raw_token.encode()).hexdigest()
 
         api_key_record = await prisma.userapikey.find_unique(
@@ -483,7 +548,7 @@ async def ingest_discovered_videos(
         )
 
         if not api_key_record or not api_key_record.isActive:
-            logger.warning(f"Invalid API key attempt")
+            logger.warning("Ingest: invalid API key attempt")
             raise HTTPException(status_code=401, detail="Invalid or revoked API key")
 
         user_id = api_key_record.userId
@@ -491,45 +556,48 @@ async def ingest_discovered_videos(
         # 2. GET USER DETAILS
         user = await prisma.user.find_unique(
             where={"id": user_id},
-            include={ "userConfig": True}
+            include={"userConfig": True},
         )
 
         if not user:
             logger.error(f"User {user_id} not found")
             raise HTTPException(status_code=404, detail="User not found")
 
-        # 3. VALIDATE PAYLOAD
-        videos = payload.get("videos", [])
+        # 3. VALIDATE PAYLOAD (Pydantic already guarantees the shape)
+        videos = [video.model_dump() for video in payload.videos]
         if not videos:
             return {"success": False, "message": "No videos provided"}
 
-        if not isinstance(videos, list):
-            raise HTTPException(status_code=400, detail="Videos must be an array")
+        # 4. RESOLVE UPLOAD DESTINATIONS
+        destinations = user.userConfig.defaultUploadDests if user.userConfig else None
+        if not destinations:
+            destinations = ["Youtube"]
+        if not isinstance(destinations, list):
+            destinations = [destinations]
 
-        # Get upload destinations from user credentials
-        upload_destinations = user.userConfig.defaultUploadDests
-        print("Upload destinations from user config:", upload_destinations)
-        logger.info(f"📥 Ingest: {len(videos)} videos for user {user_id}")
+        logger.info(
+            f"📥 Ingest: {len(videos)} videos for user {user_id} "
+            f"(keyword='{payload.keyword}', destinations={destinations})"
+        )
 
-        # 4. QUEUE FOR PROCESSING
+        # 5. QUEUE FOR PROCESSING
         background_tasks.add_task(
             _process_discovered_videos,
             user_id=user_id,
             videos_data=videos,
-            upload_destinations=upload_destinations if isinstance(upload_destinations, list) else [upload_destinations] if upload_destinations else ["tiktok"],
-            background_tasks=background_tasks
+            upload_destinations=destinations,
         )
 
         # Update API key last used
         await prisma.userapikey.update(
             where={"apiKey": hashed_token},
-            data={"lastUsedAt": datetime.now()}
+            data={"lastUsedAt": datetime.now(timezone.utc)},
         )
 
         return {"success": True, "message": f"Processing {len(videos)} videos"}
 
-    except HTTPException as e:
-        raise e
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Ingest error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -542,26 +610,31 @@ async def ingest_discovered_videos(
 @router.get("/dashboard/api/admin/due-users")
 async def get_due_users(_: None = Depends(require_master_key)):
     """
-    Returns users whose nextRunAt has passed. Also rotates nextRunAt
-    forward so the dispatcher doesn't re-fire them every 15 min.
+    Returns users whose nextRunAt is due, then rotates nextRunAt forward so the
+    same user is not re-fired on the next hourly poll.
+
+    This is what makes each user's own cronExpr / timezone meaningful.
     """
-    now = datetime.now(timezone.utc) 
-    due_configs = await prisma.aidiscoveryconfig.find_many(
+    now = datetime.now(timezone.utc)
+    configs = await prisma.aidiscoveryconfig.find_many(
         where={"isActive": True},
         include={"user": {"include": {"userApiKey": True}}},
     )
 
     results = []
-    for cfg in due_configs:
-        active_key = next((k for k in cfg.user.userApiKey if k.isActive), None)
+    for cfg in configs:
+        next_run = _as_utc(cfg.nextRunAt)
+        if next_run is not None and next_run > now:
+            continue
+
+        active_key = next(
+            (k for k in cfg.user.userApiKey if k.isActive and k.raw_token), None
+        )
         if not active_key:
             continue
 
         results.append({
             "user_id": str(cfg.userId),
-            # NOTE: if UserApiKey.apiKey stores a one-way SHA256 hash,
-            # you cannot recover the raw key here. See FIX_NOTES for
-            # the encryption alternative if this matters for your flow.
             "api_key": active_key.raw_token,
         })
 
@@ -570,4 +643,5 @@ async def get_due_users(_: None = Depends(require_master_key)):
             data={"nextRunAt": compute_next_run(cfg.cronExpr, cfg.timezone)},
         )
 
+    logger.info(f"Dispatcher: {len(results)} of {len(configs)} active users are due")
     return {"users": results}
