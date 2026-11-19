@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 WORKER_SERVICE_URL = (os.getenv("WORKER_SERVICE_URL") or "").rstrip("/")
 WORKER_TOKEN = os.getenv("WORKER_TOKEN", "")
 WORKER_TIMEOUT = float(os.getenv("WORKER_DISPATCH_TIMEOUT", "30"))
+JOB_STATUS_TIMEOUT = float(os.getenv("WORKER_STATUS_TIMEOUT", "3"))
 
 
 def worker_enabled() -> bool:
@@ -33,15 +34,16 @@ async def dispatch_download(
     external_id: Optional[str] = None,
     upload_destinations: Optional[list[str]] = None,
     transformation: Optional[Any] = None,
-) -> bool:
+) -> Optional[dict]:
     """
     Queue a download on the worker.
 
-    Returns True when the worker accepted the job, False when no worker is
-    configured or the request failed — callers then fall back to local work.
+    Returns the worker's job description (``{"jobId": ..., "status": "queued"}``)
+    when the job was accepted, or None when no worker is configured or the
+    request failed — callers then fall back to local work.
     """
     if not worker_enabled():
-        return False
+        return None
 
     payload = {
         "userId": user_id,
@@ -67,13 +69,28 @@ async def dispatch_download(
                 response.status_code,
                 response.text[:300],
             )
-            return False
-        logger.info(
-            "Dispatched %s to worker as job %s",
-            video_url,
-            response.json().get("jobId"),
-        )
-        return True
+            return None
+        job = response.json()
+        logger.info("Dispatched %s to worker as job %s", video_url, job.get("jobId"))
+        return job
     except Exception as exc:  # noqa: BLE001
         logger.warning("Worker dispatch failed, using local pipeline: %s", exc)
-        return False
+        return None
+
+
+async def fetch_job_status(job_id: str) -> Optional[dict]:
+    """Live status of one worker job; None when the worker is unreachable."""
+    if not worker_enabled() or not job_id:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=JOB_STATUS_TIMEOUT) as client:
+            response = await client.get(
+                f"{WORKER_SERVICE_URL}/jobs/{job_id}",
+                headers={"X-Worker-Token": WORKER_TOKEN},
+            )
+        if response.status_code != 200:
+            return None
+        return response.json()
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Worker status unavailable for %s: %s", job_id, exc)
+        return None

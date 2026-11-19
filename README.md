@@ -83,6 +83,22 @@ download to run. Leave both empty only where the app runs as a normal long-lived
 server. `GET /health` on the worker reports whether Deno, ffmpeg and each
 platform's cookies are actually present, so check it before blaming the platform.
 
+# Queue visibility
+
+Submitting a URL now writes a Pending row immediately, before the download starts,
+with `job:<worker job id>` in `video.upload_id`. That row is what the dashboard
+shows, and `GET /dashboard/api/queue` merges it with the worker's live phase
+(queued / downloading / uploading). The tables poll it every 4 seconds while a
+job is in flight and render a badge: QUEUED, DOWNLOADING, UPLOADING, PENDING when
+ready, or FAILED with the reason as a tooltip.
+
+One job maps to exactly one row: the worker's webhook carries `jobId`, fills that
+placeholder in place instead of inserting a second video, and the plan slot is
+counted once at queue time. Failures are reported on the same webhook, so a
+broken job turns red instead of sitting in the queue forever. Placeholders never
+reach the publisher — `/dashboard/trigger-upload` skips rows that have no
+Cloudinary URL yet.
+
 # Deploying: Vercel for the app, one box for the worker
 
 The web app runs on Vercel. Everything that needs a process — yt-dlp, Cloudinary

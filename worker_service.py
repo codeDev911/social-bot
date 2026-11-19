@@ -123,6 +123,25 @@ async def _notify(payload: dict, callback_url: Optional[str]) -> bool:
     return response.status_code < 400
 
 
+async def _notify_failure(job_id: str, job: JobRequest, reason: str, exc: Exception) -> None:
+    """Best effort: let the app mark the queued row as failed instead of stuck."""
+    try:
+        delivered = await _notify(
+            {
+                "jobId": job_id,
+                "status": "failed",
+                "userId": job.userId,
+                "reason": reason,
+                "error": str(exc)[:400],
+            },
+            job.callbackUrl,
+        )
+        if not delivered:
+            logger.warning("Failure webhook for %s was not delivered", job_id)
+    except Exception as notify_error:  # noqa: BLE001
+        logger.warning("Failure webhook for %s raised: %s", job_id, notify_error)
+
+
 def _upload_to_cloudinary(filepath: str, transformation: Optional[Any]) -> dict:
     kwargs: dict[str, Any] = {
         "resource_type": "video",
@@ -146,6 +165,8 @@ async def _process(job_id: str, job: JobRequest) -> None:
         upload = await asyncio.to_thread(_upload_to_cloudinary, filepath, job.transformation)
 
         payload = {
+            "jobId": job_id,
+            "status": "success",
             "userId": job.userId,
             "cloudinaryUrl": upload["secure_url"],
             "cloudinaryId": upload.get("public_id") or upload["asset_id"],
@@ -164,12 +185,15 @@ async def _process(job_id: str, job: JobRequest) -> None:
     except CookiesRequiredError as exc:
         await _set_job(job_id, status="failed", reason="cookies_required", error=str(exc))
         logger.error("[%s] %s", job_id, exc)
+        await _notify_failure(job_id, job, "cookies_required", exc)
     except JSRuntimeMissingError as exc:
         await _set_job(job_id, status="failed", reason="js_runtime_missing", error=str(exc))
         logger.error("[%s] %s", job_id, exc)
+        await _notify_failure(job_id, job, "js_runtime_missing", exc)
     except Exception as exc:  # noqa: BLE001
         await _set_job(job_id, status="failed", error=str(exc)[:500], finishedAt=_now())
         logger.exception("[%s] job failed", job_id)
+        await _notify_failure(job_id, job, "error", exc)
     finally:
         if filepath and os.path.exists(filepath):
             try:

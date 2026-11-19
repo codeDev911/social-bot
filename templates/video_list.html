@@ -86,6 +86,7 @@
   .vl-status.st-uploaded { background: rgba(63,255,141,0.1); color: var(--signal); border: 1px solid rgba(63,255,141,0.25); }
   .vl-status.st-processing { background: rgba(255,180,84,0.1); color: var(--amber); border: 1px solid rgba(255,180,84,0.25); }
   .vl-status.st-other { background: rgba(138,141,146,0.1); color: var(--dim); border: 1px solid var(--hairline-2); }
+  .vl-status.st-failed { background: rgba(255,107,107,0.1); color: var(--red); border: 1px solid rgba(255,107,107,0.3); }
 
   .vl-spin { animation: vl-spin-kf 1.2s linear infinite; }
   @keyframes vl-spin-kf { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -160,10 +161,11 @@
       </thead>
       <tbody>
         {% for video in video_items %}
-        <tr>
+        {% set queued_job = video.upload_id[4:] if video.upload_id and video.upload_id[:4] == 'job:' else '' %}
+        <tr data-video-id="{{ video.id }}"{% if queued_job %} data-job="{{ queued_job }}"{% endif %}>
           <!-- Video Title -->
           <td>
-            <a href="{{ video.cloudinary_url }}" target="_blank" class="vl-title-link">
+            <a href="{{ video.cloudinary_url or 'javascript:void(0)' }}" target="_blank" class="vl-title-link">
               <div class="vl-thumb">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="var(--signal)">
                   <path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zm4 2v4m4-6v4m4-6v4"/>
@@ -199,11 +201,16 @@
           </td>
 
           <!-- Status Badge -->
-          <td class="al-center" style="text-align:center;">
+          <td class="al-center" id="vl-status-{{ video.id }}" data-phase="{{ 'queued' if queued_job else '' }}" style="text-align:center;">
             {% if video.upload_status == 'Uploaded' %}
             <span class="vl-status st-uploaded">
               <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
               UPLOADED
+            </span>
+            {% elif queued_job %}
+            <span class="vl-status st-processing">
+              <svg class="vl-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              QUEUED
             </span>
             {% elif video.upload_status == 'Processing' %}
             <span class="vl-status st-processing">
@@ -265,3 +272,71 @@
     {% endif %}
   </div>
 </section>
+
+<script>
+(function () {
+  var rows = [].slice.call(document.querySelectorAll('tr[data-job]'));
+  if (!rows.length || typeof axios === 'undefined') return;
+
+  var LABELS = {
+    queued:          ['QUEUED', 'st-processing', true],
+    downloading:     ['DOWNLOADING', 'st-processing', true],
+    uploading:       ['UPLOADING', 'st-processing', true],
+    done:            ['FINALISING', 'st-processing', true],
+    delivery_failed: ['DELIVERY FAILED', 'st-failed', false],
+    failed:          ['FAILED', 'st-failed', false],
+    ready:           ['PENDING', 'st-other', false],
+    uploaded:        ['UPLOADED', 'st-uploaded', false],
+    deleted:         ['DELETED', 'st-other', false]
+  };
+  var timer = null;
+  var attempts = 0;
+  var reloading = false;
+
+  function paint(cell, phase, error) {
+    var meta = LABELS[phase] || ['QUEUED', 'st-processing', true];
+    var spin = meta[2]
+      ? '<svg class="vl-spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>'
+      : '';
+    cell.innerHTML = '<span class="vl-status ' + meta[1] + '">' + spin + meta[0] + '</span>';
+    cell.title = error || '';
+    cell.setAttribute('data-phase', phase);
+  }
+
+  function poll() {
+    attempts += 1;
+    axios.get('/dashboard/api/queue').then(function (res) {
+      var byId = {};
+      (res.data.videos || []).forEach(function (v) { byId[String(v.id)] = v; });
+      var active = false;
+
+      rows.forEach(function (row) {
+        var video = byId[row.getAttribute('data-video-id')];
+        if (!video) return;
+        var phase = video.phase || 'queued';
+        var cell = document.getElementById('vl-status-' + row.getAttribute('data-video-id'));
+        if (cell) paint(cell, phase, video.error);
+
+        if (phase === 'ready' || phase === 'uploaded') {
+          // The webhook filled the row in: reload once so the real title,
+          // URL and actions render, then stop polling.
+          if (!reloading) {
+            reloading = true;
+            setTimeout(function () { location.reload(); }, 800);
+          }
+        } else if (phase !== 'failed' && phase !== 'delivery_failed') {
+          active = true;
+        }
+      });
+
+      if ((!active || attempts > 90) && timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    }).catch(function () {});
+  }
+
+  poll();
+  timer = setInterval(poll, 4000);
+})();
+</script>

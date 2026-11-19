@@ -2,7 +2,7 @@ import os
 import re
 from fastapi import HTTPException, Query
 import requests
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from dotenv import load_dotenv
 import jwt
 from datetime import datetime, timedelta
@@ -19,6 +19,13 @@ SCOPES = SCOPES = "https://www.googleapis.com/auth/userinfo.email https://www.go
 import base64
 import hashlib
 import secrets
+
+def queued_title(platform: str, url: str) -> str:
+    """Readable stand-in until the worker reports the real video title."""
+    label = (platform or "Video").capitalize()
+    tail = urlparse(url).path.rstrip("/").rsplit("/", 1)[-1]
+    return f"{label} · {tail}" if tail else f"{label} · queued"
+
 
 def generate_code_verifier() -> str:
     """Generates a cryptographically random PKCE code verifier."""

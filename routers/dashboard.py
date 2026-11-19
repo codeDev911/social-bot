@@ -3,16 +3,26 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from controller.pexels import UploadPexelVideo
 from controller.url_video_controller import FromPlatform, user_transformations
-from controller.worker_client import dispatch_download, worker_enabled
+from controller.worker_client import dispatch_download, fetch_job_status, worker_enabled
 from controller.video_uploader import  UploadVideo
 from controller.cloudinary_transformer import CloudinaryVideoTransformer, build_playground_transformation
-from models.video import create_video, assert_can_schedule, QuotaExceededError
+from models.video import (
+    QUEUED_PREFIX,
+    QuotaExceededError,
+    assert_can_schedule,
+    complete_queued_video,
+    create_queued_video,
+    create_video,
+    fail_queued_video,
+    find_queued_video,
+    queued_job_id,
+)
 from db import prisma
 from lib.depends import get_current_user
 from fastapi.exceptions import HTTPException
 import cloudinary
 import cloudinary.uploader
-from utils import validate_video_url,verify_upload_target
+from utils import validate_video_url,verify_upload_target, queued_title
 from controller.delete_uploaded_files import delete_uploaded_files
 from controller.buffer import get_profiles_graphql
 from pydantic import BaseModel
@@ -382,8 +392,25 @@ async def upload_url_video(
             upload_destinations=upload_destinations,
             transformation=await user_transformations(current_user.id),
         )
-        if dispatched:
-            return {"message": "Download queued on worker"}
+        if dispatched and dispatched.get("jobId"):
+            # Queue visibility: the row exists before the download starts, and the
+            # worker's webhook fills it in instead of inserting a second one.
+            try:
+                video = await create_queued_video(
+                    user_id=current_user.id,
+                    job_id=dispatched["jobId"],
+                    title=queued_title(platform, url),
+                    upload_destinations=upload_destinations,
+                    platform=platform,
+                )
+            except QuotaExceededError as e:
+                raise HTTPException(status_code=402, detail=str(e))
+            return {
+                "message": "Download queued",
+                "jobId": dispatched["jobId"],
+                "videoId": video.id,
+                "title": video.title,
+            }
 
     # Calling a class that has many Facebook, Tiktok, Youtube and Instagram video download and uploader to Cloudinary
     down_and_upload_from = FromPlatform(video_url=url,user_id=current_user.id,upload_targets=upload_destinations)
@@ -391,6 +418,64 @@ async def upload_url_video(
     # and then hand a non-callable result to add_task().
     background_tasks.add_task(down_and_upload_from.run, platform)
     return {"message":"Process started"}
+
+
+@router.get("/api/queue")
+async def queue_status(current_user: dict = Depends(get_current_user)):
+    """Live queue for the dashboard: DB state plus the worker's in-flight phases."""
+    if isinstance(current_user, RedirectResponse):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    videos = await prisma.video.find_many(
+        where={"userId": current_user.id},
+        order={"id": "desc"},
+        take=12,
+    )
+
+    items = []
+    in_flight = []
+    for video in videos:
+        status = str(getattr(video.upload_status, "value", video.upload_status) or "")
+        item = {
+            "id": video.id,
+            "title": video.title,
+            "jobId": queued_job_id(video),
+            "status": status,
+            "phase": None,
+            "error": None,
+            "url": video.cloudinary_url or "",
+            "updatedAt": video.updatedAt.isoformat() if getattr(video, "updatedAt", None) else None,
+        }
+        items.append(item)
+        if item["jobId"]:
+            in_flight.append(item)
+
+    if in_flight and worker_enabled():
+        remote = await asyncio.gather(
+            *(fetch_job_status(item["jobId"]) for item in in_flight),
+            return_exceptions=True,
+        )
+        phase_map = {
+            "queued": "queued",
+            "running": "downloading",
+            "uploading": "uploading",
+            "done": "done",
+            "failed": "failed",
+            "delivery_failed": "delivery_failed",
+        }
+        for item, job in zip(in_flight, remote):
+            if not isinstance(job, dict):
+                continue
+            item["phase"] = phase_map.get(job.get("status"), job.get("status"))
+            item["error"] = job.get("error")
+            if job.get("title"):
+                item["title"] = job["title"]
+
+    fallback = {"Uploaded": "uploaded", "Pending": "ready", "Failed": "failed", "Deleted": "deleted"}
+    for item in items:
+        item["phase"] = item["phase"] or fallback.get(item["status"], (item["status"] or "").lower())
+
+    return {"videos": items, "workerEnabled": worker_enabled()}
 
 
 # This is scheduled by DBOS
@@ -432,6 +517,10 @@ async def trigger_upload(background_tasks: BackgroundTasks,user_id:int,secret:st
 
     videos_of_a_users = 0
     for video in pending_videos:
+        if queued_job_id(video) or not video.cloudinary_url:
+            # Still downloading on the worker (or a failed placeholder): never
+            # hand an empty URL to the publisher.
+            continue
         if not video.user.id in  uploaded_users: # check if the user videos is already uploaded or not
             # Added this to background task to upload without waiting for the response
             background_tasks.add_task(UploadVideo(video.user,video).upload)
@@ -1259,9 +1348,13 @@ async def load_playground_transformations(current_user: dict = Depends(get_curre
 # raw body using INTERNAL_SECRET — no session cookie and no secret in the URL.
 
 class WorkerIngestPayload(BaseModel):
-    userId: int
-    cloudinaryUrl: str
-    cloudinaryId: str
+    jobId: Optional[str] = None
+    status: str = "success"
+    reason: Optional[str] = None
+    error: Optional[str] = None
+    userId: int = 0
+    cloudinaryUrl: str = ""
+    cloudinaryId: str = ""
     title: str = "Untitled"
     platform: str = ""
     externalId: Optional[str] = None
@@ -1290,6 +1383,35 @@ async def worker_ingest(
         payload = WorkerIngestPayload(**json.loads(raw_body))
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Invalid payload: {exc}")
+
+    # Failures arrive on the same channel so the queued row never stays stuck.
+    if payload.status == "failed":
+        queued = await find_queued_video(payload.userId, payload.jobId)
+        if queued:
+            await fail_queued_video(queued)
+            logger.warning(
+                "Worker job %s failed for user %s (%s): %s",
+                payload.jobId,
+                payload.userId,
+                payload.reason,
+                payload.error,
+            )
+        return {"ok": True, "videoId": queued.id if queued else None}
+
+    # A placeholder row created at dispatch time is filled in place, so one job
+    # maps to exactly one dashboard row and no extra quota slot is consumed.
+    queued = await find_queued_video(payload.userId, payload.jobId)
+    if queued:
+        video = await complete_queued_video(
+            queued,
+            secure_url=payload.cloudinaryUrl,
+            asset_id=payload.cloudinaryId,
+            title=payload.title,
+            external_id=payload.externalId,
+            platform=payload.platform or None,
+        )
+        logger.info("Worker ingest completed queued video %s for user %s", video.id, payload.userId)
+        return {"success": True, "videoId": video.id}
 
     try:
         video = await create_video(

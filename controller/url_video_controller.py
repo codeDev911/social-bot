@@ -3,7 +3,7 @@ import cloudinary.uploader
 from dotenv import load_dotenv
 import os
 from typing import Optional
-from models.video import create_video, assert_can_schedule, QuotaExceededError
+from models.video import create_video, create_queued_video, assert_can_schedule, QuotaExceededError
 from wroker import generate_caption_htags
 from db import prisma
 from controller.copyright_transformer import build_transformations_array
@@ -12,6 +12,7 @@ load_dotenv()
 import asyncio
 from controller.video_downloader import download_video
 from controller.worker_client import dispatch_download, worker_enabled
+from utils import queued_title
 
 tempFiles = []
 
@@ -172,7 +173,18 @@ class FromPlatform:
                 upload_destinations=self.upload_targets,
                 transformation=await user_transformations(self.user_id),
             )
-            if dispatched:
+            if dispatched and dispatched.get("jobId"):
+                try:
+                    await create_queued_video(
+                        user_id=self.user_id,
+                        job_id=dispatched["jobId"],
+                        title=queued_title(platform or "", self.video_url),
+                        upload_destinations=self.upload_targets,
+                        platform=platform,
+                    )
+                except QuotaExceededError as e:
+                    print(f"Quota check failed: {e}")
+                    return {"Error": str(e)}
                 return {"success": "Download queued on worker", "queued": True}
 
         try:

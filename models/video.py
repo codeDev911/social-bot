@@ -6,6 +6,35 @@ class QuotaExceededError(Exception):
     """Raised when a user has no free scheduling slots left on their plan."""
 
 
+# Placeholder rows created when a job is handed to the download worker carry
+# "job:<worker job id>" in upload_id: the dashboard follows live progress
+# through it and the completion webhook updates that row instead of inserting
+# a second one. Cleared as soon as the job reports back.
+QUEUED_PREFIX = "job:"
+
+
+def queued_marker(job_id: str) -> str:
+    return f"{QUEUED_PREFIX}{job_id}"
+
+
+def queued_job_id(video) -> str | None:
+    value = getattr(video, "upload_id", "") or ""
+    return value[len(QUEUED_PREFIX):] if value.startswith(QUEUED_PREFIX) else None
+
+
+async def _increment_scheduled(user_id: int) -> None:
+    # Single source of truth for the scheduled counter: callers must not
+    # increment scheduledToday themselves.
+    try:
+        await prisma.usage.update(
+            where={"userId": user_id},
+            data={"scheduledToday": {"increment": 1}},
+        )
+    except Exception:
+        # Usage rows are created at signup; a missing row must not lose the video.
+        pass
+
+
 async def _resolve_plan_key(user_id: int) -> str:
     """Return the user's plan key, falling back to 'free' when unknown."""
     user = await prisma.user.find_unique(where={"id": user_id}, include={"plan": True})
@@ -76,18 +105,75 @@ async def create_video(
 
     # Single source of truth for the scheduled counter: callers must not
     # increment scheduledToday themselves.
-    try:
-        await prisma.usage.update(
-            where={
-                "userId": video.userId
-            },
-            data={
-                "scheduledToday": {
-                    "increment": 1
-                }
-            }
-        )
-    except Exception:
-        # Usage rows are created at signup; a missing row must not lose the video.
-        pass
+    await _increment_scheduled(video.userId)
     return video
+
+
+async def create_queued_video(
+    user_id: int,
+    job_id: str,
+    title: str,
+    upload_destinations: any = ["Youtube"],
+    platform: str | None = None,
+):
+    """Create the Pending row the dashboard shows while the worker downloads.
+
+    Counted against the plan immediately, so a queue slot cannot be double
+    booked and a failed job shows up as Failed instead of vanishing.
+    """
+    await assert_can_schedule(user_id)
+
+    video = await prisma.video.create(
+        data={
+            "user": {"connect": {"id": user_id}},
+            "cloudinary_url": "",
+            "cloudinary_id": "",
+            "title": title or "Queued video",
+            "upload_destinations": upload_destinations or ["Youtube"],
+            "upload_id": queued_marker(job_id),
+            "upload_status": "Pending",
+            "scrapedFrom": platform or "unkown",
+        }
+    )
+    await _increment_scheduled(user_id)
+    return video
+
+
+async def find_queued_video(user_id: int, job_id: str | None):
+    """Return the placeholder row for a worker job, if one was created."""
+    if not job_id:
+        return None
+    return await prisma.video.find_first(
+        where={"userId": user_id, "upload_id": queued_marker(job_id)}
+    )
+
+
+async def complete_queued_video(
+    video,
+    secure_url: str,
+    asset_id: str,
+    title: str | None = None,
+    external_id: str | None = None,
+    platform: str | None = None,
+):
+    """Fill the placeholder in place, so one job maps to exactly one row."""
+    return await prisma.video.update(
+        where={"id": video.id},
+        data={
+            "cloudinary_url": secure_url,
+            "cloudinary_id": asset_id,
+            "title": title or video.title,
+            "upload_id": "",
+            "upload_status": "Pending",
+            "externalId": external_id or video.externalId,
+            "scrapedFrom": platform or video.scrapedFrom,
+        },
+    )
+
+
+async def fail_queued_video(video):
+    """Mark the placeholder Failed and free the marker so it stops polling."""
+    return await prisma.video.update(
+        where={"id": video.id},
+        data={"upload_id": "", "upload_status": "Failed"},
+    )

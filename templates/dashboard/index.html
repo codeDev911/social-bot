@@ -936,13 +936,16 @@
     const targets = getTargets();
     if (!url) { alert('Please enter a video URL'); return; }
     if (!targets.length) { alert('Please select at least one platform'); return; }
-    statusLine.textContent = 'Processing URL...';
+    statusLine.textContent = 'Queuing…';
     try {
-      await axios.post(`/dashboard/upload-from-url?url=${encodeURIComponent(url)}&upload_targets=${targets}`);
-      statusLine.textContent = 'Done — reloading...';
-      setTimeout(() => location.reload(), 1200);
+      const res = await axios.post(`/dashboard/upload-from-url?url=${encodeURIComponent(url)}&upload_targets=${targets}`);
+      const job = (res.data && res.data.jobId) ? ` · job ${String(res.data.jobId).slice(0, 8)}` : '';
+      statusLine.textContent = `Queued${job} — showing it in Recent Videos…`;
+      document.getElementById('video_url').value = '';
+      setTimeout(() => location.reload(), 900);
     } catch (e) {
-      statusLine.textContent = 'Failed — check the URL and try again';
+      const detail = e.response && e.response.data && (e.response.data.detail || e.response.data.message);
+      statusLine.textContent = detail || 'Failed — check the URL and try again';
     }
   }
 
