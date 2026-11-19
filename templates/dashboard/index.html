@@ -763,6 +763,7 @@
               <input type="text" id="video_url" class="text-input" placeholder="TikTok, YouTube, or Facebook URL">
               <button type="button" onclick="submitUrl()" class="btn btn-ghost" style="white-space:nowrap;padding:10px 18px;font-size:13px;">Submit URL</button>
             </div>
+            <div id="worker_health" style="margin-top:6px;font-family:var(--font-mono);font-size:11px;color:var(--dim);">Checking download worker…</div>
           </div>
 
           <!-- Platform selection -->
@@ -930,6 +931,33 @@
         return t.charAt(0).toUpperCase() + t.slice(1);
       });
   }
+
+  // ── worker health ──
+  // Answers "is this deployment really sending downloads to the worker?"
+  (async function paintWorkerHealth() {
+    const el = document.getElementById('worker_health');
+    if (!el) return;
+    try {
+      const { data } = await axios.get('/dashboard/api/worker/diagnostics', { timeout: 15000 });
+      if (data.enabled && data.reachable) {
+        const h = data.health || {};
+        const missing = [];
+        if (!h.deno) missing.push('no deno');
+        if (!h.ffmpeg) missing.push('no ffmpeg');
+        el.textContent = 'Worker online · ' + (data.url || '') + (missing.length ? ' · ' + missing.join(', ') : '');
+        el.style.color = 'var(--signal)';
+      } else if (data.enabled) {
+        el.textContent = 'Worker configured but unreachable — ' + (data.error || 'no response');
+        el.style.color = 'var(--red)';
+      } else {
+        el.textContent = 'No worker configured' + (data.onVercel ? ' — downloads cannot finish on Vercel' : '');
+        el.style.color = 'var(--red)';
+      }
+    } catch (e) {
+      el.textContent = 'Worker status unknown (diagnostics failed)';
+      el.style.color = 'var(--dim)';
+    }
+  })();
 
   async function submitUrl() {
     const url = document.getElementById('video_url').value.trim();

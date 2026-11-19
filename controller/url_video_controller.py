@@ -11,7 +11,7 @@ import json
 load_dotenv()
 import asyncio
 from controller.video_downloader import download_video
-from controller.worker_client import dispatch_download, worker_enabled
+from controller.worker_client import dispatch_download, last_dispatch_error, worker_enabled, worker_required
 from utils import queued_title
 
 tempFiles = []
@@ -186,6 +186,11 @@ class FromPlatform:
                     print(f"Quota check failed: {e}")
                     return {"Error": str(e)}
                 return {"success": "Download queued on worker", "queued": True}
+
+            if worker_required():
+                # On a serverless host the in-process fallback cannot finish.
+                return {"Error": f"Download worker unreachable: {last_dispatch_error() or 'unknown error'}"}
+            print(f"Worker dispatch failed ({last_dispatch_error()}); downloading in-process")
 
         try:
             result = await download_video_async(self.video_url)

@@ -1,4 +1,5 @@
 import json
+import logging
 from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -7,6 +8,7 @@ from db import prisma
 from dotenv import load_dotenv
 from lib.depends import get_current_user
 from lib.socket import ConnectionManager
+from controller.worker_client import worker_status
 from routers.dashboard import router as dashboard_routes 
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response
@@ -138,6 +140,8 @@ async def logout():
 @app.on_event("startup")
 async def start_scheduler():
     # pass
+    # One line in the host's log that answers "is the worker wired up here?".
+    logging.getLogger("worker").info("Download worker: %s", worker_status())
     await prisma.connect()
 
 @app.on_event("shutdown")

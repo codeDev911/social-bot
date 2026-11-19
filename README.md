@@ -60,9 +60,31 @@ Cookies expire — when a platform starts failing again, re-export. `GET /health
 on the worker tells you whether a cookie file is actually loaded.
 
 If YouTube keeps answering the bot check even with fresh cookies *and* you are on
-a datacenter IP, the missing piece is a PO token: add
-`bgutil-ytdlp-pot-provider` (yt-dlp plugin + its HTTP provider container). Cookies
-authenticate the account; the PO token proves the player was real.
+a datacenter IP, the missing piece is a PO token. Cookies authenticate the
+account; the PO token proves the player was real. On a datacenter IP you need
+both — neither one alone is reliable any more.
+
+## PO token provider (bgutil)
+
+`Dockerfile.worker` installs the `bgutil-ytdlp-pot-provider` yt-dlp plugin and
+builds its provider server (Deno, no extra Node install). `worker_service.py`
+starts it on `127.0.0.1:4416` at boot — the plugin's default address — and stops
+it on shutdown. Nothing on the app side changes; jobs keep flowing.
+
+Verify after a deploy:
+
+1. `GET /health` → `"potProvider": {"enabled": true, "running": true, "port": 4416}`.
+   If `running` is false, the image build could not prepare the provider — check
+   the build log for `bgutil provider build failed`.
+2. Set `YTDLP_VERBOSE=1` on the worker, run one YouTube job, and look for
+   `PO Token Providers: bgutil:http-...` and
+   `[youtube] [pot:bgutil:http] Generating a gvs PO Token ...` in the worker log.
+   If the provider is listed but no "Generating" line appears, the player clients
+   failed earlier (usually still cookies); set `COOKIES_YOUTUBE_B64`.
+
+`BGUTIL_PROVIDER_DISABLE=true` turns it off; `BGUTIL_PROVIDER_PORT` moves it.
+The provider is unauthenticated and listens on loopback only — never publish
+port 4416 on the host.
 
 # Scaling downloads horizontally (worker service)
 
@@ -127,6 +149,32 @@ configured it only fans jobs out and returns in about a second.
 If Vercel **Deployment Protection** is enabled, the worker's callback is rejected:
 allow `/dashboard/api/worker/ingest` through, or send a protection-bypass token
 from the worker.
+
+### "Vercel logs still show a download"
+
+The app only dispatches when **both** `WORKER_SERVICE_URL` and `WORKER_TOKEN` are
+readable at runtime. In order of likelihood:
+
+1. The variables were added to Preview/Development but not **Production**
+   (Vercel → Settings → Environment Variables shows the scope of each row).
+2. They were added after the last build — env changes only reach a new
+   deployment, so **Redeploy**.
+3. A pasted value carries a trailing newline, quotes or the variable name itself
+   (`WORKER_SERVICE_URL=https://...`). Trailing whitespace and quotes are trimmed
+   now; a doubled name is not. The boot log prints
+   `Download worker configured: ...` or `No download worker configured ...`.
+4. The token on Vercel differs from the worker's — the worker answers 401 and the
+   dispatch is recorded as failed.
+5. The worker host is asleep or crashed (Render Free spins down); dispatch waits
+   `WORKER_DISPATCH_TIMEOUT` seconds, then reports unreachable.
+
+Check it without guessing: open the dashboard — the line under **Video URL**
+reads `Worker online`, `Worker configured but unreachable — ...` or
+`No worker configured`. The same JSON is at `GET /dashboard/api/worker/diagnostics`.
+
+A Vercel deployment can no longer quietly fall back to a local download: when the
+worker is unreachable the submit endpoint returns `502` with the reason, and
+`download_video()` itself refuses to run on Vercel (see `ALLOW_VERCEL_DOWNLOAD`).
 
 ## Worker (Render / Railway / any VPS)
 

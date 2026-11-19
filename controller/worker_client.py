@@ -16,14 +16,50 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-WORKER_SERVICE_URL = (os.getenv("WORKER_SERVICE_URL") or "").rstrip("/")
-WORKER_TOKEN = os.getenv("WORKER_TOKEN", "")
-WORKER_TIMEOUT = float(os.getenv("WORKER_DISPATCH_TIMEOUT", "30"))
-JOB_STATUS_TIMEOUT = float(os.getenv("WORKER_STATUS_TIMEOUT", "3"))
+def _clean(name: str) -> str:
+    """Env values pasted into a hosting dashboard often arrive with a trailing
+    newline or wrapping quotes; both turn a valid URL/token into a dead one."""
+    return (os.getenv(name) or "").strip().strip("'\"").strip()
+
+
+WORKER_SERVICE_URL = _clean("WORKER_SERVICE_URL").rstrip("/")
+WORKER_TOKEN = _clean("WORKER_TOKEN")
+WORKER_TIMEOUT = float(_clean("WORKER_DISPATCH_TIMEOUT") or 30)
+JOB_STATUS_TIMEOUT = float(_clean("WORKER_STATUS_TIMEOUT") or 3)
+WORKER_REQUIRED = (_clean("WORKER_REQUIRED").lower() in {"1", "true", "yes", "on"})
+
+_LAST_DISPATCH_ERROR: Optional[str] = None
 
 
 def worker_enabled() -> bool:
     return bool(WORKER_SERVICE_URL and WORKER_TOKEN)
+
+
+def last_dispatch_error() -> Optional[str]:
+    """Why the last dispatch failed, verbatim, for the log and the diagnostics page."""
+    return _LAST_DISPATCH_ERROR
+
+
+def running_on_vercel() -> bool:
+    """Vercel exposes VERCEL=1 / VERCEL_ENV to every function invocation."""
+    return bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV"))
+
+
+def worker_required() -> bool:
+    """On Vercel a download can only run on the worker: the fallback would be
+    killed at maxDuration, so a failed dispatch must surface as an error."""
+    return worker_enabled() and (WORKER_REQUIRED or running_on_vercel())
+
+
+def worker_status() -> dict:
+    return {
+        "enabled": worker_enabled(),
+        "url": WORKER_SERVICE_URL or None,
+        "tokenSet": bool(WORKER_TOKEN),
+        "required": worker_required(),
+        "onVercel": running_on_vercel(),
+        "lastDispatchError": _LAST_DISPATCH_ERROR,
+    }
 
 
 async def dispatch_download(
@@ -43,6 +79,7 @@ async def dispatch_download(
     request failed — callers then fall back to local work.
     """
     if not worker_enabled():
+        _set_dispatch_error("WORKER_SERVICE_URL / WORKER_TOKEN are not set")
         return None
 
     payload = {
@@ -69,13 +106,56 @@ async def dispatch_download(
                 response.status_code,
                 response.text[:300],
             )
+            _set_dispatch_error(f"worker answered HTTP {response.status_code}: {response.text[:200]}")
             return None
         job = response.json()
         logger.info("Dispatched %s to worker as job %s", video_url, job.get("jobId"))
+        _set_dispatch_error(None)
         return job
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Worker dispatch failed, using local pipeline: %s", exc)
+        logger.warning("Worker dispatch failed: %s", exc)
+        _set_dispatch_error(str(exc))
         return None
+
+
+async def fetch_worker_health() -> dict:
+    """Read the worker's /health from the app host - the same hop a job takes."""
+    if not worker_enabled():
+        return {"reachable": False, "error": "WORKER_SERVICE_URL / WORKER_TOKEN are not set"}
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            response = await client.get(f"{WORKER_SERVICE_URL}/health")
+        if response.status_code != 200:
+            return {"reachable": False, "error": f"HTTP {response.status_code}: {response.text[:200]}"}
+        return {"reachable": True, "health": response.json()}
+    except Exception as exc:  # noqa: BLE001
+        return {"reachable": False, "error": str(exc)}
+
+
+def _set_dispatch_error(message: Optional[str]) -> None:
+    global _LAST_DISPATCH_ERROR
+    _LAST_DISPATCH_ERROR = message
+
+
+if not worker_enabled():
+    logger.info(
+        "No download worker configured (WORKER_SERVICE_URL / WORKER_TOKEN empty); "
+        "downloads will run in-process%s",
+        " on this Vercel function, where they cannot finish" if running_on_vercel() else "",
+    )
+else:
+    logger.info(
+        "Download worker configured: %s (required=%s, onVercel=%s)",
+        WORKER_SERVICE_URL,
+        worker_required(),
+        running_on_vercel(),
+    )
+    if not WORKER_SERVICE_URL.startswith(("http://", "https://")):
+        logger.error(
+            "WORKER_SERVICE_URL does not start with http(s):// - it was probably "
+            "pasted with a label or a typo: %r",
+            WORKER_SERVICE_URL,
+        )
 
 
 async def fetch_job_status(job_id: str) -> Optional[dict]:

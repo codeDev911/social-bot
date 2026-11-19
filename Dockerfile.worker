@@ -4,15 +4,30 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl unzip ca-certificates \
+    && apt-get install -y --no-install-recommends curl unzip ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
+# yt-dlp solves YouTube's JS challenges in an external runtime, and the PO token
+# provider below runs on Deno too, so one runtime covers both jobs.
 RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh -s -- -y \
     && ln -sf /usr/local/bin/deno /usr/bin/deno \
     && deno --version
 
+# PO token provider (bgutil). From a datacenter IP YouTube demands a
+# proof-of-origin token even when cookies are set; yt-dlp's plugin asks this
+# local server (127.0.0.1:4416) for one. worker_service.py starts it.
+# A failed build must not block the image: /health reports potProvider=false
+# and the worker keeps running with whatever else is configured.
+ARG BGUTIL_VERSION=2.0.2
+RUN git clone --depth 1 --single-branch --branch ${BGUTIL_VERSION} \
+        https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /opt/bgutil \
+    && cd /opt/bgutil/server \
+    && deno install --allow-scripts=npm:canvas \
+    || echo "WARNING: bgutil provider build failed - YouTube PO tokens unavailable"
+
 COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir "bgutil-ytdlp-pot-provider==${BGUTIL_VERSION}"
 
 COPY controller /app/controller
 COPY worker_service.py /app/worker_service.py

@@ -3,7 +3,16 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from controller.pexels import UploadPexelVideo
 from controller.url_video_controller import FromPlatform, user_transformations
-from controller.worker_client import dispatch_download, fetch_job_status, worker_enabled
+from controller.worker_client import (
+    dispatch_download,
+    fetch_job_status,
+    fetch_worker_health,
+    last_dispatch_error,
+    running_on_vercel,
+    worker_enabled,
+    worker_required,
+    worker_status,
+)
 from controller.video_uploader import  UploadVideo
 from controller.cloudinary_transformer import CloudinaryVideoTransformer, build_playground_transformation
 from models.video import (
@@ -377,8 +386,8 @@ async def upload_url_video(
         return current_user
 
     # Serverless hosts kill background work once the response is sent, so hand the
-    # job to the worker inside the request and only fall back to the local
-    # pipeline when no worker is configured.
+    # job to the worker inside the request. Falling back to the local pipeline is
+    # only useful on a long-lived host: on Vercel it would be killed at maxDuration.
     if worker_enabled():
         try:
             await assert_can_schedule(current_user.id)
@@ -411,6 +420,31 @@ async def upload_url_video(
                 "videoId": video.id,
                 "title": video.title,
             }
+
+        if worker_required():
+            # Never pretend to download here: the request would burn maxDuration
+            # and the user would see nothing in the queue.
+            logger.error(
+                "Worker configured but unreachable (%s) - refusing in-process download",
+                last_dispatch_error(),
+            )
+            raise HTTPException(
+                status_code=502,
+                detail=f"Download worker unreachable: {last_dispatch_error() or 'unknown error'}",
+            )
+        logger.warning(
+            "Worker dispatch failed (%s) - downloading inside the web process",
+            last_dispatch_error(),
+        )
+    elif running_on_vercel():
+        logger.error("WORKER_SERVICE_URL / WORKER_TOKEN are not set on this deployment")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Download worker is not configured. Set WORKER_SERVICE_URL and "
+                "WORKER_TOKEN on this deployment, then redeploy."
+            ),
+        )
 
     # Calling a class that has many Facebook, Tiktok, Youtube and Instagram video download and uploader to Cloudinary
     down_and_upload_from = FromPlatform(video_url=url,user_id=current_user.id,upload_targets=upload_destinations)
@@ -476,6 +510,15 @@ async def queue_status(current_user: dict = Depends(get_current_user)):
         item["phase"] = item["phase"] or fallback.get(item["status"], (item["status"] or "").lower())
 
     return {"videos": items, "workerEnabled": worker_enabled()}
+
+
+@router.get("/api/worker/diagnostics")
+async def worker_diagnostics(current_user: dict = Depends(get_current_user)):
+    """One-click answer to 'is this deployment actually talking to the worker?'."""
+    if isinstance(current_user, RedirectResponse):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    health = await fetch_worker_health()
+    return {**worker_status(), **health}
 
 
 # This is scheduled by DBOS

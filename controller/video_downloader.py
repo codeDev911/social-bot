@@ -42,6 +42,12 @@ PROXY_PASSWORD=os.getenv("PROXY_PASSWORD", "")
 # Opt-in only — binding source_address=0.0.0.0 breaks outbound networking in Docker.
 FORCE_IPV4 = os.getenv("FORCE_IPV4", "false").lower() in ("1", "true", "yes")
 
+# A Vercel function is killed at maxDuration (60s here), so a download started in
+# it can never finish. The app dispatches to the worker instead; this flag is the
+# last line of defense for any path that slips past that check.
+IS_SERVERLESS = bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV"))
+ALLOW_VERCEL_DOWNLOAD = os.getenv("ALLOW_VERCEL_DOWNLOAD", "").lower() in ("1", "true", "yes")
+
 # Oxylabs-style rotating entry points (host:port + country).
 # Override via PROXY_ENTRYPOINTS as comma-separated "host:port:COUNTRY" values.
 _DEFAULT_ENTRYPOINTS = [
@@ -343,7 +349,9 @@ def build_ydl_opts(
         "format": "b[ext=mp4]/best[ext=mp4]/bestvideo*+bestaudio/best",
         "quiet": False,
         "no_warnings": False,
-        "verbose": False,
+        # Verbose prints the PO token provider lines; the way to verify bgutil
+        # actually answers ("Generating a gvs PO Token ... via bgutil HTTP server").
+        "verbose": os.getenv("YTDLP_VERBOSE", "").strip().lower() in {"1", "true", "yes", "on"},
         "noplaylist": True,
         # Disable local caching
         "cachedir": False,
@@ -376,6 +384,13 @@ def build_ydl_opts(
         opts["cookiefile"] = cookie_file
     if proxy_url:
         opts["proxy"] = proxy_url
+    # The bgutil plugin expects the provider on 127.0.0.1:4416; only point it
+    # elsewhere when the port was deliberately changed on the worker.
+    pot_port = os.getenv("BGUTIL_PROVIDER_PORT", "").strip()
+    if pot_port and pot_port != "4416":
+        opts["extractor_args"]["youtubepot-bgutilhttp"] = {
+            "base_url": [f"http://127.0.0.1:{pot_port}"]
+        }
     if FORCE_IPV4:
         # yt-dlp --force-ipv4 — avoid enabling inside Docker unless needed
         opts["source_address"] = "0.0.0.0"
@@ -503,6 +518,24 @@ def download_video(video_url: str) -> dict:
     with backoff because YouTube re-scores sessions.
     Caller is responsible for deleting the file after use.
     """
+    if IS_SERVERLESS and not ALLOW_VERCEL_DOWNLOAD:
+        message = (
+            "Refusing to download inside a Vercel function: maxDuration is too "
+            "short and background work is killed with the request. Set "
+            "WORKER_SERVICE_URL + WORKER_TOKEN so the job runs on the download "
+            "worker, or ALLOW_VERCEL_DOWNLOAD=true if this host really can finish."
+        )
+        logger.error("download blocked by serverless guard url=%s", video_url)
+        return {
+            "filepath": None,
+            "title": None,
+            "ext": None,
+            "duration": None,
+            "uploader": None,
+            "webpage_url": video_url,
+            "error": message,
+        }
+
     platform = platform_of(video_url)
     _warn_if_no_js_runtime(platform)
     cookie = cookie_file_for(platform)

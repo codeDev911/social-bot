@@ -31,6 +31,7 @@ import json
 import logging
 import os
 import shutil
+import subprocess
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -76,6 +77,75 @@ app = FastAPI(title="download-worker")
 
 JOBS: dict[str, dict[str, Any]] = {}
 JOB_LOCK = asyncio.Lock()
+
+# ── PO token provider ────────────────────────────────────────────────────────
+# YouTube answers "Sign in to confirm you're not a bot" to datacenter IPs even
+# with cookies, unless the request carries a PO token. Dockerfile.worker builds
+# the bgutil provider in /opt/bgutil; the pip plugin then asks it for tokens at
+# http://127.0.0.1:4416, which is also its default.
+BGUTIL_HOME = os.getenv("BGUTIL_SERVER_HOME", "/opt/bgutil/server")
+BGUTIL_PORT = int(os.getenv("BGUTIL_PROVIDER_PORT", "4416") or 4416)
+BGUTIL_DISABLED = os.getenv("BGUTIL_PROVIDER_DISABLE", "").strip().lower() in {
+    "1", "true", "yes", "on",
+}
+
+POT_PROCESS: Optional[subprocess.Popen] = None
+
+
+def pot_provider_status() -> dict[str, Any]:
+    return {
+        "enabled": not BGUTIL_DISABLED,
+        "running": bool(POT_PROCESS and POT_PROCESS.poll() is None),
+        "port": BGUTIL_PORT,
+    }
+
+
+def _start_pot_provider() -> None:
+    """Start the provider once per process; harmless when it was not built."""
+    global POT_PROCESS
+    if BGUTIL_DISABLED:
+        logger.info("PO token provider disabled via BGUTIL_PROVIDER_DISABLE")
+        return
+    entry = os.path.join(BGUTIL_HOME, "src", "main.ts")
+    runner = shutil.which("deno")
+    if not os.path.exists(entry) or not runner:
+        logger.warning(
+            "PO token provider not available (%s or deno missing); "
+            "YouTube from a datacenter IP will ask for cookies",
+            entry,
+        )
+        return
+    cmd = [
+        runner, "run",
+        "--allow-env", "--allow-net", "--allow-write=.",
+        "--allow-ffi=.", "--allow-read=.",
+        "../src/main.ts",
+        "--port", str(BGUTIL_PORT),
+    ]
+    try:
+        POT_PROCESS = subprocess.Popen(cmd, cwd=os.path.join(BGUTIL_HOME, "node_modules"))
+        logger.info(
+            "PO token provider started (pid %s, port %s)", POT_PROCESS.pid, BGUTIL_PORT
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("PO token provider failed to start: %s", exc)
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    _start_pot_provider()
+
+
+@app.on_event("shutdown")
+async def _shutdown() -> None:
+    global POT_PROCESS
+    if POT_PROCESS and POT_PROCESS.poll() is None:
+        POT_PROCESS.terminate()
+        try:
+            POT_PROCESS.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            POT_PROCESS.kill()
+        logger.info("PO token provider stopped")
 
 
 class JobRequest(BaseModel):
@@ -210,6 +280,7 @@ async def health():
         "deno": shutil.which("deno") is not None,
         "jsRuntimes": js_runtime_status(),
         "ffmpeg": bool(ffmpeg_path()),
+        "potProvider": pot_provider_status(),
         "cookies": {platform: bool(cookie_file_for(platform)) for platform in COOKIE_ENV},
         "callback": f"{APP_API_URL}{CALLBACK_PATH}",
         "jobs": len(JOBS),
