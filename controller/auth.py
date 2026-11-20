@@ -11,20 +11,18 @@ from  dotenv import load_dotenv
 load_dotenv()  # Load environment variables from .env file
 
 
-def set_user_credentials(user, token_data,provider:str) -> any:
-    cre_data = {provider: token_data}
-    cre_json = json.dumps(cre_data)
-    if user is not None:
-        if user.credentials is not None:
-            # Merge or update TikTok credentials in user's credentials
-            user_creds = user.credentials
-            if provider in user_creds:
-                user_creds[provider] = json.dumps(token_data)
-            else:
-                user_creds = {**user.credentials, provider:json.dumps(token_data)}
-            # Save the updated credentials back to the user
-            cre_json = json.dumps(user_creds)
-    return cre_json         
+def set_user_credentials(user, token_data, provider:str) -> any:
+    """Return the full credentials JSON with one provider added or replaced.
+
+    Callers persist the return value and the SQL row is not re-read between
+    calls (the Buffer sync saves every channel in one loop), so the merge is
+    rebuilt from the passed user object each time. Mutating user.credentials
+    in place used to drop every provider added before the last one.
+    """
+    existing = getattr(user, "credentials", None) if user is not None else None
+    credentials = dict(existing) if isinstance(existing, dict) else {}
+    credentials[provider] = json.dumps(token_data)
+    return json.dumps(credentials)
 
 
 

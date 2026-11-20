@@ -43,3 +43,17 @@ def get_instagram_client(credentials):
     cre_obj = json.loads(credentials["instagram"])
 
     return cre_obj
+
+
+def get_buffer_channel(credentials, service: str):
+    """Return the Buffer channel record stored for a platform, if any."""
+    raw = (credentials or {}).get(service)
+    if not raw:
+        return None
+    try:
+        record = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError):
+        return None
+    if isinstance(record, dict) and record.get("service") == "buffer":
+        return record
+    return None

@@ -53,25 +53,39 @@ def get_profiles_graphql(api_key=None):
         response_org.raise_for_status() 
         
         data_org = response_org.json()
-        org_id = data_org.get("data", {}).get("account", {}).get("organizations", [])[0].get("id")
-
-        response = requests.post(url, json=get_channels_payload(org_id), headers=headers, timeout=30)
-        
-        # This will intercept 401 Unauthorized or 400 Bad Request before decoding
-        response.raise_for_status() 
-        
-        data = response.json()
-      
-        # Check if GraphQL returned internal errors
-        if "errors" in data:
-            print("❌ Buffer API returned internal errors:")
-            print(data["errors"])
+        organizations = data_org.get("data", {}).get("account", {}).get("organizations", []) or []
+        if not organizations:
+            print("❌ Buffer account has no organizations")
             return None
 
-        channels = data.get("data", {}).get("channels", [])
-        
-      
-        
+        # Read every organization, not just the first: a channel added to a
+        # second organization used to stay invisible after re-connecting.
+        channels = []
+        seen_ids = set()
+        for organization in organizations:
+            org_id = organization.get("id")
+            if not org_id:
+                continue
+
+            response = requests.post(url, json=get_channels_payload(org_id), headers=headers, timeout=30)
+
+            # This will intercept 401 Unauthorized or 400 Bad Request before decoding
+            response.raise_for_status() 
+
+            data = response.json()
+
+            # Check if GraphQL returned internal errors
+            if "errors" in data:
+                print("❌ Buffer API returned internal errors:")
+                print(data["errors"])
+                return None
+
+            for channel in data.get("data", {}).get("channels", []) or []:
+                channel_id = channel.get("id")
+                if channel_id and channel_id not in seen_ids:
+                    seen_ids.add(channel_id)
+                    channels.append(channel)
+
         return channels
 
     except requests.exceptions.HTTPError as http_err:

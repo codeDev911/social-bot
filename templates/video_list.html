@@ -232,7 +232,7 @@
                 type="button"
                 class="vl-action-btn"
                 title="Edit"
-                data-video='{{ {"id": video.id, "title": video.title, "captions": video.captions, "cloudinary_url": video.cloudinary_url, "upload_status": video.upload_status, "upload_destinations": video.upload_destinations, "connected_providers": user_info.credentials.keys() | list} | tojson }}'
+                data-video='{{ {"id": video.id, "title": video.title, "captions": video.captions, "cloudinary_url": video.cloudinary_url, "upload_status": video.upload_status, "upload_destinations": video.upload_destinations, "connected_providers": connected_upload_targets} | tojson }}'
                 onclick="openEditVideoModal(JSON.parse(this.dataset.video))"
                 {% if video.upload_status == 'Uploaded' %}disabled{% endif %}
               >

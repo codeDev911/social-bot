@@ -49,7 +49,6 @@ from controller.buffer import get_profiles_graphql
 from pydantic import BaseModel
 from typing import Optional
 from dotenv import load_dotenv
-from controller.auth import set_user_credentials
 from controller.mail_controller import new_video_scheduled_mail
 import asyncio
 import os
@@ -154,6 +153,29 @@ def _normalize_credentials(credentials):
     return credentials if isinstance(credentials, dict) else {}
 
 
+# Credentials are stored per connection provider ("google" for the Google
+# OAuth account, "tiktok"/"youtube"/... for Buffer channels); uploads and the
+# publisher speak canonical platform names.
+CREDENTIAL_PLATFORM_MAP = {
+    "google": "Youtube",
+    "youtube": "Youtube",
+    "tiktok": "Tiktok",
+    "facebook": "Facebook",
+    "instagram": "Instagram",
+}
+UPLOAD_TARGET_ORDER = ("Youtube", "Tiktok", "Facebook", "Instagram")
+
+
+def _connected_upload_targets(credentials) -> list:
+    """Canonical upload destinations that have a connected account, deduped."""
+    available = {
+        CREDENTIAL_PLATFORM_MAP[str(key).lower()]
+        for key in _normalize_credentials(credentials)
+        if str(key).lower() in CREDENTIAL_PLATFORM_MAP
+    }
+    return [target for target in UPLOAD_TARGET_ORDER if target in available]
+
+
 def _build_dashboard_context(request: Request, current_user, *, videos=None, total_videos_count=0, pending_videos_count=0, canceled_videos_count=0):
     user_info = current_user
     credentials = _normalize_credentials(getattr(user_info, "credentials", None))
@@ -186,6 +208,7 @@ def _build_dashboard_context(request: Request, current_user, *, videos=None, tot
         "user_info": user_info,
         "user_id": getattr(user_info, "id", None),
         "connected_platforms": credentials,
+        "connected_upload_targets": _connected_upload_targets(credentials),
         "title": "Home Page",
         "videos": videos or [],
         "total_videos_count": total_videos_count,
@@ -1206,49 +1229,82 @@ async def reschedule_video(
 async def buffer_connect(body: BufferConnectRequest, current_user = Depends(get_current_user)):
     try:
         buffer_api_key = body.bufferApiKey.strip()
-        
+
         if not buffer_api_key:
             raise HTTPException(status_code=400, detail="Buffer API key is required")
-        
-        # Save/update the API key in userconfig
+
+        # Fetch every channel first so a bad key cannot leave the profile half
+        # configured (old code saved the key before validating it).
+        channels = await asyncio.to_thread(get_profiles_graphql, buffer_api_key)
+        if not channels:
+            raise HTTPException(status_code=400, detail="Failed to fetch Buffer profiles. No channels found.")
+
+        user = await prisma.user.find_unique(where={"id": current_user.id})
+        if user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Merge every channel in one pass. Each channel is stored under its
+        # Buffer service ("tiktok", "youtube", ...) so it lines up with
+        # UploadTargets; when a service has several channels the last one wins
+        # because the publisher stores a single id per platform.
+        stored = user.credentials if isinstance(user.credentials, dict) else {}
+        credentials = dict(stored)
+        synced = {}
+        for channel in channels:
+            service = str(channel.get("service") or "").lower()
+            if not service:
+                continue
+            synced[service] = channel
+            credentials[service] = json.dumps({
+                "client_id": channel["id"],
+                "client_secret": channel["id"],
+                "name": channel.get("name"),
+                "service": "buffer",
+            })
+
+        # Channels removed in Buffer disappear from the upload targets too.
+        # Only records we wrote (service == "buffer") are pruned, so OAuth
+        # accounts such as "google" are never touched.
+        for service in list(credentials):
+            record = credentials[service]
+            if isinstance(record, str):
+                try:
+                    record = json.loads(record)
+                except (TypeError, ValueError):
+                    continue
+            if not isinstance(record, dict) or record.get("service") != "buffer":
+                continue
+            if service not in synced:
+                credentials.pop(service)
+
         user_config = await prisma.userconfig.find_unique(
             where={"userId": current_user.id}
         )
-        
+
         if user_config:
-            # Update existing config
             await prisma.userconfig.update(
                 where={"userId": current_user.id},
                 data={"bufferApiKey": buffer_api_key}
             )
         else:
-            # Create new config
             await prisma.userconfig.create(
                 data={
                     "userId": current_user.id,
                     "bufferApiKey": buffer_api_key
                 }
             )
-        
-        # Call the get_profiles_graphql function with the provided API key
-        channels = await asyncio.to_thread(get_profiles_graphql, buffer_api_key)
-        user = await prisma.user.find_unique(where={"id": current_user.id})
 
-        # print(channels)
-        if channels is None:
-            raise HTTPException(status_code=400, detail="Failed to fetch Buffer profiles. No channels found.")
+        await prisma.user.update(
+            where={"id": user.id},
+            data={"credentials": json.dumps(credentials)},
+        )
 
-        for channel in channels:
-            cre_json=set_user_credentials(user, {"client_id": channel["id"],"client_secret":channel["id"], "name": channel["name"], "service": "buffer"}, provider=channel["service"].lower())
-
-            await prisma.user.update(
-                where={"id": user.id},
-                data={
-                    "credentials": cre_json,
-                }
-            )
-
-        return {"message": "Buffer connected successfully", "status": "connected", "channels": channels}
+        return {
+            "message": f"Buffer connected successfully ({len(synced)} channel(s) synced)",
+            "status": "connected",
+            "channels": channels,
+            "uploadTargets": _connected_upload_targets(credentials),
+        }
     except HTTPException:
         raise
     except Exception as e:

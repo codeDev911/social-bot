@@ -8,7 +8,7 @@ from controller.mail_controller import trigger_uploaded
 from utils import refresh_tiktok_access_token
 load_dotenv()
 from db import prisma 
-from controller.user_credentials import get_tiktok_client, get_youtube_client,get_facebook_client,get_instagram_client
+from controller.user_credentials import get_tiktok_client, get_youtube_client,get_facebook_client,get_instagram_client,get_buffer_channel
 import os
 from controller.mail_controller import new_video_scheduled_mail
 
@@ -76,7 +76,17 @@ async def upload_to_youtube(user,video):
     if video is None:
         print(f"No Pending video is in the list")
         return {"messge":"No video in pending or failed list"}
-    youtube = await get_youtube_client(user.credentials) 
+
+    credentials = user.credentials or {}
+    if not credentials.get("google"):
+        # A YouTube channel connected through Buffer publishes through Buffer too.
+        buffer_channel = get_buffer_channel(credentials, "youtube")
+        if buffer_channel is None:
+            print("No YouTube credentials found (neither Google nor Buffer).")
+            return {"status_code": 400, "message": "No YouTube credentials found."}
+        return await upload_using_buffer(user, video, buffer_channel)
+
+    youtube = await get_youtube_client(credentials) 
 
     video_url= video.cloudinary_url
     user_config = user.userConfig

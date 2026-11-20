@@ -108,6 +108,22 @@
   .st-dest-icon { width: 22px; height: 22px; flex-shrink: 0; }
   .st-dest-card span { font-size: 13.5px; color: var(--paper); }
 
+  .st-dest-empty {
+    padding: 14px 16px; border: 1px dashed var(--hairline-2); border-radius: 10px;
+    font-size: 12.5px; line-height: 1.6; color: var(--dim);
+  }
+  .st-dest-empty a { color: var(--signal); text-decoration: none; }
+
+  /* buffer channel list */
+  .st-buffer-channels { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .st-buffer-channel { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--dim); }
+  .st-buffer-channel .st-buffer-name { color: var(--paper); }
+  .st-buffer-service {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--dim); border: 1px solid var(--hairline-2); border-radius: 999px; padding: 2px 8px;
+  }
+  .st-buffer-channels .st-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--signal); flex-shrink: 0; }
+
   /* generic checkbox row */
   .st-check-row { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 4px 0; }
   .st-check-row input[type="checkbox"] { accent-color: var(--signal); width: 16px; height: 16px; }
@@ -293,28 +309,35 @@
       <form>
         <div style="margin-bottom: 26px;">
           <label class="st-label">Select Upload Destinations</label>
+          {% if connected_upload_targets %}
           <div class="st-dest-grid">
+            {% for target in connected_upload_targets %}
             <label class="st-dest-card">
-              <input id="uploadDest_tiktok" type="checkbox" value="Tiktok">
-              <svg class="st-dest-icon" fill="#F2F1ED" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.68v13.7a2.4 2.4 0 0 1-2.54 2.4 2.4 2.4 0 0 1-2.54-2.4 2.4 2.4 0 0 1 5.02 0v-3.66a6.1 6.1 0 0 0-6.1 6.1 6.1 6.1 0 0 0 6.1 6.1 6.1 6.1 0 0 0 6.1-6.1V8.51A7.88 7.88 0 0 0 23 13.9v-3.66a4.85 4.85 0 0 1-3.41 1.45z"/></svg>
-              <span>TikTok</span>
-            </label>
-            <label class="st-dest-card">
-              <input id="uploadDest_youtube" type="checkbox" value="Youtube">
+              <input id="uploadDest_{{ target | lower }}" type="checkbox" value="{{ target }}">
+              {% if target == 'Youtube' %}
               <svg class="st-dest-icon" fill="#FF6B6B" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
               <span>YouTube</span>
-            </label>
-            <label class="st-dest-card">
-              <input id="uploadDest_facebook" type="checkbox" value="Facebook">
+              {% elif target == 'Tiktok' %}
+              <svg class="st-dest-icon" fill="#F2F1ED" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.68v13.7a2.4 2.4 0 0 1-2.54 2.4 2.4 2.4 0 0 1-2.54-2.4 2.4 2.4 0 0 1 5.02 0v-3.66a6.1 6.1 0 0 0-6.1 6.1 6.1 6.1 0 0 0 6.1 6.1 6.1 6.1 0 0 0 6.1-6.1V8.51A7.88 7.88 0 0 0 23 13.9v-3.66a4.85 4.85 0 0 1-3.41 1.45z"/></svg>
+              <span>TikTok</span>
+              {% elif target == 'Facebook' %}
               <svg class="st-dest-icon" fill="#8FBBFF" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
               <span>Facebook</span>
-            </label>
-            <label class="st-dest-card">
-              <input id="uploadDest_instagram" type="checkbox" value="Instagram">
+              {% else %}
               <svg class="st-dest-icon" fill="var(--amber)" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.07 1.645.07 4.849 0 3.205-.012 3.584-.07 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163C8.756 0 8.333.01 7.053.072 2.695.272.273 2.69.073 7.052.01 8.333 0 8.756 0 12c0 3.244.01 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.063 1.703.073 4.948.073 3.244 0 3.668-.01 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.063-1.28.073-1.702.073-4.948 0-3.244-.01-3.668-.072-4.948-.197-4.354-2.617-6.78-6.979-6.98C15.668.01 15.244 0 12 0z"/><path d="M12 5.838a6.162 6.162 0 1 1 0 12.324 6.162 6.162 0 0 1 0-12.324zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm4.965-10.322a1.44 1.44 0 1 1 0-2.881 1.44 1.44 0 0 1 0 2.881z"/></svg>
               <span>Instagram</span>
+              {% endif %}
             </label>
+            {% endfor %}
           </div>
+          <p style="font-size:11.5px; color: var(--dimmer); margin-top:10px;">
+            Only platforms with a connected account are listed. Re-connect Buffer to sync new channels.
+          </p>
+          {% else %}
+          <div class="st-dest-empty">
+            No accounts connected yet. <a href="#buffer">Connect Buffer</a> to pick your upload destinations.
+          </div>
+          {% endif %}
         </div>
 
         <div style="margin-bottom: 24px;">
@@ -613,6 +636,11 @@
   // API Base URL
   const API_BASE = '/api';
 
+  // Platforms the server currently considers connected (raw credential keys are
+  // mapped to publisher names there, so "google" and Buffer's "youtube" fold
+  // into one "Youtube" entry).
+  const CONNECTED_UPLOAD_TARGETS = {{ connected_upload_targets | tojson }};
+
   document.addEventListener('DOMContentLoaded', async () => {
     await loadUserConfig();
     await loadBufferStatus();
@@ -864,11 +892,13 @@
     const keyInput = document.getElementById('bufferApiKey');
 
     if (isConnected) {
+      const platforms = (CONNECTED_UPLOAD_TARGETS || []).join(', ') || 'none yet';
       statusDiv.innerHTML = `
         <div class="st-status-active">
           <span class="st-status-dot pulse"></span>
           <span><strong>Connected successfully!</strong> Your Buffer account is ready.</span>
-        </div>`;
+        </div>
+        <p style="margin-top:8px;font-size:12.5px;color:var(--dim);">Synced platforms: ${platforms}</p>`;
       saveBtn.textContent = 'Update Key';
       reconnectBtn.style.display = 'inline-block';
       toggleBtn.style.display = 'inline';
@@ -899,12 +929,14 @@
       const response = await fetch('/dashboard/buffer-connect', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bufferApiKey: bufferApiKey })
       });
+      const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to connect buffer profiles');
+        throw new Error(result.detail || 'Failed to connect buffer profiles');
       }
       updateBufferStatus(true);
-      showNotification('Buffer connected successfully!', 'success');
+      const channels = Array.isArray(result.channels) ? result.channels : [];
+      renderBufferChannels(channels);
+      showNotification(`Buffer connected — ${channels.length} channel${channels.length === 1 ? '' : 's'} synced`, 'success');
     } catch (error) {
       console.error('Error connecting buffer:', error);
       showNotification('Failed to connect Buffer. Please check your API key.', 'error');
@@ -920,6 +952,31 @@
       console.error('Error reconnecting buffer:', error);
       showNotification('Failed to re-connect to Buffer', 'error');
     }
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+  }
+
+  // Show what Buffer actually returned, so a channel added there is visible
+  // here right after re-connecting.
+  function renderBufferChannels(channels) {
+    const statusDiv = document.getElementById('bufferStatus');
+    if (!statusDiv || !Array.isArray(channels) || !channels.length) return;
+    const rows = channels.map((channel) => `
+      <div class="st-buffer-channel">
+        <span class="st-status-dot"></span>
+        <span class="st-buffer-name">${escapeHtml(channel.name || 'Unnamed channel')}</span>
+        <span class="st-buffer-service">${escapeHtml(channel.service || '')}</span>
+      </div>`).join('');
+    const existing = statusDiv.querySelector('.st-buffer-channels');
+    if (existing) existing.remove();
+    const list = document.createElement('div');
+    list.className = 'st-buffer-channels';
+    list.innerHTML = rows;
+    statusDiv.appendChild(list);
   }
 
   function showNotification(message, type = 'info') {

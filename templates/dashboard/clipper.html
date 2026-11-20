@@ -314,10 +314,12 @@
         <div>
           <label class="cl-field-label">Publish to</label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <label class="cl-check-row"><input type="checkbox" class="clip-target" value="Youtube" checked><span>YouTube</span></label>
-            <label class="cl-check-row"><input type="checkbox" class="clip-target" value="Tiktok"><span>TikTok</span></label>
-            <label class="cl-check-row"><input type="checkbox" class="clip-target" value="Facebook"><span>Facebook</span></label>
-            <label class="cl-check-row"><input type="checkbox" class="clip-target" value="Instagram"><span>Instagram</span></label>
+            {% for target in connected_upload_targets %}
+            <label class="cl-check-row"><input type="checkbox" class="clip-target" value="{{ target }}" {% if loop.first %}checked{% endif %}><span>{% if target == 'Youtube' %}YouTube{% elif target == 'Tiktok' %}TikTok{% else %}{{ target }}{% endif %}</span></label>
+            {% endfor %}
+            {% if not connected_upload_targets %}
+            <p class="cl-note err" style="grid-column:1 / -1;">No accounts connected — connect a platform in <a href="/dashboard/settings#buffer" style="color:var(--signal);">Settings</a> first.</p>
+            {% endif %}
           </div>
         </div>
 
