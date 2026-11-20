@@ -34,9 +34,21 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Header,Backgroun
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
-from controller.url_video_controller import FromPlatform
+from controller.url_video_controller import FromPlatform, user_transformations
+from controller.worker_client import (
+    dispatch_download,
+    last_dispatch_error,
+    running_on_vercel,
+    worker_enabled,
+)
+from models.video import (
+    QuotaExceededError,
+    assert_can_schedule,
+    create_queued_video,
+)
 from prisma.models import User
 from controller.mail_controller import new_video_scheduled_mail
+from utils import queued_title
 
 # ── Direct prisma import — no per-request get_db dependency ────────────────────
 from lib.depends import get_current_user
@@ -51,8 +63,8 @@ import logging
 
 logger = logging.getLogger("ai-discovery")
 
-# Max discovered videos actually downloaded + stored per ingest call. The bot may
-# send a full batch; anything beyond this is skipped to protect Cloudinary quota.
+# Max discovered videos actually queued per ingest call. The bot may send a
+# full batch; anything beyond this is skipped to protect Cloudinary quota.
 MAX_DISCOVERED_PER_RUN = int(os.getenv("MAX_DISCOVERED_PER_RUN", "2"))
 
 # Optional: lets "Run now" trigger the GitHub Actions workflow immediately via
@@ -430,24 +442,85 @@ async def bot_report_run_status(
     )
     return {"success": True}
 
+async def _dispatch_discovered_video(
+    user_id: int,
+    video_url: str,
+    platform: str,
+    video_id: Optional[str],
+    title: Optional[str],
+    upload_destinations: list,
+    transformation,
+) -> bool:
+    """Hand one discovered video to the download worker; True when it was queued.
+
+    Same two steps as /dashboard/upload-from-url: reserve a plan slot by
+    dispatching, then create the "job:<id>" Pending row the dashboard and the
+    completion webhook work from.
+    """
+    try:
+        await assert_can_schedule(user_id)
+    except QuotaExceededError as e:
+        logger.warning(f"Queue full for user {user_id}, not dispatching: {e}")
+        return False
+
+    dispatched = await dispatch_download(
+        user_id=user_id,
+        video_url=video_url,
+        platform=platform,
+        title=None,  # keep the worker's extracted title; placeholder below
+        external_id=video_id,
+        upload_destinations=upload_destinations,
+        transformation=transformation,
+    )
+    if not dispatched or not dispatched.get("jobId"):
+        logger.error(
+            f"Worker dispatch failed for {video_url}: "
+            f"{last_dispatch_error() or 'no job id returned'}"
+        )
+        return False
+
+    try:
+        await create_queued_video(
+            user_id=user_id,
+            job_id=dispatched["jobId"],
+            title=title or queued_title(platform, video_url),
+            upload_destinations=upload_destinations,
+            platform=platform,
+        )
+    except QuotaExceededError as e:
+        logger.warning(f"Queue full for user {user_id} after dispatch: {e}")
+        return False
+
+    return True
+
+
 async def _process_discovered_videos(
     user_id: int,
     videos_data: list,
     upload_destinations: list,
-):
+) -> dict:
     """
-    Download and upload discovered videos, one at a time.
+    Queue discovered videos through the download worker, one at a time.
 
-    Runs as a FastAPI background task (after the ingest response is sent).
-    Each video goes through FromPlatform just like /upload-from-url, so it lands
-    in Cloudinary as a Pending video ready for the publish schedule.
+    This runs *inside* the ingest request when a worker is configured: on
+    serverless hosts a background task is frozen as soon as the response is
+    sent, which is how discovered videos used to be silently dropped. Each
+    dispatch creates the usual "job:<id>" Pending row, so clips appear in the
+    Videos queue immediately. Without a worker the local pipeline still runs as
+    a background task on a long-lived host.
     """
     user = await prisma.user.find_unique(where={"id": user_id})
     if not user:
         logger.error(f"Ingest: user {user_id} not found")
-        return
+        return {"queued": 0, "skipped": 0}
+
+    use_worker = worker_enabled()
+    # Playground defaults are baked in once per run instead of per video.
+    transformation = await user_transformations(user_id) if use_worker else None
 
     uploaded_videos = []
+    seen_ids = set()
+    skipped = 0
     try:
         for video_data in videos_data:
             if len(uploaded_videos) >= MAX_DISCOVERED_PER_RUN:
@@ -463,40 +536,64 @@ async def _process_discovered_videos(
 
             if not video_url:
                 logger.warning("Skipping discovered video without a URL")
+                skipped += 1
                 continue
 
             if platform not in ("tiktok", "facebook", "youtube", "instagram"):
                 logger.warning(f"Unsupported platform '{platform}', skipping {video_url}")
+                skipped += 1
                 continue
 
             # Dedupe per user: the same clip may legitimately be discovered by
             # several users, so a global externalId check would drop good videos.
             if video_id:
+                if video_id in seen_ids:
+                    logger.info(f"Duplicate video inside this batch, skipping: {video_url}")
+                    skipped += 1
+                    continue
                 is_duplicated = await prisma.video.find_first(
                     where={"userId": user_id, "externalId": video_id}
                 )
                 if is_duplicated:
                     logger.info(f"Duplicate video for user {user_id}, skipping: {video_url}")
+                    skipped += 1
                     continue
 
             logger.info(f"🔄 Processing: {video_data.get('title')} from {platform}")
 
-            try:
-                source = FromPlatform(
-                    video_url=video_url,
+            if use_worker:
+                queued = await _dispatch_discovered_video(
                     user_id=user_id,
-                    upload_targets=upload_destinations,
+                    video_url=video_url,
+                    platform=platform,
                     video_id=video_id,
+                    title=video_data.get("title"),
+                    upload_destinations=upload_destinations,
+                    transformation=transformation,
                 )
-                result = await source[platform]
-            except Exception as e:
-                logger.error(f"Error processing {video_url}: {e}")
+            else:
+                # Local fallback: only reaches here on a long-lived host.
+                try:
+                    source = FromPlatform(
+                        video_url=video_url,
+                        user_id=user_id,
+                        upload_targets=upload_destinations,
+                        video_id=video_id,
+                    )
+                    result = await source[platform]
+                except Exception as e:
+                    logger.error(f"Error processing {video_url}: {e}")
+                    result = {"Error": str(e)}
+                queued = "success" in result
+                if not queued:
+                    logger.error(f"Failed to ingest {video_url}: {result.get('Error')}")
+
+            if not queued:
+                skipped += 1
                 continue
 
-            if "success" not in result:
-                logger.error(f"Failed to ingest {video_url}: {result.get('Error')}")
-                continue
-
+            if video_id:
+                seen_ids.add(video_id)
             uploaded_videos.append({
                 "url": video_url,
                 "title": video_data.get("title"),
@@ -517,9 +614,14 @@ async def _process_discovered_videos(
             user_name=user.fullname,
             default_upload_dest=upload_destinations,
         )
-        logger.info(f"✅ Queued {len(uploaded_videos)} of {len(videos_data)} videos for user {user_id}")
+        logger.info(
+            f"✅ Queued {len(uploaded_videos)} of {len(videos_data)} videos "
+            f"for user {user_id} (worker={use_worker})"
+        )
     else:
         logger.info(f"ℹ️  No videos queued for user {user_id}")
+
+    return {"queued": len(uploaded_videos), "skipped": skipped}
 
 
 
@@ -533,7 +635,12 @@ async def ingest_discovered_videos(
     Receive discovered videos from the external discovery service.
 
     Auth: Bearer <user-api-key>
-    Downloads & uploads using FromPlatform (same as upload-from-url).
+
+    With a download worker configured the videos are dispatched inside this
+    request — serverless hosts freeze background tasks the moment the response
+    is sent, which is why discovered videos never reached the worker before.
+    The local in-process pipeline (no worker, long-lived host) stays a
+    background task.
     """
     try:
         # 1. AUTHORIZATION CHECK
@@ -564,7 +671,9 @@ async def ingest_discovered_videos(
             raise HTTPException(status_code=404, detail="User not found")
 
         # 3. VALIDATE PAYLOAD (Pydantic already guarantees the shape)
-        videos = [video.model_dump() for video in payload.videos]
+        # pydantic 1.10 (pinned in this project) has .dict(); .model_dump() is
+        # v2-only and raised AttributeError here before anything was queued.
+        videos = [video.dict() for video in payload.videos]
         if not videos:
             return {"success": False, "message": "No videos provided"}
 
@@ -581,6 +690,45 @@ async def ingest_discovered_videos(
         )
 
         # 5. QUEUE FOR PROCESSING
+        if worker_enabled():
+            summary = await _process_discovered_videos(
+                user_id=user_id,
+                videos_data=videos,
+                upload_destinations=destinations,
+            )
+            queued = summary["queued"]
+            detail = f"Queued {queued} of {len(videos)} videos on the download worker"
+            if not queued:
+                detail += " (duplicates, unsupported platform, or queue full)"
+
+            # Update API key last used
+            await prisma.userapikey.update(
+                where={"apiKey": hashed_token},
+                data={"lastUsedAt": datetime.now(timezone.utc)},
+            )
+
+            return {
+                "success": True,
+                "message": detail,
+                "queued": queued,
+                "skipped": summary["skipped"],
+            }
+
+        if running_on_vercel():
+            # A background task would be frozen before it ran a single video.
+            logger.error(
+                "Ingest on Vercel without WORKER_SERVICE_URL / WORKER_TOKEN - "
+                "discovered videos cannot be processed"
+            )
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Download worker is not configured on this deployment "
+                    "(WORKER_SERVICE_URL / WORKER_TOKEN). Discovered videos "
+                    "were not queued."
+                ),
+            )
+
         background_tasks.add_task(
             _process_discovered_videos,
             user_id=user_id,
