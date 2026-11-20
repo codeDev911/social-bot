@@ -15,6 +15,18 @@
 
     <link rel="stylesheet" href="/static/styles/main.css" />
 
+    <script>
+      // apply saved theme before first paint to avoid a flash
+      (function () {
+        try {
+          var saved = localStorage.getItem('theme');
+          document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
+
     <style>
       .contact-hero {
         padding: 90px 0 70px;
@@ -98,7 +110,7 @@
       .field select:focus {
         outline: none;
         border-color: var(--signal);
-        box-shadow: 0 0 0 3px rgba(63, 255, 141, 0.08);
+        box-shadow: 0 0 0 3px rgba(var(--signal-rgb), 0.1);
       }
 
       textarea {

@@ -21,9 +21,9 @@
     transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   }
   .st-nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
-  .st-nav-item:hover { background: rgba(255,255,255,0.03); color: var(--paper); }
+  .st-nav-item:hover { background: var(--hover-wash); color: var(--paper); }
   .st-nav-item.active {
-    background: rgba(63,255,141,0.07); border-left-color: var(--signal); color: var(--signal);
+    background: rgba(var(--signal-rgb), 0.09); border-left-color: var(--signal); color: var(--signal);
   }
 
   /* ── main column ──────────────────────────────────────────────────── */
@@ -55,12 +55,12 @@
   @media (max-width: 600px) { .st-grid-2 { grid-template-columns: 1fr; } }
 
   .st-btn {
-    background: var(--signal); color: #06140C; border: none;
+    background: var(--signal); color: var(--on-signal); border: none;
     border-radius: 8px; padding: 11px 22px; font-family: var(--font-body);
     font-weight: 600; font-size: 13.5px; cursor: pointer; transition: all 0.15s ease;
     display: inline-flex; align-items: center; gap: 8px;
   }
-  .st-btn:hover { background: #5FFFA5; transform: translateY(-1px); }
+  .st-btn:hover { background: var(--signal-hover); transform: translateY(-1px); }
 
   .st-btn-outline {
     background: transparent; border: 1px solid var(--hairline-2); color: var(--paper);
@@ -167,11 +167,11 @@
     background: none; border: none; cursor: pointer; font-weight: 500;
   }
   .st-connect-btn {
-    background: var(--signal); color: #06140C; border: none;
+    background: var(--signal); color: var(--on-signal); border: none;
     border-radius: 6px; padding: 6px 14px; font-family: var(--font-mono);
     font-weight: 500; font-size: 11.5px; cursor: pointer; transition: background 0.15s ease;
   }
-  .st-connect-btn:hover { background: #5FFFA5; }
+  .st-connect-btn:hover { background: var(--signal-hover); }
 
   /* ── api key panel ────────────────────────────────────────────────── */
   .st-apikey-warning {
@@ -278,7 +278,7 @@
           <div class="st-avatar-wrap">
             <div class="st-avatar"><img id="avator" src="{{user_info.avator}}" /></div>
             <button type="button" class="st-avatar-edit">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#06140C" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             </button>
           </div>
           <div>
@@ -981,8 +981,10 @@
 
   function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
-    const bg = type === 'success' ? '#3FFF8D' : type === 'error' ? '#FF6B6B' : '#FFB454';
-    const fg = type === 'success' ? '#06140C' : '#0A0B0D';
+    const cssVar = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const bg = type === 'success' ? cssVar('--signal', '#FF7A1A') : type === 'error' ? cssVar('--red', '#FF6B6B') : cssVar('--amber', '#FFB454');
+    const fg = type === 'success' ? cssVar('--on-signal', '#1A0D02') : (isLight ? '#FFF8F2' : '#0A0B0D');
     notification.style.cssText = `position:fixed; top:20px; right:20px; background:${bg}; color:${fg}; padding:12px 20px; border-radius:8px; font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px; z-index:9999; box-shadow:0 8px 24px rgba(0,0,0,0.4);`;
     notification.textContent = message;
     document.body.appendChild(notification);

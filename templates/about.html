@@ -12,6 +12,18 @@
 
 <link rel="stylesheet" href="/static/styles/main.css">
 
+<script>
+  // apply saved theme before first paint to avoid a flash
+  (function () {
+    try {
+      var saved = localStorage.getItem('theme');
+      document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
+
 
     <style>
         .about-hero{
@@ -53,7 +65,7 @@
             border:1px solid var(--hairline);
             border-radius:14px;
             padding:22px;
-            background:rgba(255,255,255,.02);
+            background:var(--bg-raised);
         }
 
         .stat h2{
@@ -112,7 +124,7 @@
             border-radius:50%;
             display:grid;
             place-items:center;
-            background:rgba(63,255,141,.12);
+            background:rgba(var(--signal-rgb),.12);
             color:var(--signal);
             font-weight:700;
             flex-shrink:0;
@@ -142,7 +154,7 @@
             padding:70px 40px;
             border-radius:20px;
             border:1px solid var(--hairline-2);
-            background:linear-gradient(180deg,rgba(63,255,141,.05),transparent);
+            background:linear-gradient(180deg,rgba(var(--signal-rgb),.05),transparent);
         }
 
         .cta p{

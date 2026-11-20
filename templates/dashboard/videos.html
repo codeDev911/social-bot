@@ -38,13 +38,13 @@
   .vd-select:focus { outline: none; border-color: var(--signal-dim); }
 
   .vd-upload-btn {
-    background: var(--signal); color: #06140C; border: none;
+    background: var(--signal); color: var(--on-signal); border: none;
     border-radius: 8px; padding: 10px 22px; font-family: var(--font-body);
     font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.15s ease;
     display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
     text-decoration: none;
   }
-  .vd-upload-btn:hover { background: #5FFFA5; transform: translateY(-1px); }
+  .vd-upload-btn:hover { background: var(--signal-hover); transform: translateY(-1px); }
 
   /* ── stat cards ───────────────────────────────────────────────────── */
   .vd-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
@@ -58,10 +58,10 @@
   }
   .vd-card::before {
     content: ''; position: absolute; inset: 0;
-    background-image: radial-gradient(rgba(63,255,141,0.04) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(var(--signal-rgb), 0.05) 1px, transparent 1px);
     background-size: 18px 18px; pointer-events: none;
   }
-  .vd-card.acc-signal:hover { border-color: rgba(63,255,141,0.35); }
+  .vd-card.acc-signal:hover { border-color: rgba(var(--signal-rgb), 0.35); }
   .vd-card.acc-amber:hover { border-color: rgba(255,180,84,0.35); }
   .vd-card.acc-red:hover { border-color: rgba(255,107,107,0.35); }
 

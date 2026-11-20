@@ -9,6 +9,17 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/styles/main.css">
+<script>
+  // apply saved theme before first paint to avoid a flash
+  (function () {
+    try {
+      var saved = localStorage.getItem('theme');
+      document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
 </head>
 <body>
 
@@ -119,14 +130,14 @@
           </g>
           <defs>
             <linearGradient id="sweepGrad" x1="150" y1="150" x2="234" y2="84" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#3FFF8D" stop-opacity="0.28"/>
-              <stop offset="100%" stop-color="#3FFF8D" stop-opacity="0"/>
+              <stop offset="0%" class="stop-signal" stop-opacity="0.28"/>
+              <stop offset="100%" class="stop-signal" stop-opacity="0"/>
             </linearGradient>
           </defs>
-          <circle class="scope-blip-dot" cx="206" cy="96" r="4" fill="#3FFF8D" style="animation-delay: 0s;"/>
-          <circle class="scope-blip-dot" cx="98" cy="198" r="4" fill="#3FFF8D" style="animation-delay: 0.6s;"/>
-          <circle class="scope-blip-dot" cx="220" cy="180" r="4" fill="#3FFF8D" style="animation-delay: 1.1s;"/>
-          <circle class="scope-blip-dot" cx="104" cy="92" r="4" fill="#3FFF8D" style="animation-delay: 1.7s;"/>
+          <circle class="scope-blip-dot fc-signal" cx="206" cy="96" r="4" style="animation-delay: 0s;"/>
+          <circle class="scope-blip-dot fc-signal" cx="98" cy="198" r="4" style="animation-delay: 0.6s;"/>
+          <circle class="scope-blip-dot fc-signal" cx="220" cy="180" r="4" style="animation-delay: 1.1s;"/>
+          <circle class="scope-blip-dot fc-signal" cx="104" cy="92" r="4" style="animation-delay: 1.7s;"/>
           <circle cx="150" cy="150" r="4" fill="#F2F1ED"/>
         </svg>
         <span class="scope-readout">RANGE 24H<br>SIGNALS 5</span>
@@ -213,9 +224,9 @@
             <div class="fv-gate">
               <svg viewBox="0 0 90 90" fill="none">
                 <path d="M14 20 L40 20 L40 70 L14 70 Z" stroke="#26282D" stroke-width="1.3" fill="none" stroke-dasharray="3 3"/>
-                <path d="M40 20 L76 20 L76 70 L40 70 Z" stroke="#3FFF8D" stroke-width="1.3" fill="rgba(63,255,141,0.05)"/>
-                <circle class="fv-gate-pass" cx="58" cy="33" r="3" fill="#3FFF8D"/>
-                <circle class="fv-gate-pass" cx="58" cy="57" r="3" fill="#3FFF8D" style="animation-delay:0.5s"/>
+                <path d="M40 20 L76 20 L76 70 L40 70 Z" class="sc-signal fc-signal-soft" stroke-width="1.3"/>
+                <circle class="fv-gate-pass fc-signal" cx="58" cy="33" r="3"/>
+                <circle class="fv-gate-pass fc-signal" cx="58" cy="57" r="3" style="animation-delay:0.5s"/>
                 <circle cx="24" cy="45" r="3" fill="#5A5D63"/>
                 <line x1="40" y1="14" x2="40" y2="76" stroke="#1E2024" stroke-width="1"/>
               </svg>
@@ -232,7 +243,7 @@
             <div class="fv-score-ring">
               <svg width="78" height="78" viewBox="0 0 78 78">
                 <circle cx="39" cy="39" r="33" fill="none" stroke="#1E2024" stroke-width="4"/>
-                <circle cx="39" cy="39" r="33" fill="none" stroke="#3FFF8D" stroke-width="4" stroke-dasharray="207.3" stroke-dashoffset="48" stroke-linecap="round"/>
+                <circle cx="39" cy="39" r="33" fill="none" class="sc-signal" stroke-width="4" stroke-dasharray="207.3" stroke-dashoffset="48" stroke-linecap="round"/>
               </svg>
               <div class="fv-score-val"><b>8.4</b><span>Score</span></div>
             </div>

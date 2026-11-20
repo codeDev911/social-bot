@@ -9,8 +9,22 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="icon" href="/static/icon.png" type="image/png" />
+<script>
+  // apply saved theme before first paint to avoid a flash
+  (function () {
+    try {
+      var saved = localStorage.getItem('theme');
+      document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
 <style>
+  /* ── theme tokens (dark is the default) ─────────────────────────────── */
   :root {
+    color-scheme: dark;
+
     --bg: #0A0B0D;
     --bg-raised: #111317;
     --bg-raised-2: #15171C;
@@ -19,14 +33,58 @@
     --dimmer: #5A5D63;
     --hairline: #1E2024;
     --hairline-2: #26282D;
-    --signal: #3FFF8D;
-    --signal-dim: #1E7A4A;
+
+    /* brand signal — orange */
+    --signal: #FF7A1A;
+    --signal-dim: #A8501A;
+    --signal-rgb: 255, 122, 26;
+    --signal-hover: #FF9447;
+    --on-signal: #1A0D02;
+
     --amber: #FFB454;
     --amber-dim: #8A5E26;
     --red: #FF6B6B;
+
+    /* surfaces & effects */
+    --nav-bg: rgba(10, 11, 13, 0.85);
+    --hover-wash: rgba(255, 255, 255, 0.05);
+    --track: rgba(255, 255, 255, 0.06);
+    --scroll-track: rgba(10, 11, 13, 0.4);
+    --scanline: rgba(255, 255, 255, 0.012);
+
     --font-display: 'Space Grotesk', sans-serif;
     --font-body: 'Inter', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  /* ── light theme ────────────────────────────────────────────────────── */
+  html[data-theme="light"] {
+    color-scheme: light;
+
+    --bg: #F7F4EF;
+    --bg-raised: #FFFFFF;
+    --bg-raised-2: #F1ECE4;
+    --paper: #14161A;
+    --dim: #4E535B;
+    --dimmer: #71757D;
+    --hairline: #E4DED5;
+    --hairline-2: #D5CEC3;
+
+    --signal: #C2410C;
+    --signal-dim: #E9A876;
+    --signal-rgb: 194, 65, 12;
+    --signal-hover: #9A3412;
+    --on-signal: #FFF8F2;
+
+    --amber: #B45309;
+    --amber-dim: #EFCB9B;
+    --red: #D92D20;
+
+    --nav-bg: rgba(247, 244, 239, 0.85);
+    --hover-wash: rgba(20, 22, 26, 0.05);
+    --track: rgba(20, 22, 26, 0.08);
+    --scroll-track: rgba(20, 22, 26, 0.06);
+    --scanline: rgba(20, 22, 26, 0.02);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -40,6 +98,7 @@
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
+    transition: background 0.2s ease, color 0.2s ease;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -49,24 +108,24 @@
   }
 
   a { color: inherit; text-decoration: none; }
-  ::selection { background: var(--signal); color: #06140C; }
+  ::selection { background: var(--signal); color: var(--on-signal); }
   html { scroll-behavior: smooth; }
 
   ::-webkit-scrollbar { width: 8px; }
-  ::-webkit-scrollbar-track { background: rgba(10,11,13,0.4); }
-  ::-webkit-scrollbar-thumb { background: rgba(63,255,141,0.25); border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(63,255,141,0.4); }
+  ::-webkit-scrollbar-track { background: var(--scroll-track); }
+  ::-webkit-scrollbar-thumb { background: rgba(var(--signal-rgb), 0.25); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(var(--signal-rgb), 0.4); }
 
   /* ── scan lines + mouse glow, identical to index.html ─────────────── */
   .scanlines {
     position: fixed; inset: 0; pointer-events: none; z-index: 0;
-    background: repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    background: repeating-linear-gradient(0deg, var(--scanline) 0px, var(--scanline) 1px, transparent 1px, transparent 3px);
     opacity: 0.5;
   }
 
   .bg-glow {
     position: fixed; inset: 0; pointer-events: none; z-index: 0;
-    background: radial-gradient(560px circle at var(--mx, 50%) var(--my, 20%), rgba(63,255,141,0.05), transparent 70%);
+    background: radial-gradient(560px circle at var(--mx, 50%) var(--my, 20%), rgba(var(--signal-rgb), 0.06), transparent 70%);
   }
 
   @media (prefers-reduced-motion: reduce) { .bg-glow { display: none; } }
@@ -85,7 +144,7 @@
     content: '';
     position: absolute;
     inset: 0;
-    background-image: radial-gradient(rgba(63,255,141,0.04) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(var(--signal-rgb), 0.05) 1px, transparent 1px);
     background-size: 18px 18px;
     pointer-events: none;
     border-radius: inherit;
@@ -97,15 +156,15 @@
     padding: 10px 20px; border-radius: 6px; cursor: pointer;
     border: 1px solid transparent; transition: all 0.15s ease; white-space: nowrap;
   }
-  .btn-primary { background: var(--signal); color: #06140C; }
-  .btn-primary:hover { background: #5FFFA5; transform: translateY(-1px); }
+  .btn-primary { background: var(--signal); color: var(--on-signal); }
+  .btn-primary:hover { background: var(--signal-hover); transform: translateY(-1px); }
   .btn-ghost { background: transparent; color: var(--paper); border-color: var(--hairline-2); }
   .btn-ghost:hover { border-color: var(--dim); }
 
   .eyebrow {
     display: inline-flex; align-items: center; gap: 8px;
     font-family: var(--font-mono); font-size: 11.5px; color: var(--signal);
-    background: rgba(63,255,141,0.08); border: 1px solid rgba(63,255,141,0.25);
+    background: rgba(var(--signal-rgb), 0.1); border: 1px solid rgba(var(--signal-rgb), 0.3);
     padding: 5px 12px; border-radius: 4px; letter-spacing: 0.02em;
   }
   .eyebrow .blip { width: 6px; height: 6px; border-radius: 50%; background: var(--signal); animation: pulse-dot-kf 1.6s ease-in-out infinite; }
@@ -115,7 +174,7 @@
   /* ── top nav ──────────────────────────────────────────────────────── */
   .topnav {
     position: sticky; top: 0; z-index: 50;
-    background: rgba(10,11,13,0.85); backdrop-filter: blur(12px);
+    background: var(--nav-bg); backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--hairline);
   }
   .topnav-inner {
@@ -130,7 +189,13 @@
     display: flex; align-items: center; justify-content: center;
     transition: background 0.15s ease, color 0.15s ease;
   }
-  .icon-btn:hover { background: rgba(255,255,255,0.05); color: var(--paper); }
+  .icon-btn:hover { background: var(--hover-wash); color: var(--paper); }
+
+  /* theme toggle: sun in dark mode, moon in light mode */
+  .theme-toggle { margin-left: 4px; }
+  .theme-toggle .theme-icon-moon { display: none; }
+  html[data-theme="light"] .theme-toggle .theme-icon-sun { display: none; }
+  html[data-theme="light"] .theme-toggle .theme-icon-moon { display: block; }
 
   .mobile-menu-btn { display: none; }
 
@@ -142,7 +207,7 @@
   /* ── sidebar ──────────────────────────────────────────────────────── */
   .sidebar {
     width: 240px; flex-shrink: 0;
-    background: rgba(10,11,13,0.85); backdrop-filter: blur(12px);
+    background: var(--nav-bg); backdrop-filter: blur(12px);
     border-right: 1px solid var(--hairline);
     display: flex; flex-direction: column;
     padding: 24px 14px;
@@ -161,9 +226,9 @@
     transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   }
   .sidebar-link svg { width: 18px; height: 18px; flex-shrink: 0; }
-  .sidebar-link:hover { background: rgba(255,255,255,0.03); color: var(--paper); }
+  .sidebar-link:hover { background: var(--hover-wash); color: var(--paper); }
   .sidebar-link.active {
-    background: rgba(63,255,141,0.07);
+    background: rgba(var(--signal-rgb), 0.09);
     border-left-color: var(--signal);
     color: var(--signal);
   }
@@ -219,6 +284,16 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
           </svg>
         </a>
+
+        <button type="button" class="icon-btn theme-toggle" id="themeToggle" aria-label="Toggle dark or light theme" title="Toggle dark / light theme">
+          <svg class="theme-icon-sun" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+          <svg class="theme-icon-moon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+          </svg>
+        </button>
       </div>
     </nav>
 
@@ -282,6 +357,17 @@
   const sidebar = document.getElementById("sidebar");
   const sidebarOverlay = document.getElementById("sidebarOverlay");
   const sidebarToggle = document.getElementById("sidebarToggle");
+
+  // theme toggle — persists the choice across pages and sessions
+  const themeToggle = document.getElementById("themeToggle");
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      const isLight = document.documentElement.getAttribute("data-theme") === "light";
+      const next = isLight ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      try { localStorage.setItem("theme", next); } catch (e) {}
+    });
+  }
 
   if (sidebarToggle) {
     sidebarToggle.addEventListener("click", () => {

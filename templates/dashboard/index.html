@@ -57,7 +57,7 @@
     content: '';
     position: absolute;
     inset: 0;
-    background-image: radial-gradient(rgba(63,255,141,0.04) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(var(--signal-rgb), 0.05) 1px, transparent 1px);
     background-size: 18px 18px;
     pointer-events: none;
   }
@@ -123,7 +123,7 @@
 
   .stat-icon svg { width: 14px; height: 14px; }
 
-  .stat-icon-green { background: rgba(63,255,141,0.1); color: var(--signal); }
+  .stat-icon-green { background: rgba(var(--signal-rgb), 0.1); color: var(--signal); }
   .stat-icon-amber { background: rgba(255,180,84,0.1); color: var(--amber); }
   .stat-icon-red   { background: rgba(255,107,107,0.1); color: var(--red); }
 
@@ -190,7 +190,7 @@
     gap: 5px;
   }
 
-  .chip-green { background: rgba(63,255,141,0.1); color: var(--signal); }
+  .chip-green { background: rgba(var(--signal-rgb), 0.1); color: var(--signal); }
   .chip-amber { background: rgba(255,180,84,0.1); color: var(--amber); }
   .chip-red   { background: rgba(255,107,107,0.1); color: var(--red); }
   .chip-dim   { background: rgba(90,93,99,0.15); color: var(--dim); }
@@ -336,8 +336,8 @@
     position: relative;
   }
 
-  .drop-zone:hover { border-color: var(--signal-dim); background: rgba(63,255,141,0.02); }
-  .drop-zone.drag-over { border-color: var(--signal); background: rgba(63,255,141,0.04); }
+  .drop-zone:hover { border-color: var(--signal-dim); background: rgba(var(--signal-rgb), 0.03); }
+  .drop-zone.drag-over { border-color: var(--signal); background: rgba(var(--signal-rgb), 0.05); }
 
   .drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
@@ -375,7 +375,7 @@
   .btn-submit {
     flex: 1;
     background: var(--signal);
-    color: #06140C;
+    color: var(--on-signal);
     font-family: var(--font-body);
     font-weight: 600;
     font-size: 13.5px;
@@ -387,7 +387,7 @@
     display: flex; align-items: center; justify-content: center; gap: 7px;
   }
 
-  .btn-submit:hover { background: #5FFFA5; }
+  .btn-submit:hover { background: var(--signal-hover); }
 
   .btn-reset {
     padding: 11px 20px;
@@ -591,7 +591,7 @@
   }
 
   .connect-btn:hover { border-color: var(--signal-dim); color: var(--signal); }
-  .connect-btn.connected { border-color: var(--signal-dim); color: var(--signal); background: rgba(63,255,141,0.08); }
+  .connect-btn.connected { border-color: var(--signal-dim); color: var(--signal); background: rgba(var(--signal-rgb), 0.08); }
 
   /* reveal */
   .reveal { opacity: 0; transform: translateY(12px); transition: opacity 0.5s ease, transform 0.5s ease; }

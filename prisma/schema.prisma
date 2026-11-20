@@ -175,6 +175,13 @@ model AiDiscoveryConfig {
   batchSize       Int   @default(10)
   maxPerPlatform  Int   @default(20)
 
+  // ── Output format & duration gate ────────────────────────────────────────
+  // "shorts" → 1-3 min clips | "long" → 4-7 min videos. Videos outside
+  // [minDurationSec, maxDurationSec] are never queued.
+  videoFormat    String @default("shorts")
+  minDurationSec Int    @default(60)
+  maxDurationSec Int    @default(180)
+
   // ── Recency window: "day" | "week" | "month" | "year" ─────────────────
   timeFilter String @default("week")
 

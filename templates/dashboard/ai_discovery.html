@@ -23,14 +23,14 @@
   .ad-switch {
     position: relative; width: 44px; height: 24px; border-radius: 999px;
     border: none; cursor: pointer; transition: background 0.2s ease;
-    background: rgba(255,255,255,0.08);
+    background: var(--track);
   }
   .ad-switch.on { background: var(--signal); }
   .ad-switch-dot {
     position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
     border-radius: 50%; background: var(--bg); transition: left 0.2s ease;
   }
-  .ad-switch.on .ad-switch-dot { left: 23px; background: #06140C; }
+  .ad-switch.on .ad-switch-dot { left: 23px; background: var(--on-signal); }
 
   /* ── status cards ─────────────────────────────────────────────────── */
   .ad-status-grid {
@@ -44,7 +44,7 @@
   }
   .ad-card::before {
     content: ''; position: absolute; inset: 0;
-    background-image: radial-gradient(rgba(63,255,141,0.04) 1px, transparent 1px);
+    background-image: radial-gradient(rgba(var(--signal-rgb), 0.05) 1px, transparent 1px);
     background-size: 18px 18px; pointer-events: none;
   }
   .ad-card-top {
@@ -136,6 +136,22 @@
   .ad-platform-card input { accent-color: var(--signal); width: 15px; height: 15px; }
   .ad-platform-card span { font-size: 13.5px; color: var(--paper); }
 
+  /* video format selector */
+  .ad-format-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 600px) { .ad-format-grid { grid-template-columns: 1fr; } }
+
+  .ad-format-card {
+    display: flex; flex-direction: column; gap: 5px;
+    background: var(--bg-raised-2); border: 1px solid var(--hairline-2);
+    border-radius: 10px; padding: 14px 16px; cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .ad-format-card:hover { border-color: var(--signal-dim); }
+  .ad-format-card.selected { border-color: var(--signal); background: rgba(var(--signal-rgb), 0.08); }
+  .ad-format-card input { accent-color: var(--signal); width: 15px; height: 15px; margin: 0 0 4px; }
+  .ad-format-name { font-size: 14px; font-weight: 600; color: var(--paper); }
+  .ad-format-desc { font-family: var(--font-mono); font-size: 11.5px; color: var(--dim); line-height: 1.5; }
+
   /* sliders / inputs row */
   .ad-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
   @media (max-width: 760px) { .ad-grid-3 { grid-template-columns: 1fr; } }
@@ -162,11 +178,11 @@
   /* buttons */
   .ad-btn-row { display: flex; gap: 12px; margin-top: 8px; }
   .ad-btn-primary {
-    flex: 1; background: var(--signal); color: #06140C; border: none;
+    flex: 1; background: var(--signal); color: var(--on-signal); border: none;
     border-radius: 8px; padding: 13px; font-family: var(--font-body);
     font-weight: 600; font-size: 14.5px; cursor: pointer; transition: background 0.15s ease;
   }
-  .ad-btn-primary:hover { background: #5FFFA5; }
+  .ad-btn-primary:hover { background: var(--signal-hover); }
 
   .ad-btn-run {
     background: var(--bg-raised-2); border: 1px solid var(--hairline-2);
@@ -284,6 +300,35 @@
         </div>
       </div>
 
+      <!-- Video Format & Duration Window -->
+      {% set active_format = config.videoFormat or 'shorts' %}
+      <div>
+        <label class="ad-label">Video Format</label>
+        <div class="ad-format-grid">
+          <label class="ad-format-card {{ 'selected' if active_format == 'shorts' else '' }}" id="format_card_shorts">
+            <input type="radio" name="video_format" value="shorts" class="ad-format-radio" {{ 'checked' if active_format == 'shorts' else '' }}>
+            <span class="ad-format-name">Shorts</span>
+            <span class="ad-format-desc">1–3 min vertical clips for TikTok, Reels &amp; YouTube Shorts</span>
+          </label>
+          <label class="ad-format-card {{ 'selected' if active_format == 'long' else '' }}" id="format_card_long">
+            <input type="radio" name="video_format" value="long" class="ad-format-radio" {{ 'checked' if active_format == 'long' else '' }}>
+            <span class="ad-format-name">Long-form</span>
+            <span class="ad-format-desc">4–7 min videos for YouTube &amp; Facebook watch</span>
+          </label>
+        </div>
+        <div class="ad-grid-2" style="margin-top: 16px;">
+          <div>
+            <label class="ad-label">Min Duration (minutes)</label>
+            <input type="number" id="min_duration_min" min="0.5" max="60" step="0.5" value="{{ ((config.minDurationSec or 60) / 60) | round(1) }}" class="ad-input">
+          </div>
+          <div>
+            <label class="ad-label">Max Duration (minutes)</label>
+            <input type="number" id="max_duration_min" min="0.5" max="60" step="0.5" value="{{ ((config.maxDurationSec or 180) / 60) | round(1) }}" class="ad-input">
+          </div>
+        </div>
+        <p class="ad-hint">Only videos inside this window are queued. <span id="duration_hint" class="val"></span></p>
+      </div>
+
       <!-- Quality + Recency -->
       <div class="ad-grid-3">
         <div>
@@ -372,6 +417,14 @@
       .filter(cb => cb.checked)
       .map(cb => cb.id.replace("platform_", ""));
 
+    const minMinutes = parseFloat(document.getElementById("min_duration_min").value);
+    const maxMinutes = parseFloat(document.getElementById("max_duration_min").value);
+    if (!Number.isFinite(minMinutes) || !Number.isFinite(maxMinutes)
+        || minMinutes <= 0 || maxMinutes <= minMinutes) {
+      alert("Duration window is invalid: max minutes must be greater than min minutes");
+      return null;
+    }
+
     const cronPreset = document.getElementById("cron_preset").value;
     const cronExpr = cronPreset === "custom"
       ? document.getElementById("cron_custom").value.trim()
@@ -380,6 +433,9 @@
     return {
       searchProfiles: profiles,
       enabledPlatforms: platforms,
+      videoFormat: selectedFormat(),
+      minDurationSec: Math.round(minMinutes * 60),
+      maxDurationSec: Math.round(maxMinutes * 60),
       minScore: parseFloat(document.getElementById("min_score").value),
       batchSize: parseInt(document.getElementById("batch_size").value),
       timeFilter: document.getElementById("time_filter").value,
@@ -388,9 +444,54 @@
     };
   }
 
+  const FORMAT_PRESETS = {
+    shorts: { min: 1, max: 3 },
+    long:   { min: 4, max: 7 },
+  };
+
+  function selectedFormat() {
+    const radio = document.querySelector(".ad-format-radio:checked");
+    return radio ? radio.value : "shorts";
+  }
+
+  function refreshDurationHint() {
+    const min = parseFloat(document.getElementById("min_duration_min").value);
+    const max = parseFloat(document.getElementById("max_duration_min").value);
+    const hint = document.getElementById("duration_hint");
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0 || max <= min) {
+      hint.textContent = "invalid window";
+      hint.style.color = "var(--red)";
+      return;
+    }
+    hint.textContent = `${min}\u2013${max} min videos only`;
+    hint.style.color = "";
+  }
+
+  function applyFormat(format, usePreset) {
+    document.getElementById("format_card_shorts").classList.toggle("selected", format === "shorts");
+    document.getElementById("format_card_long").classList.toggle("selected", format === "long");
+    const preset = FORMAT_PRESETS[format];
+    if (usePreset && preset) {
+      document.getElementById("min_duration_min").value = preset.min;
+      document.getElementById("max_duration_min").value = preset.max;
+    }
+    refreshDurationHint();
+  }
+
+  document.querySelectorAll(".ad-format-radio").forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (radio.checked) applyFormat(radio.value, true);
+    });
+  });
+  ["min_duration_min", "max_duration_min"].forEach((id) => {
+    document.getElementById(id).addEventListener("input", refreshDurationHint);
+  });
+  refreshDurationHint();
+
   document.getElementById("config_form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const payload = collectFormPayload();
+    if (!payload) return;
 
     if (payload.searchProfiles.length === 0) { alert("Add at least one search keyword"); return; }
     if (payload.enabledPlatforms.length === 0) { alert("Select at least one platform"); return; }

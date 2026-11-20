@@ -153,8 +153,8 @@
   }
   .evm-btn-ghost { background: none; border-color: var(--hairline-2); color: var(--dim); }
   .evm-btn-ghost:hover { border-color: var(--dim); color: var(--paper); }
-  .evm-btn-primary { background: var(--signal); color: #06140C; }
-  .evm-btn-primary:hover:not(:disabled) { background: #5FFFA5; }
+  .evm-btn-primary { background: var(--signal); color: var(--on-signal); }
+  .evm-btn-primary:hover:not(:disabled) { background: var(--signal-hover); }
   .evm-btn-primary:disabled { opacity: 0.7; cursor: default; }
   .evm-btn-amber { background: rgba(255,180,84,0.1); color: var(--amber); border-color: rgba(255,180,84,0.25); }
   .evm-btn-amber:hover { background: rgba(255,180,84,0.18); }
@@ -167,7 +167,7 @@
     padding: 4px 11px; border-radius: 20px;
     font-family: var(--font-mono); font-size: 11px; font-weight: 500;
   }
-  .chip-green { background: rgba(63,255,141,0.1); color: var(--signal); border: 1px solid rgba(63,255,141,0.25); }
+  .chip-green { background: rgba(var(--signal-rgb), 0.1); color: var(--signal); border: 1px solid rgba(var(--signal-rgb), 0.25); }
   .chip-amber { background: rgba(255,180,84,0.1); color: var(--amber); border: 1px solid rgba(255,180,84,0.25); }
   .chip-red   { background: rgba(255,107,107,0.1); color: var(--red); border: 1px solid rgba(255,107,107,0.25); }
   .chip-dim   { background: rgba(138,141,146,0.1); color: var(--dim); border: 1px solid var(--hairline-2); }

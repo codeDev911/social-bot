@@ -23,8 +23,8 @@
                         paper: '#F2F1ED',
                         dim: '#8A8D92',
                         dimmer: '#5A5D63',
-                        signal: '#3FFF8D',
-                        'signal-dim': '#1E7A4A',
+                        signal: '#FF7A1A',
+                        'signal-dim': '#A8501A',
                         amber: '#FFB454',
                         red: '#FF6B6B',
                         hairline: '#1E2024',
@@ -89,7 +89,7 @@
             width: 100vw;
             height: 100vh;
             pointer-events: none;
-            background: radial-gradient(circle 600px at var(--mouse-x) var(--mouse-y), rgba(63, 255, 141, 0.03), transparent 80%);
+            background: radial-gradient(circle 600px at var(--mouse-x) var(--mouse-y), rgba(255, 122, 26, 0.04), transparent 80%);
             z-index: 1;
         }
 
@@ -101,12 +101,12 @@
 
         /* Button Patterns */
         .btn-primary {
-            background-color: #3FFF8D;
+            background-color: #FF7A1A;
             color: #0A0B0D;
             transition: all 0.2s ease;
         }
         .btn-primary:hover {
-            box-shadow: 0 0 15px rgba(63, 255, 141, 0.4);
+            box-shadow: 0 0 15px rgba(255, 122, 26, 0.4);
             transform: translateY(-1px);
         }
         
@@ -117,8 +117,8 @@
             transition: all 0.2s ease;
         }
         .btn-ghost:hover {
-            border-color: #3FFF8D;
-            color: #3FFF8D;
+            border-color: #FF7A1A;
+            color: #FF7A1A;
         }
 
         /* Scroll Reveal Utility */
@@ -150,7 +150,7 @@
     <nav class="fixed top-0 w-full h-[64px] bg-main/60 backdrop-blur-[12px] border-b border-hairline z-50 flex items-center px-5 md:px-8">
         <div class="max-w-[1180px] mx-auto w-full flex justify-between items-center">
             <a href="/" class="flex items-center gap-3">
-                <div class="w-3 h-3 rounded-full bg-signal animate-pulse" style="box-shadow: 0 0 8px rgba(63,255,141,0.5);"></div>
+                <div class="w-3 h-3 rounded-full bg-signal animate-pulse" style="box-shadow: 0 0 8px rgba(255,122,26,0.5);"></div>
                 <span class="font-display font-semibold tracking-tight text-paper text-lg">Social Bot</span>
             </a>
             <div class="hidden sm:flex gap-6 font-mono-tag text-dim text-sm">
@@ -232,7 +232,7 @@
                 </button>
             </div>
 
-            <div class="bg-raised rounded-[12px] border border-signal p-8 relative overflow-hidden dot-grid reveal flex flex-col shadow-[0_0_30px_rgba(63,255,141,0.05)]">
+            <div class="bg-raised rounded-[12px] border border-signal p-8 relative overflow-hidden dot-grid reveal flex flex-col shadow-[0_0_30px_rgba(255,122,26,0.06)]">
                 <div class="absolute top-6 right-6 bg-signal/10 border border-signal rounded-full px-3 py-1 flex items-center gap-2">
                     <div class="w-1.5 h-1.5 rounded-full bg-signal"></div>
                     <span class="text-signal font-mono-tag text-[10px] uppercase tracking-wide">Recommended</span>

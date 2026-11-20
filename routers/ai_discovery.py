@@ -146,6 +146,9 @@ class AiDiscoveryConfigUpdate(BaseModel):
     isActive: Optional[bool] = None
     searchProfiles: Optional[list[SearchProfile]] = None
     enabledPlatforms: Optional[list[str]] = None   # ["Youtube","Tiktok","Instagram","Facebook"]
+    videoFormat: Optional[str] = None            # shorts | long
+    minDurationSec: Optional[int] = Field(None, ge=15, le=3600)
+    maxDurationSec: Optional[int] = Field(None, ge=15, le=3600)
     minScore: Optional[float] = Field(None, ge=0.0, le=1.0)
     batchSize: Optional[int] = Field(None, ge=1, le=50)
     maxPerPlatform: Optional[int] = Field(None, ge=1, le=50)
@@ -169,6 +172,9 @@ class IngestVideo(BaseModel):
     description: str = ""
     videoUrl: str
     score: float = 0.0
+    # yt-dlp length in seconds. None when the platform is auth-walled
+    # (Instagram/Facebook), in which case the server cannot range-check it.
+    durationSec: Optional[int] = None
 
 
 class IngestPayload(BaseModel):
@@ -188,6 +194,57 @@ CRON_PRESETS = {
 DEFAULT_PROFILES = [{"query": "trending shorts today", "type": "keyword"}]
 DEFAULT_PLATFORMS = ["Youtube", "Tiktok", "Instagram", "Facebook"]
 
+# Presets mirror the dashboard UI: Shorts 1-3 min, Long-form 4-7 min.
+# Users can widen the window, but it must stay inside DURATION_SEC_BOUNDS.
+VIDEO_FORMAT_PRESETS = {"shorts": (60, 180), "long": (240, 420)}
+DURATION_SEC_BOUNDS = (15, 3600)
+
+
+def _parse_profiles(raw) -> list:
+    """Normalise searchProfiles for templates/APIs.
+
+    Rows written before the list type was introduced hold a JSON string
+    ("[{...}]") in the Json column, so iterating them directly rendered one
+    empty keyword row per character.
+    """
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except (TypeError, ValueError):
+            return []
+    if not isinstance(raw, list):
+        return []
+    return [p for p in raw if isinstance(p, dict) and p.get("query")]
+
+
+def _validate_duration_window(min_sec: int, max_sec: int) -> None:
+    low, high = DURATION_SEC_BOUNDS
+    if min_sec < low or max_sec > high:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Video duration must stay between {low} and {high} seconds",
+        )
+    if min_sec >= max_sec:
+        raise HTTPException(400, "minDurationSec must be lower than maxDurationSec")
+
+
+def _config_duration_window(config):
+    """(min_seconds, max_seconds) from a config row, or None when unset.
+
+    getattr keeps older generated Prisma clients (before the duration
+    columns existed) from raising AttributeError during a rolling deploy.
+    """
+    if config is None:
+        return None
+    min_sec = getattr(config, "minDurationSec", None)
+    max_sec = getattr(config, "maxDurationSec", None)
+    if min_sec is None or max_sec is None:
+        return None
+    min_sec, max_sec = int(min_sec), int(max_sec)
+    if min_sec <= 0 or max_sec <= min_sec:
+        return None
+    return min_sec, max_sec
+
 
 async def get_or_create_config(user_id: int, create_if_missing: bool = False):
     """Returns the raw Prisma AiDiscoveryConfig row, creating defaults if missing."""
@@ -202,6 +259,9 @@ async def get_or_create_config(user_id: int, create_if_missing: bool = False):
                 "isActive": False,
                 "searchProfiles": json.dumps(DEFAULT_PROFILES),
                 "enabledPlatforms": DEFAULT_PLATFORMS,
+                "videoFormat": "shorts",
+                "minDurationSec": 60,
+                "maxDurationSec": 180,
                 "minScore": 0.5,
                 "batchSize": 10,
                 "maxPerPlatform": 5,
@@ -218,8 +278,11 @@ def serialize_config(config) -> dict:
     """Converts a Prisma AiDiscoveryConfig row into a plain JSON-safe dict."""
     return {
         "isActive":             config.isActive,
-        "searchProfiles":    config.searchProfiles or "[]",
+        "searchProfiles":       _parse_profiles(config.searchProfiles),
         "enabledPlatforms":     config.enabledPlatforms,
+        "videoFormat":          getattr(config, "videoFormat", "shorts") or "shorts",
+        "minDurationSec":       getattr(config, "minDurationSec", 60) or 60,
+        "maxDurationSec":       getattr(config, "maxDurationSec", 180) or 180,
         "minScore":             config.minScore,
         "batchSize":            config.batchSize,
         "maxPerPlatform":       config.maxPerPlatform,
@@ -254,7 +317,7 @@ async def ai_discovery_page(
             "request": request,
             "user_info": user,
             "config": config,
-            "search_profiles": config.searchProfiles if config.searchProfiles else [],
+            "search_profiles": _parse_profiles(config.searchProfiles),
             "cron_presets": CRON_PRESETS,
         },
     )
@@ -267,14 +330,27 @@ async def ai_discovery_page(
 @router.get("/dashboard/api/ai-discovery/config")
 async def get_config(user: User = Depends(get_current_user)):
     config = await get_or_create_config(user.id)
+    if config is None:
+        raise HTTPException(404, "AI Discovery is not configured yet")
     return serialize_config(config)
 
 @router.post("/dashboard/api/ai-discovery/activate")
-async def get_config(user: User = Depends(get_current_user)):
+async def activate_discovery(user: User = Depends(get_current_user)):
+    """First-run setup: create the row, switch it on and schedule it.
+
+    The old handler did `raise RedirectResponse(...)` with the response class
+    never imported, so the first "Initialize Discovery Engine" click always
+    failed with a NameError.
+    """
     config = await get_or_create_config(user.id, create_if_missing=True)
-    if config.isActive:
-        raise RedirectResponse(url="/dashboard/ai-discovery")
-    return serialize_config(config)
+    updated = await prisma.aidiscoveryconfig.update(
+        where={"userId": user.id},
+        data={
+            "isActive": True,
+            "nextRunAt": compute_next_run(config.cronExpr, config.timezone),
+        },
+    )
+    return {"success": True, "config": serialize_config(updated)}
 
 
 @router.put("/dashboard/api/ai-discovery/config")
@@ -282,7 +358,9 @@ async def update_config(
     payload: AiDiscoveryConfigUpdate,
     user: User = Depends(get_current_user),
 ):
-    config = await get_or_create_config(user.id)
+    # create_if_missing: saving straight from the API used to fail with a
+    # "record not found" error when the row had never been created.
+    config = await get_or_create_config(user.id, create_if_missing=True)
 
     data = {}
     if payload.isActive is not None:
@@ -298,6 +376,25 @@ async def update_config(
         if len(payload.enabledPlatforms) == 0:
             raise HTTPException(400, "At least one platform must be enabled")
         data["enabledPlatforms"] = payload.enabledPlatforms
+    if payload.videoFormat is not None:
+        video_format = payload.videoFormat.strip().lower()
+        if video_format not in VIDEO_FORMAT_PRESETS:
+            raise HTTPException(400, "videoFormat must be shorts|long")
+        data["videoFormat"] = video_format
+    if payload.minDurationSec is not None or payload.maxDurationSec is not None:
+        min_sec = (
+            payload.minDurationSec
+            if payload.minDurationSec is not None
+            else int(getattr(config, "minDurationSec", 60))
+        )
+        max_sec = (
+            payload.maxDurationSec
+            if payload.maxDurationSec is not None
+            else int(getattr(config, "maxDurationSec", 180))
+        )
+        _validate_duration_window(min_sec, max_sec)
+        data["minDurationSec"] = min_sec
+        data["maxDurationSec"] = max_sec
     if payload.minScore is not None:
         data["minScore"] = payload.minScore
     if payload.batchSize is not None:
@@ -339,6 +436,8 @@ async def run_now(user: User = Depends(get_current_user)):
     """
     config = await get_or_create_config(user.id)
 
+    if config is None:
+        raise HTTPException(400, "AI Discovery is not configured yet")
     if not config.isActive:
         raise HTTPException(400, "Enable AI Discovery before running")
 
@@ -403,8 +502,11 @@ async def bot_get_config(user: User = Depends(get_user_from_bearer)):
     enabled = [platform_map[p] for p in config.enabledPlatforms if p in platform_map]
 
     return {
-        "search_profiles":   config.searchProfiles or "[]",
+        "search_profiles":   _parse_profiles(config.searchProfiles),
         "enabled_platforms": enabled,
+        "video_format":      getattr(config, "videoFormat", "shorts") or "shorts",
+        "min_duration_sec":  int(getattr(config, "minDurationSec", 60) or 60),
+        "max_duration_sec":  int(getattr(config, "maxDurationSec", 180) or 180),
         "min_score":         config.minScore,
         "batch_size":        config.batchSize,
         "time_filter":       config.timeFilter,
@@ -514,6 +616,13 @@ async def _process_discovered_videos(
         logger.error(f"Ingest: user {user_id} not found")
         return {"queued": 0, "skipped": 0}
 
+    # Duration gate: the bot filters with yt-dlp metadata, but re-check here so
+    # an out-of-range clip cannot be queued even by an older bot build.
+    discovery_config = await prisma.aidiscoveryconfig.find_unique(
+        where={"userId": user_id}
+    )
+    duration_window = _config_duration_window(discovery_config)
+
     use_worker = worker_enabled()
     # Playground defaults are baked in once per run instead of per video.
     transformation = await user_transformations(user_id) if use_worker else None
@@ -543,6 +652,17 @@ async def _process_discovered_videos(
                 logger.warning(f"Unsupported platform '{platform}', skipping {video_url}")
                 skipped += 1
                 continue
+
+            duration = video_data.get("durationSec")
+            if duration_window and duration is not None:
+                if not (duration_window[0] <= duration <= duration_window[1]):
+                    logger.info(
+                        f"Duration {duration}s outside "
+                        f"{duration_window[0]}-{duration_window[1]}s, "
+                        f"skipping {video_url}"
+                    )
+                    skipped += 1
+                    continue
 
             # Dedupe per user: the same clip may legitimately be discovered by
             # several users, so a global externalId check would drop good videos.
