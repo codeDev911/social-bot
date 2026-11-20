@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 from db import prisma 
 from dotenv import load_dotenv
 from lib.depends import get_current_user
+from lib import redis_client
 from lib.socket import ConnectionManager
 from controller.worker_client import worker_status
 from routers.dashboard import router as dashboard_routes 
@@ -142,10 +143,20 @@ async def start_scheduler():
     # pass
     # One line in the host's log that answers "is the worker wired up here?".
     logging.getLogger("worker").info("Download worker: %s", worker_status())
+    ai_status = redis_client.status()
+    if ai_status.get("enabled"):
+        logging.getLogger("worker").info(
+            "AI caption queue: redis at %s (run `python wroker.py`)", ai_status.get("url")
+        )
+    else:
+        logging.getLogger("worker").info(
+            "AI caption queue: disabled (no REDIS_URL) - captions generate inline"
+        )
     await prisma.connect()
 
 @app.on_event("shutdown")
 async def shutdown_scheduler():
+    await redis_client.close_client()
     await prisma.disconnect()
 
  

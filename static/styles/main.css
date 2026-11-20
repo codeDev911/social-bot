@@ -12,15 +12,15 @@
     --hairline-2: #26282D;
 
     /* brand signal — orange */
-    --signal: #FF7A1A;
-    --signal-dim: #A8501A;
+    --signal: #ff1a29;
+    --signal-dim: #a81a32;
     --signal-rgb: 255, 122, 26;
-    --signal-hover: #FF9447;
+    --signal-hover: #ff6e78;
     --on-signal: #1A0D02;
 
-    --amber: #FFB454;
+    --amber: #fb545f;
     --amber-dim: #8A5E26;
-    --red: #FF6B6B;
+    --red: #ff1a29;
 
     /* surfaces & effects */
     --nav-bg: rgba(10, 11, 13, 0.85);

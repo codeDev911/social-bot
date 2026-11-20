@@ -121,6 +121,47 @@ broken job turns red instead of sitting in the queue forever. Placeholders never
 reach the publisher — `/dashboard/trigger-upload` skips rows that have no
 Cloudinary URL yet.
 
+# Caption + hashtag worker (Redis)
+
+Every created video is queued for AI copy the moment its row exists, from
+`create_video()` / `complete_queued_video()`, so URL downloads, direct uploads,
+Pexels clips, the clipper and worker ingests all get covered without touching a
+router. `wroker.py` consumes the queue and writes one caption (from the video
+title) plus the most-talked-about hashtags for the video's platform back to
+`video.captions` and `video.htags`.
+
+    python wroker.py              # long-running consumer (one replica per queue)
+    python wroker.py --once       # drain everything currently queued, then exit
+    python wroker.py --backfill   # also queue existing videos that have no copy
+
+Set `REDIS_URL` (e.g. `rediss://default:password@host:6379/0`). Without it the
+queue reports "disabled" and generation runs inline right after the upload, so
+local development needs no Redis. **The worker cannot run on Vercel** — deploy
+it as its own Docker service from the same image (`CMD ["python", "wroker.py"]`).
+
+Keys live under `socialbot:ai:`: `queue` (pending list), `queue:processing`
+(in-flight, recovered on startup), `queue:retry` (backoff ZSET), `queue:dead`
+(capped at 100), `queue:heartbeat` (90s TTL) and `queue:status:<videoId>`
+(7-day hash the dashboard reads). A per-video lock (`queue:lock:<id>`) stops a
+video being queued twice; a job retries 3 times before landing in the dead list.
+
+Trending tags are discovered without API keys: YouTube/Google autocomplete for
+the video title plus explicit `#hashtags` in fresh DuckDuckGo results, cached for
+12 hours. Every discovery failure returns an empty list, so hashtags still come
+from the model alone.
+
+Environment: `REDIS_URL`, `AI_QUEUE_DISABLED`, `AI_QUEUE_KEY`,
+`AI_WORKER_CONCURRENCY`, `AI_JOB_MAX_ATTEMPTS`, `AI_JOB_RETRY_DELAY`,
+`AI_STATUS_TTL`, `AI_JOB_LOCK_TTL`, `AI_DEFAULT_TONE`, `TRENDING_CACHE_TTL`,
+`TRENDING_DISABLED`.
+
+The dashboard home cards are live: **Next Scheduled** shows the next run of the
+user's daily cron in their timezone plus caption/hashtag state for the next
+video, and **Processing Queue** lists download placeholders, running AI jobs and
+videos waiting for the publish run. Both refresh through
+`GET /dashboard/api/queue?view=1` every 5 seconds. The regenerate button on that
+card posts to `POST /dashboard/api/videos/{id}/generate`.
+
 # Playground: default transformations for every upload
 
 `/dashboard/playground` (sidebar: **Playground**) is not a per-video tool — it

@@ -102,14 +102,17 @@ async def upload_to_youtube(user,video):
 
     captions = video.captions if video.captions else user_config.defaultCaption
     htags = video.htags if video.htags else user_config.defaultHtags
+    # Hashtags belong in the description, never in the title. The generated
+    # caption is one option (not a list) since the worker stores the best one.
+    description = "\n\n".join(part for part in (captions, htags) if part)
 
     try:
         request = youtube.videos().insert(
             part="snippet,status",
             body={
                 "snippet": {
-                    "title": htags,
-                    "description":captions,
+                    "title": (video.title or "Untitled video")[:100],
+                    "description": description,
                 },
                 "status": {
                     "privacyStatus": "public"
@@ -168,8 +171,12 @@ async def upload_using_buffer(user,video,client_credentials,post_type=None):
         return {"status_code": 400, "message": "No  credentials found."}
     
     print("Client credentials found, proceeding with upload...")
-    platformId = client_credentials['client_id'] 
-    caption = video.captions if video.captions else f"{user.userConfig.defaultCaption} {user.userConfig.defaultHtags}"
+    platformId = client_credentials['client_id']
+    caption = video.captions if video.captions else user.userConfig.defaultCaption
+    tags = video.htags if video.htags else user.userConfig.defaultHtags
+    # Buffer posts the caption text verbatim: hashtags have to ride along with
+    # the caption or they never reach TikTok / Instagram / Facebook.
+    caption = "\n\n".join(part for part in (caption, tags) if part)
     
     try:
         response = await publish_instantly(platformId, caption, video.cloudinary_url, user.userConfig.bufferApiKey, post_type)

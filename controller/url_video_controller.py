@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 import os
 from typing import Optional
 from models.video import create_video, create_queued_video, assert_can_schedule, QuotaExceededError
-from wroker import generate_caption_htags
 from db import prisma
 from controller.copyright_transformer import build_transformations_array
 from controller.cloudinary_transformer import build_playground_transformation_chain
@@ -146,19 +145,9 @@ async def upload_to_cloudinary(
         video_id,
         scraped_from=scraped_from,
     )
-    userPlan = video.user.plan.type
-
-    # Add a worker that generate Caption and #tags for video.
-    print("Assigned to asyncio task to generate #tags and captions")
-    asyncio.create_task(
-        generate_caption_htags(
-            video.id,
-            userPlan,
-            title,
-            "trends",
-            None
-        )
-    )
+    # create_video() already handed the row to the caption/hashtag pipeline
+    # (Redis queue when configured, in-process fallback otherwise).
+    return video
 
 
 

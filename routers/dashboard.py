@@ -36,6 +36,8 @@ from models.video import (
     queued_job_id,
 )
 from db import prisma
+from lib import ai_queue
+from lib.ai_pipeline import schedule_video_ai
 from lib.depends import get_current_user
 from lib.plans import clipper_config, plan_limits
 from fastapi.exceptions import HTTPException
@@ -58,7 +60,8 @@ import hashlib
 import hmac
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import logging
 
 load_dotenv()
@@ -235,6 +238,282 @@ def _build_dashboard_context(request: Request, current_user, *, videos=None, tot
         "plan_account_limit": limits["accounts"],
         "plan_ai_features": limits["ai_features"],
         "next_billing": getattr(plan, "trailExpiredAt", None),
+        # Queue + schedule cards. The dashboard home route overwrites these with
+        # live values; other pages keep the safe defaults.
+        "next_run_at": None,
+        "next_run_label": "No schedule set",
+        "next_video_title": "No pending video",
+        "next_scheduled_video": None,
+        "caption_status": "Pending",
+        "caption_chip": "chip-dim",
+        "hashtag_status": "Pending",
+        "hashtag_chip": "chip-dim",
+        "queue_items": [],
+        "queue_count": 0,
+        "queue_hidden": 0,
+        "ai_queue_enabled": ai_queue.queue_enabled(),
+        "ai_worker_online": False,
+        "ai_queue_depth": 0,
+        "ai_queue_processing": 0,
+    }
+
+
+# ==========================================
+# DASHBOARD QUEUE + SCHEDULE CARDS
+# ==========================================
+
+DOWNLOAD_PHASES = {
+    "queued": (15, "Waiting on the download worker"),
+    "downloading": (45, "Downloading the source video"),
+    "uploading": (75, "Uploading to Cloudinary"),
+    "done": (90, "Finalising the video"),
+    "failed": (100, "Download failed"),
+    "delivery_failed": (100, "Worker could not reach the app"),
+}
+
+
+def _video_status(video) -> str:
+    return str(getattr(video, "upload_status", "") or "")
+
+
+def _as_utc(value):
+    if value is None:
+        return None
+    if getattr(value, "tzinfo", None) is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _user_zone(config):
+    name = (getattr(config, "timezone", "") or "UTC").strip() or "UTC"
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo("UTC")
+
+
+def _human_when(local_dt: datetime, local_now: datetime) -> str:
+    days = (local_dt.date() - local_now.date()).days
+    if days == 0:
+        prefix = "Today"
+    elif days == 1:
+        prefix = "Tomorrow"
+    else:
+        prefix = local_dt.strftime("%b %d")
+    zone = local_dt.tzname() or "UTC"
+    return f"{prefix}, {local_dt.strftime('%H:%M')} {zone}"
+
+
+def _next_schedule(config, video):
+    """When the next publish run will happen: the user's daily cron first,
+    then the earliest pending video slot, otherwise nothing."""
+    zone = _user_zone(config)
+    now = datetime.now(timezone.utc)
+
+    raw = (getattr(config, "scheduled", "") or "").strip()
+    if raw:
+        try:
+            hour_part, _, minute_part = raw.partition("-")
+            hour = int(hour_part)
+            minute = int(minute_part or 0)
+            if 0 <= hour <= 23 and 0 <= minute <= 59:
+                local_now = now.astimezone(zone)
+                when = local_now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                if when <= local_now:
+                    when += timedelta(days=1)
+                return when.astimezone(timezone.utc), _human_when(when, local_now)
+        except (TypeError, ValueError):
+            pass
+
+    scheduled_at = _as_utc(getattr(video, "scheduled_at", None)) if video else None
+    if scheduled_at:
+        local_now = now.astimezone(zone)
+        return scheduled_at, _human_when(scheduled_at.astimezone(zone), local_now)
+
+    return None, "No schedule set"
+
+
+def _generation_state(video, status, config, kind: str):
+    """(label, chip class) for a caption or hashtag badge."""
+    content_attr = "captions" if kind == "caption" else "htags"
+    enabled_attr = "captionGenEnabled" if kind == "caption" else "hashtagGenEnabled"
+    default_attr = "defaultCaption" if kind == "caption" else "defaultHtags"
+
+    if video is not None and (getattr(video, content_attr, "") or "").strip():
+        return "Ready", "chip-green"
+
+    state = str((status or {}).get("status") or "").lower()
+    if state == "processing":
+        return "Generating…", "chip-amber"
+    if state in {"queued", "retry"}:
+        return "Queued", "chip-amber"
+    if state == "failed":
+        return "Failed", "chip-red"
+
+    enabled = True if config is None else bool(getattr(config, enabled_attr, True))
+    if not enabled:
+        has_default = bool((getattr(config, default_attr, "") or "").strip()) if config else False
+        return ("Default" if has_default else "Off"), "chip-dim"
+    return "Pending", "chip-dim"
+
+
+def _queue_item(video, phase, label, progress, *, config, ai_status=None, fallback_title=""):
+    title = ((getattr(video, "title", "") or fallback_title) or "Untitled video").strip()
+    caption_status, caption_chip = _generation_state(video, ai_status, config, "caption")
+    hashtag_status, hashtag_chip = _generation_state(video, ai_status, config, "hashtag")
+    return {
+        "video_id": getattr(video, "id", None),
+        "title": title,
+        "phase": phase,
+        "phase_label": label,
+        "progress": progress,
+        "caption_status": caption_status,
+        "caption_chip": caption_chip,
+        "hashtag_status": hashtag_status,
+        "hashtag_chip": hashtag_chip,
+    }
+
+
+def _safe_int(value) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+async def _dashboard_queue_context(user_id, user_info, videos, live_phases=None) -> dict:
+    """Everything the two queue cards need, from Postgres + Redis."""
+    config = getattr(user_info, "userConfig", None) if user_info else None
+
+    try:
+        pending_rows = await prisma.video.find_many(
+            where={"userId": user_id, "upload_status": "Pending"},
+            order={"id": "asc"},
+            take=50,
+        )
+    except Exception:  # noqa: BLE001 - the dashboard must render even if this fails
+        logger.exception("Could not load pending videos for user %s", user_id)
+        pending_rows = []
+
+    # A row without scheduled_at publishes on the next run, so it comes first.
+    pending_rows.sort(
+        key=lambda row: _as_utc(getattr(row, "scheduled_at", None))
+        or datetime(1970, 1, 1, tzinfo=timezone.utc)
+    )
+
+    ready_pending = [
+        row for row in pending_rows
+        if (getattr(row, "cloudinary_url", "") or "") and not queued_job_id(row)
+    ]
+    next_video = ready_pending[0] if ready_pending else None
+    next_status = await ai_queue.get_status(next_video.id) if next_video else None
+    next_at, next_label = _next_schedule(config, next_video)
+
+    active = await ai_queue.active_statuses(user_id)
+    by_id = {video.id: video for video in (videos or [])}
+    missing = [
+        video_id for item in active
+        if (video_id := _safe_int(item.get("videoId"))) and video_id not in by_id
+    ]
+    if missing:
+        try:
+            extra = await prisma.video.find_many(where={"id": {"in": missing}})
+            by_id.update({video.id: video for video in extra})
+        except Exception:  # noqa: BLE001
+            logger.exception("Could not load videos for active AI jobs")
+
+    now = datetime.now(timezone.utc)
+    items = []
+    seen: set[int] = set()
+
+    for video in videos or []:
+        if queued_job_id(video):
+            phase = (live_phases or {}).get(str(video.id)) or "queued"
+            progress, label = DOWNLOAD_PHASES.get(phase, DOWNLOAD_PHASES["queued"])
+            items.append(_queue_item(video, phase, label, progress, config=config))
+            seen.add(video.id)
+            continue
+
+        if _video_status(video) == "Pending" and (video.cloudinary_url or ""):
+            scheduled = _as_utc(getattr(video, "scheduled_at", None))
+            if scheduled is None or scheduled <= now:
+                items.append(
+                    _queue_item(
+                        video,
+                        "publish_ready",
+                        "Waiting for the next publish run",
+                        95,
+                        config=config,
+                    )
+                )
+                seen.add(video.id)
+
+    # Pending rows older than the page's video list still belong in the queue.
+    for video in ready_pending:
+        if video.id in seen:
+            continue
+        scheduled = _as_utc(getattr(video, "scheduled_at", None))
+        if scheduled is None or scheduled <= now:
+            items.append(
+                _queue_item(
+                    video,
+                    "publish_ready",
+                    "Waiting for the next publish run",
+                    95,
+                    config=config,
+                )
+            )
+            seen.add(video.id)
+
+    for item in active:
+        video_id = _safe_int(item.get("videoId"))
+        if not video_id or video_id in seen:
+            continue
+        state = str(item.get("status") or "queued").lower()
+        processing = state == "processing"
+        items.append(
+            _queue_item(
+                by_id.get(video_id),
+                "ai_processing" if processing else "ai_queued",
+                "Writing caption and trending hashtags" if processing else "Caption and hashtags queued",
+                65 if processing else 25,
+                config=config,
+                ai_status=item,
+                fallback_title=f"Video #{video_id}",
+            )
+        )
+        seen.add(video_id)
+
+    items.sort(
+        key=lambda entry: (
+            0 if entry["phase"] in {"ai_processing", "downloading", "uploading"} else 1,
+            -entry["progress"],
+        )
+    )
+
+    snapshot = await ai_queue.snapshot()
+    caption_status, caption_chip = _generation_state(next_video, next_status, config, "caption")
+    hashtag_status, hashtag_chip = _generation_state(next_video, next_status, config, "hashtag")
+
+    return {
+        "next_run_at": next_at.isoformat() if next_at else None,
+        "next_run_label": next_label,
+        "next_video_title": (
+            (getattr(next_video, "title", "") or "Untitled video")
+            if next_video else "No pending video"
+        ),
+        "next_scheduled_video": next_video,
+        "caption_status": caption_status,
+        "caption_chip": caption_chip,
+        "hashtag_status": hashtag_status,
+        "hashtag_chip": hashtag_chip,
+        "queue_items": items[:5],
+        "queue_count": len(items),
+        "queue_hidden": max(0, len(items) - 5),
+        "ai_queue_enabled": snapshot.get("enabled", False),
+        "ai_worker_online": snapshot.get("online", False),
+        "ai_queue_depth": snapshot.get("queued", 0),
+        "ai_queue_processing": snapshot.get("processing", 0),
     }
 
 
@@ -528,21 +807,31 @@ async def dashboard_home(request:Request,current_user: dict = Depends(get_curren
             include={
                 "plan": True,
                 "usage": True,
+                "userConfig": True,
             },
     )
   
 
-        return templates.TemplateResponse(
-            "dashboard/index.html",
-            _build_dashboard_context(
-                request,
-                user_info,
-                videos=videos,
-                total_videos_count=total_videos_count,
-                pending_videos_count=pending_videos_count,
-                canceled_videos_count=canceled_videos_count,
-            ),
+        context = _build_dashboard_context(
+            request,
+            user_info,
+            videos=videos,
+            total_videos_count=total_videos_count,
+            pending_videos_count=pending_videos_count,
+            canceled_videos_count=canceled_videos_count,
         )
+        # Redis can be slow or down; the cards must still render from defaults.
+        try:
+            context.update(
+                await asyncio.wait_for(
+                    _dashboard_queue_context(current_user.id, user_info, videos),
+                    timeout=4,
+                )
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Could not build the live queue context")
+
+        return templates.TemplateResponse("dashboard/index.html", context)
 
     except HTTPException as e:
         return templates.TemplateResponse("500.html", {"request": request, "title": "Home Page","error":e})
@@ -790,8 +1079,12 @@ async def upload_url_video(
 
 
 @router.get("/api/queue")
-async def queue_status(current_user: dict = Depends(get_current_user)):
-    """Live queue for the dashboard: DB state plus the worker's in-flight phases."""
+async def queue_status(view: int = Query(0), current_user: dict = Depends(get_current_user)):
+    """Live queue for the dashboard: DB state plus the worker's in-flight phases.
+
+    ``view=1`` additionally returns the two home-page cards (next scheduled run
+    and the processing queue) so they can refresh without a page reload.
+    """
     if isinstance(current_user, RedirectResponse):
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -844,7 +1137,68 @@ async def queue_status(current_user: dict = Depends(get_current_user)):
     for item in items:
         item["phase"] = item["phase"] or fallback.get(item["status"], (item["status"] or "").lower())
 
-    return {"videos": items, "workerEnabled": worker_enabled()}
+    payload = {"videos": items, "workerEnabled": worker_enabled()}
+    if not view:
+        return payload
+
+    user_info = await prisma.user.find_unique(
+        where={"id": current_user.id},
+        include={"plan": True, "userConfig": True},
+    )
+    phases = {str(item["id"]): item["phase"] for item in items if item.get("phase")}
+    try:
+        live = await asyncio.wait_for(
+            _dashboard_queue_context(current_user.id, user_info, videos, live_phases=phases),
+            timeout=4,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("Could not refresh the queue cards")
+        live = {}
+
+    payload["queue"] = {
+        "items": live.get("queue_items", []),
+        "count": live.get("queue_count", 0),
+        "hidden": live.get("queue_hidden", 0),
+        "worker": {
+            "enabled": live.get("ai_queue_enabled", False),
+            "online": live.get("ai_worker_online", False),
+            "queued": live.get("ai_queue_depth", 0),
+            "processing": live.get("ai_queue_processing", 0),
+        },
+    }
+    payload["next"] = {
+        "runLabel": live.get("next_run_label"),
+        "videoTitle": live.get("next_video_title"),
+        "captionStatus": live.get("caption_status"),
+        "captionChip": live.get("caption_chip"),
+        "hashtagStatus": live.get("hashtag_status"),
+        "hashtagChip": live.get("hashtag_chip"),
+        "videoId": getattr(live.get("next_scheduled_video"), "id", None),
+    }
+    return payload
+
+
+@router.post("/api/videos/{video_id}/generate")
+async def generate_video_copy(
+    video_id: int,
+    current_user: dict = Depends(get_current_user),
+):
+    """Regenerate the caption + trending hashtags for one video.
+
+    The job goes to Redis when the queue is available (``wroker.py`` runs it),
+    otherwise it runs in the background of this process.
+    """
+    if isinstance(current_user, RedirectResponse):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    video = await prisma.video.find_unique(where={"id": video_id})
+    if video is None or video.userId != current_user.id:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    result = await schedule_video_ai(video, force=True, reason="manual")
+    if result.get("error"):
+        raise HTTPException(status_code=502, detail="Generation could not be started")
+    return {"ok": True, **result}
 
 
 @router.get("/api/worker/diagnostics")
@@ -1048,8 +1402,8 @@ async def get_upload_defaults(current_user = Depends(get_current_user)):
             "destinations": destinations,
             "defaultCaption": captions,
             "defaultHtags": htags,
-            "captionGenEnabled": True,
-            "hashtagGenEnabled": True
+            "captionGenEnabled": bool(user_config.captionGenEnabled),
+            "hashtagGenEnabled": bool(user_config.hashtagGenEnabled),
         }
 
     except Exception as e:
@@ -1060,6 +1414,8 @@ async def get_upload_defaults(current_user = Depends(get_current_user)):
 @router.post("/api/settings/upload-defaults")
 async def save_upload_defaults(
     upload_destinations: list = Query(...),
+    caption_gen_enabled: Optional[bool] = Query(None),
+    hashtag_gen_enabled: Optional[bool] = Query(None),
     current_user = Depends(get_current_user)
 ):
     """Save user's default upload destinations"""
@@ -1090,16 +1446,23 @@ async def save_upload_defaults(
 
         if user_config:
             # Update existing
+            changes = {"defaultUploadDests": destinations}
+            if caption_gen_enabled is not None:
+                changes["captionGenEnabled"] = bool(caption_gen_enabled)
+            if hashtag_gen_enabled is not None:
+                changes["hashtagGenEnabled"] = bool(hashtag_gen_enabled)
             await prisma.userconfig.update(
                 where={"userId": current_user.id},
-                data={"defaultUploadDests": destinations}
+                data=changes
             )
         else:
             # Create new
             await prisma.userconfig.create(
                 data={
                     "userId": current_user.id,
-                    "defaultUploadDests": destinations
+                    "defaultUploadDests": destinations,
+                    "captionGenEnabled": True if caption_gen_enabled is None else bool(caption_gen_enabled),
+                    "hashtagGenEnabled": True if hashtag_gen_enabled is None else bool(hashtag_gen_enabled),
                 }
             )
 
@@ -1107,7 +1470,9 @@ async def save_upload_defaults(
         return {
             "success": True,
             "message": "Upload defaults saved",
-            "destinations": destinations
+            "destinations": destinations,
+            "captionGenEnabled": caption_gen_enabled,
+            "hashtagGenEnabled": hashtag_gen_enabled,
         }
 
     except HTTPException as e:

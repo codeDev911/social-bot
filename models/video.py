@@ -1,7 +1,24 @@
 from datetime import datetime
+import logging
 
 from db import prisma
 from lib.plans import PLANS
+
+logger = logging.getLogger(__name__)
+
+
+async def _queue_ai_copy(video) -> None:
+    """Hand a new row to the caption/hashtag pipeline without failing the upload.
+
+    The heavy lifting happens in wroker.py (Redis). Without Redis the pipeline
+    runs the same job in-process, so a video always ends up with copy.
+    """
+    try:
+        from lib.ai_pipeline import schedule_video_ai
+
+        await schedule_video_ai(video)
+    except Exception:  # noqa: BLE001 - AI copy is never worth losing a video for
+        logger.exception("Could not queue AI copy for video %s", getattr(video, "id", "?"))
 
 
 class QuotaExceededError(Exception):
@@ -115,6 +132,7 @@ async def create_video(
     # Single source of truth for the scheduled counter: callers must not
     # increment scheduledToday themselves.
     await _increment_scheduled(video.userId)
+    await _queue_ai_copy(video)
     return video
 
 
@@ -166,7 +184,7 @@ async def complete_queued_video(
     platform: str | None = None,
 ):
     """Fill the placeholder in place, so one job maps to exactly one row."""
-    return await prisma.video.update(
+    video = await prisma.video.update(
         where={"id": video.id},
         data={
             "cloudinary_url": secure_url,
@@ -178,6 +196,8 @@ async def complete_queued_video(
             "scrapedFrom": platform or video.scrapedFrom,
         },
     )
+    await _queue_ai_copy(video)
+    return video
 
 
 async def fail_queued_video(video):

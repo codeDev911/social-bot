@@ -218,6 +218,96 @@
     transition: width 0.4s ease;
   }
 
+  /* ── queue list ─── */
+  .queue-list { display: flex; flex-direction: column; gap: 16px; }
+
+  .queue-item-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .queue-item-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--paper);
+    max-width: 76%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .queue-item-pct {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--signal);
+  }
+
+  .queue-item-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+
+  .queue-item-phase {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--dimmer);
+  }
+
+  .queue-item-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+
+  .queue-empty { font-size: 13px; color: var(--dim); padding: 4px 0; }
+
+  .queue-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--hairline);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--dimmer);
+  }
+
+  .queue-link { color: var(--signal); text-decoration: none; }
+  .queue-link:hover { text-decoration: underline; }
+
+  .next-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--hairline);
+    flex-wrap: wrap;
+  }
+
+  .queue-worker { font-family: var(--font-mono); font-size: 10.5px; color: var(--dimmer); }
+
+  .btn-mini {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: transparent;
+    border: 1px solid var(--hairline-2);
+    color: var(--paper);
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .btn-mini:hover:not(:disabled) { border-color: var(--signal); color: var(--signal); }
+  .btn-mini:disabled { opacity: 0.45; cursor: not-allowed; }
+
   /* ── upload section ─── */
   .upload-section { }
 
@@ -683,25 +773,23 @@
           <div class="card-body">
             <div class="meta-row">
               <span class="meta-key">Schedule time</span>
-              <span class="meta-val signal">{{ next_run_label or 'No schedule set' }}</span>
+              <span class="meta-val signal" id="nextRunLabel">{{ next_run_label or 'No schedule set' }}</span>
             </div>
             <div class="meta-row">
               <span class="meta-key">Video title</span>
-              <span class="meta-val" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ next_video_title or 'No pending video' }}</span>
+              <span class="meta-val" id="nextVideoTitle" title="{{ next_video_title or '' }}" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ next_video_title or 'No pending video' }}</span>
             </div>
             <div class="meta-row">
               <span class="meta-key">Caption</span>
-              <span class="chip chip-green">
-                <svg width="10" height="10" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                {{ caption_status or 'Ready' }}
-              </span>
+              <span class="chip {{ caption_chip or 'chip-dim' }}" id="nextCaptionChip">{{ caption_status or 'Pending' }}</span>
             </div>
             <div class="meta-row">
               <span class="meta-key">Hashtags</span>
-              <span class="chip chip-green">
-                <svg width="10" height="10" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                {{ hashtag_status or 'Verified' }}
-              </span>
+              <span class="chip {{ hashtag_chip or 'chip-dim' }}" id="nextHashtagChip">{{ hashtag_status or 'Pending' }}</span>
+            </div>
+            <div class="next-actions">
+              <button type="button" class="btn-mini" id="regenerateAi" {% if not next_scheduled_video %}disabled{% endif %}>Regenerate caption + tags</button>
+              <span class="queue-worker" id="aiWorkerState">{% if not ai_queue_enabled %}Redis queue off — generating inline{% elif ai_worker_online %}Worker online · {{ ai_queue_depth }} queued, {{ ai_queue_processing }} running{% else %}Queue idle · worker not connected{% endif %}</span>
             </div>
           </div>
         </div>
@@ -710,41 +798,37 @@
         <div class="card reveal">
           <div class="card-head">
             <span class="card-title">Processing Queue</span>
-            <span class="chip chip-green">
-              <span class="chip-dot"></span>
-              In progress
+            <span class="chip {{ 'chip-green' if queue_count else 'chip-dim' }}" id="queueBadge">
+              <span class="chip-dot" id="queueDot" {% if not queue_count %}style="display:none"{% endif %}></span>
+              <span id="queueCount">{{ queue_count or 0 }} active</span>
             </span>
           </div>
           <div class="card-body">
-            <div style="margin-bottom:16px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                <span style="font-size:13px;font-weight:500;color:var(--paper);">Summer Beach Workout Routine.mp4</span>
-                <span style="font-family:var(--font-mono);font-size:11px;color:var(--signal);">65%</span>
+            <div class="queue-list" id="queueList">
+              {% for item in queue_items %}
+              <div class="queue-item">
+                <div class="queue-item-top">
+                  <span class="queue-item-title" title="{{ item.title }}">{{ item.title }}</span>
+                  <span class="queue-item-pct">{{ item.progress }}%</span>
+                </div>
+                <div class="prog-track">
+                  <div class="prog-fill" style="width:{{ item.progress }}%"></div>
+                </div>
+                <div class="queue-item-meta">
+                  <span class="queue-item-phase">{{ item.phase_label }}</span>
+                  <span class="queue-item-chips">
+                    <span class="chip {{ item.caption_chip }}">Caption: {{ item.caption_status }}</span>
+                    <span class="chip {{ item.hashtag_chip }}">Tags: {{ item.hashtag_status }}</span>
+                  </span>
+                </div>
               </div>
-              <div class="prog-track">
-                <div class="prog-fill" style="width:65%"></div>
-              </div>
+              {% else %}
+              <div class="queue-empty">Nothing is processing right now. New uploads appear here the moment they are queued.</div>
+              {% endfor %}
             </div>
-            <div class="meta-row">
-              <span class="meta-key">Caption generation</span>
-              <span class="chip chip-green">
-                <svg width="10" height="10" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                Done
-              </span>
-            </div>
-            <div class="meta-row">
-              <span class="meta-key">Hashtag generation</span>
-              <span class="chip chip-green">
-                <svg width="10" height="10" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                Done
-              </span>
-            </div>
-            <div class="meta-row">
-              <span class="meta-key">Format conversion</span>
-              <span class="chip chip-amber">
-                <span class="chip-dot"></span>
-                Processing
-              </span>
+            <div class="queue-foot" id="queueFoot" {% if not queue_items %}style="display:none"{% endif %}>
+              <span id="queueHidden">{{ queue_hidden or 0 }} more in queue</span>
+              <a class="queue-link" href="/dashboard/videos">View all videos</a>
             </div>
           </div>
         </div>
@@ -1029,6 +1113,167 @@
   document.getElementById('connectAccountsModal').addEventListener('click', function(e) {
     if (e.target === this) this.classList.remove('open');
   });
+
+  // ── live queue + next scheduled cards ──
+  // The server renders the current state; this keeps both cards honest while
+  // the caption/hashtag worker and the download worker make progress.
+  (function liveQueue() {
+    const list = document.getElementById('queueList');
+    if (!list) return;
+
+    const els = {
+      count: document.getElementById('queueCount'),
+      badge: document.getElementById('queueBadge'),
+      dot: document.getElementById('queueDot'),
+      hidden: document.getElementById('queueHidden'),
+      foot: document.getElementById('queueFoot'),
+      worker: document.getElementById('aiWorkerState'),
+      runLabel: document.getElementById('nextRunLabel'),
+      videoTitle: document.getElementById('nextVideoTitle'),
+      caption: document.getElementById('nextCaptionChip'),
+      hashtag: document.getElementById('nextHashtagChip'),
+      regen: document.getElementById('regenerateAi')
+    };
+    let nextVideoId = {{ (next_scheduled_video.id if next_scheduled_video else None) | tojson }};
+
+    function setChip(el, text, cls) {
+      if (!el) return;
+      el.className = 'chip ' + (cls || 'chip-dim');
+      el.textContent = text || 'Pending';
+    }
+
+    function renderEmpty() {
+      const empty = document.createElement('div');
+      empty.className = 'queue-empty';
+      empty.textContent = 'Nothing is processing right now. New uploads appear here the moment they are queued.';
+      return empty;
+    }
+
+    function renderItem(item) {
+      const wrap = document.createElement('div');
+      wrap.className = 'queue-item';
+
+      const top = document.createElement('div');
+      top.className = 'queue-item-top';
+      const title = document.createElement('span');
+      title.className = 'queue-item-title';
+      title.textContent = item.title || 'Untitled video';
+      title.title = item.title || '';
+      const pct = document.createElement('span');
+      pct.className = 'queue-item-pct';
+      pct.textContent = (item.progress || 0) + '%';
+      top.appendChild(title);
+      top.appendChild(pct);
+
+      const track = document.createElement('div');
+      track.className = 'prog-track';
+      const fill = document.createElement('div');
+      fill.className = 'prog-fill';
+      fill.style.width = Math.max(2, Math.min(100, item.progress || 0)) + '%';
+      track.appendChild(fill);
+
+      const meta = document.createElement('div');
+      meta.className = 'queue-item-meta';
+      const phase = document.createElement('span');
+      phase.className = 'queue-item-phase';
+      phase.textContent = item.phase_label || '';
+      const chips = document.createElement('span');
+      chips.className = 'queue-item-chips';
+      [['Caption', item.caption_status, item.caption_chip], ['Tags', item.hashtag_status, item.hashtag_chip]].forEach(function(pair) {
+        const chip = document.createElement('span');
+        chip.className = 'chip ' + (pair[2] || 'chip-dim');
+        chip.textContent = pair[0] + ': ' + (pair[1] || 'Pending');
+        chips.appendChild(chip);
+      });
+      meta.appendChild(phase);
+      meta.appendChild(chips);
+
+      wrap.appendChild(top);
+      wrap.appendChild(track);
+      wrap.appendChild(meta);
+      return wrap;
+    }
+
+    function paint(payload) {
+      const queue = payload.queue || {};
+      const next = payload.next || {};
+      const items = queue.items || [];
+
+      list.textContent = '';
+      if (items.length) {
+        items.forEach(function(item) { list.appendChild(renderItem(item)); });
+      } else {
+        list.appendChild(renderEmpty());
+      }
+
+      if (els.count) els.count.textContent = (queue.count || 0) + ' active';
+      if (els.badge) els.badge.className = 'chip ' + (queue.count ? 'chip-green' : 'chip-dim');
+      if (els.dot) els.dot.style.display = queue.count ? '' : 'none';
+      if (els.hidden) els.hidden.textContent = (queue.hidden || 0) + ' more in queue';
+      if (els.foot) els.foot.style.display = items.length ? '' : 'none';
+
+      const worker = queue.worker || {};
+      if (els.worker) {
+        if (!worker.enabled) {
+          els.worker.textContent = 'Redis queue off — generating inline';
+        } else if (worker.online) {
+          els.worker.textContent = 'Worker online · ' + (worker.queued || 0) + ' queued, ' + (worker.processing || 0) + ' running';
+        } else {
+          els.worker.textContent = 'Queue idle · worker not connected';
+        }
+      }
+
+      if (els.runLabel && next.runLabel) els.runLabel.textContent = next.runLabel;
+      if (els.videoTitle && next.videoTitle) {
+        els.videoTitle.textContent = next.videoTitle;
+        els.videoTitle.title = next.videoTitle;
+      }
+      setChip(els.caption, next.captionStatus, next.captionChip);
+      setChip(els.hashtag, next.hashtagStatus, next.hashtagChip);
+
+      if (next.videoId) nextVideoId = next.videoId;
+      if (els.regen) els.regen.disabled = !nextVideoId;
+    }
+
+    let busy = false;
+    async function refresh() {
+      if (busy || document.hidden) return;
+      busy = true;
+      try {
+        const { data } = await axios.get('/dashboard/api/queue', { params: { view: 1 }, timeout: 15000 });
+        paint(data);
+      } catch (e) {
+        // Keep the last good render; the next tick retries.
+      } finally {
+        busy = false;
+      }
+    }
+
+    if (els.regen) {
+      els.regen.addEventListener('click', async function() {
+        if (!nextVideoId) return;
+        els.regen.disabled = true;
+        els.regen.textContent = 'Queuing…';
+        try {
+          await axios.post('/dashboard/api/videos/' + nextVideoId + '/generate', null, { timeout: 20000 });
+          setChip(els.caption, 'Queued', 'chip-amber');
+          setChip(els.hashtag, 'Queued', 'chip-amber');
+          els.regen.textContent = 'Queued';
+        } catch (e) {
+          const detail = e.response && e.response.data && e.response.data.detail;
+          els.regen.textContent = (typeof detail === 'string' && detail) || 'Retry';
+        }
+        setTimeout(refresh, 1500);
+        setTimeout(function() {
+          els.regen.textContent = 'Regenerate caption + tags';
+          els.regen.disabled = !nextVideoId;
+        }, 6000);
+      });
+    }
+
+    setInterval(refresh, 5000);
+    setTimeout(refresh, 800);
+  })();
 </script>
 
 {% endblock %}

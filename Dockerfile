@@ -34,6 +34,8 @@ RUN DATABASE_URL="postgresql://user:pass@localhost:5432/db" prisma generate
 # Copy the app files to the container
 COPY . /app/
 
-# Web app entrypoint. The download worker reuses this same image with
-# CMD ["uvicorn", "worker_service:app", "--host", "0.0.0.0", "--port", "8080"].
+# Web app entrypoint. Deploy this image three ways, all from the same build:
+#   web app:            CMD ["sh", "-c", "prisma db push --accept-data-loss && uvicorn main:app --host 0.0.0.0 --port 8080"]
+#   download worker:    CMD ["uvicorn", "worker_service:app", "--host", "0.0.0.0", "--port", "8080"]
+#   caption worker:     CMD ["python", "wroker.py"]   (reads REDIS_URL, needs one replica)
 CMD ["sh", "-c", "prisma db push --accept-data-loss && uvicorn main:app --host 0.0.0.0 --port 8080"]
