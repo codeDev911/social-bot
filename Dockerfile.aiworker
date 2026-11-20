@@ -1,0 +1,28 @@
+# Caption + hashtag worker (Redis consumer) for Render Background Worker.
+# Render: Dockerfile Path = ./Dockerfile.aiworker, Docker Command = (empty)
+FROM python:3.11-slim
+
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1
+
+# openssl is what the Prisma query engine links against; ca-certificates keeps
+# the Gemini / DuckDuckGo HTTPS calls happy.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt /app/
+RUN pip install --no-cache-dir -r requirements.txt
+
+# The Prisma python client is generated per environment; a fresh image has none.
+# The dummy URL only satisfies the schema's env() reference - generate needs no DB.
+COPY prisma /app/prisma
+RUN DATABASE_URL="postgresql://user:pass@localhost:5432/db" prisma generate
+
+# Only the modules the worker imports - no routers, no downloader, no Deno.
+COPY db.py wroker.py /app/
+COPY lib /app/lib
+COPY controller/__init__.py /app/controller/
+COPY controller/mvp_agent /app/controller/mvp_agent
+
+CMD ["python", "wroker.py"]
