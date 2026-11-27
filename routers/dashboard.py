@@ -1135,7 +1135,16 @@ async def queue_status(view: int = Query(0), current_user: dict = Depends(get_cu
 
     fallback = {"Uploaded": "uploaded", "Pending": "ready", "Failed": "failed", "Deleted": "deleted"}
     for item in items:
-        item["phase"] = item["phase"] or fallback.get(item["status"], (item["status"] or "").lower())
+        if item["phase"]:
+            continue
+        # A row that still carries a job marker is a download placeholder: it is
+        # Pending in the database but the download has not reported back yet, so
+        # calling it "ready" would tell the dashboard the job already finished
+        # (and the videos table reloads the page on that signal).
+        item["phase"] = (
+            "queued" if item["jobId"]
+            else fallback.get(item["status"], (item["status"] or "").lower())
+        )
 
     payload = {"videos": items, "workerEnabled": worker_enabled()}
     if not view:

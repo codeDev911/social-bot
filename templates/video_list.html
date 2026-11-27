@@ -294,6 +294,21 @@
   var attempts = 0;
   var reloading = false;
 
+  // One refresh per video per minute, even across reloads. A row that somehow
+  // keeps its placeholder marker must never turn into a reload loop.
+  var RELOAD_GUARD_MS = 60000;
+
+  function reloadOnce(videoId) {
+    if (reloading) return;
+    var key = 'vl-refresh-' + videoId;
+    var last = 0;
+    try { last = Number(sessionStorage.getItem(key) || 0) || 0; } catch (e) {}
+    if (Date.now() - last < RELOAD_GUARD_MS) return;
+    try { sessionStorage.setItem(key, String(Date.now())); } catch (e) {}
+    reloading = true;
+    setTimeout(function () { location.reload(); }, 800);
+  }
+
   function paint(cell, phase, error) {
     var meta = LABELS[phase] || ['QUEUED', 'st-processing', true];
     var spin = meta[2]
@@ -318,16 +333,16 @@
         var cell = document.getElementById('vl-status-' + row.getAttribute('data-video-id'));
         if (cell) paint(cell, phase, video.error);
 
-        if (phase === 'ready' || phase === 'uploaded') {
-          // The webhook filled the row in: reload once so the real title,
-          // URL and actions render, then stop polling.
-          if (!reloading) {
-            reloading = true;
-            setTimeout(function () { location.reload(); }, 800);
-          }
-        } else if (phase !== 'failed' && phase !== 'delivery_failed') {
-          active = true;
+        // The placeholder is gone only when the webhook filled the row in and
+        // cleared upload_id. Phase "ready" is NOT that signal: while the worker
+        // reports nothing the row is still Pending, which used to reload the
+        // page on every poll, forever.
+        if (!video.jobId) {
+          reloadOnce(row.getAttribute('data-video-id'));
+          return;
         }
+
+        if (phase !== 'failed' && phase !== 'delivery_failed') active = true;
       });
 
       if ((!active || attempts > 90) && timer) {
